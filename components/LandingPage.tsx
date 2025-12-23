@@ -253,7 +253,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSignup, onLogin, onNavigate
                 Smart Matching
               </h3>
               <p className="text-slate-600 mb-6 leading-relaxed">
-                AI-powered algorithms analyze skills, goals, and compatibility
+                Smart algorithms analyze skills, goals, and compatibility
                 to create perfect mentor-mentee pairs that drive meaningful
                 growth.
               </p>
@@ -409,7 +409,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSignup, onLogin, onNavigate
               },
               {
                 step: "3",
-                title: "AI-Powered Matching",
+                title: "Smart Auto Matching",
                 description:
                   "Our intelligent matching algorithm analyzes compatibility factors and automatically suggests optimal mentor-mentee pairs.",
                 icon: Zap,

@@ -1,0 +1,51 @@
+{
+  "name": "meant2grow",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "firebase:init": "firebase init",
+    "firebase:login": "firebase login",
+    "firebase:deploy": "npm run build && firebase deploy",
+    "firebase:deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "firebase:deploy:functions": "firebase deploy --only functions",
+    "firebase:serve": "firebase emulators:start",
+    "firebase:serve:hosting": "npm run build && firebase emulators:start --only hosting",
+    "firebase:serve:functions": "firebase emulators:start --only functions",
+    "migrate:platform-resources": "ts-node --esm scripts/migrate-platform-resources.ts",
+    "create:platform-admin": "ts-node --esm scripts/create-platform-admin.ts"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^8.0.0",
+    "@google/genai": "^1.31.0",
+    "firebase": "^12.6.0",
+    "firebase-admin": "^13.6.0",
+    "googleapis": "^168.0.0",
+    "lucide-react": "^0.556.0",
+    "mailtrap": "^4.4.0",
+    "mammoth": "^1.11.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "recharts": "^3.5.1",
+    "vercel": "^50.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.23",
+    "dotenv": "^16.4.7",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

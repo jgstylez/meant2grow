@@ -205,10 +205,12 @@ const App: React.FC = () => {
     const needsOrgSetup = loadedUser.role === Role.ADMIN && !programSettings;
     const needsMentorOnboarding =
       loadedUser.role === Role.MENTOR &&
-      !onboardingComplete[loadedUser.id || ""];
+      loadedUser.id &&
+      !onboardingComplete[loadedUser.id];
     const needsMenteeOnboarding =
       loadedUser.role === Role.MENTEE &&
-      !onboardingComplete[loadedUser.id || ""];
+      loadedUser.id &&
+      !onboardingComplete[loadedUser.id];
 
     // Only auto-navigate if we're on dashboard or a generic page
     if (currentPage === "dashboard" || !currentPage || currentPage === "") {
@@ -464,6 +466,8 @@ const App: React.FC = () => {
   ) => {
     try {
       if (!organizationId) throw new Error("Organization ID is required");
+      if (!currentUser) throw new Error("User must be logged in");
+
       const eventId = await createCalendarEvent({ ...event, organizationId });
 
       try {
@@ -488,7 +492,7 @@ const App: React.FC = () => {
             id: eventId,
             createdAt: new Date().toISOString(),
           } as CalendarEvent,
-          currentUser!.id,
+          currentUser.id,
           meetLink
         );
 
@@ -562,10 +566,12 @@ const App: React.FC = () => {
   const handleSetupComplete = async (settings: ProgramSettings) => {
     try {
       if (!organizationId) throw new Error("Organization ID is required");
+      if (!currentUser?.id) throw new Error("User ID is required");
+
       const onboardingComplete = getOnboardingComplete();
       setOnboardingComplete({
         ...onboardingComplete,
-        [currentUser?.id || ""]: true,
+        [currentUser.id]: true,
       });
       await updateOrganization(organizationId, { programSettings: settings });
       addToast("Program configured successfully!", "success");
@@ -655,6 +661,7 @@ const App: React.FC = () => {
             <ErrorBoundary title="Participants Error">
               <Participants
                 users={users}
+                matches={matches}
                 onNavigate={setCurrentPage}
                 currentUser={currentUser}
                 organizationId={organizationId}

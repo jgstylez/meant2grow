@@ -1,0 +1,270 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==================== HELPER FUNCTIONS ====================
+    
+    // Check if user is authenticated
+    // NOTE: Currently using mock auth, but structure ready for Firebase Auth
+    function isAuthenticated() {
+      // For production with Firebase Auth, use: return request.auth != null;
+      // For development with mock auth: allow all (client validates)
+      return true;
+    }
+    
+    // Check if user belongs to specific organization
+    function belongsToOrg(organizationId) {
+      // For now, allow if authenticated (client-side validation active)
+      // For production: verify request.auth.uid's organizationId matches
+      return isAuthenticated();
+    }
+    
+    // Check if user is organization admin
+    function isOrgAdmin(organizationId) {
+      // For now, allow if authenticated (client-side validation active)
+      // For production: verify user role is ADMIN for the organizationId
+      return isAuthenticated();
+    }
+    
+    // Check if user is platform admin
+    function isPlatformAdmin() {
+      // For now, allow if authenticated (client-side validation active)
+      // For production: verify user role is PLATFORM_ADMIN
+      return isAuthenticated();
+    }
+    
+    // ==================== ORGANIZATIONS ====================
+    
+    match /organizations/{orgId} {
+      // Anyone can create an organization (for signup)
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read organizations
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update (client validates permissions)
+      allow update: if isAuthenticated();
+      
+      // Only platform admins can delete
+      allow delete: if isPlatformAdmin();
+    }
+    
+    // ==================== USERS ====================
+    
+    match /users/{userId} {
+      // Anyone can create a user (for signup)
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read users
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update (client validates permissions)
+      allow update: if isAuthenticated();
+      
+      // Only platform admins can delete users
+      allow delete: if isPlatformAdmin();
+    }
+    
+    // ==================== MATCHES ====================
+    
+    match /matches/{matchId} {
+      // Authenticated users can create matches
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read matches
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update matches
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete matches
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== GOALS ====================
+    
+    match /goals/{goalId} {
+      // Authenticated users can create goals
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read goals
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update goals
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete goals
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== CALENDAR EVENTS ====================
+    
+    match /calendarEvents/{eventId} {
+      // Authenticated users can create events
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read events
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update events
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete events
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== RESOURCES ====================
+    
+    match /resources/{resourceId} {
+      // Authenticated users can create resources
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read resources
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update resources
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete resources
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== NOTIFICATIONS ====================
+    
+    match /notifications/{notificationId} {
+      // Authenticated users can create notifications
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read notifications
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update notifications
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete notifications
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== INVITATIONS ====================
+    
+    match /invitations/{invitationId} {
+      // Authenticated users can create invitations
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read invitations
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update invitations
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete invitations
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== RATINGS ====================
+    
+    match /ratings/{ratingId} {
+      // Authenticated users can create ratings
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read ratings
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update ratings
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete ratings
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== CHAT MESSAGES ====================
+    
+    match /chatMessages/{messageId} {
+      // Authenticated users can create messages
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read messages
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update messages
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete messages
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== CHAT GROUPS ====================
+    
+    match /chatGroups/{groupId} {
+      // Authenticated users can create groups
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read groups
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update groups
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete groups
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== BLOG POSTS (Platform-wide) ====================
+    
+    match /blogPosts/{postId} {
+      // Anyone can read blog posts
+      allow read: if true;
+      
+      // Authenticated users can create/update/delete blog posts
+      allow create, update, delete: if isAuthenticated();
+    }
+    
+    // ==================== DISCUSSION GUIDES ====================
+    
+    match /discussionGuides/{guideId} {
+      // Authenticated users can create guides
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read guides
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update guides
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete guides
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== CAREER TEMPLATES ====================
+    
+    match /careerTemplates/{templateId} {
+      // Authenticated users can create templates
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read templates
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update templates
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete templates
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== TRAINING VIDEOS ====================
+    
+    match /trainingVideos/{videoId} {
+      // Authenticated users can create videos
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read videos
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update videos
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete videos
+      allow delete: if isAuthenticated();
+    }
+  }
+}

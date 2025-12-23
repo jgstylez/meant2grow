@@ -270,7 +270,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                   {
                     icon: Search,
                     title: "2. Smart Match",
-                    text: "Our AI pairs you with the perfect mentor or mentee based on compatibility.",
+                    text: "Our smart matching system pairs you with the perfect mentor or mentee based on compatibility.",
                   },
                   {
                     icon: MessageSquare,
@@ -383,7 +383,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                 <ul className="space-y-3 text-sm text-slate-600">
                   <li className="flex gap-2">
                     <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" />{" "}
-                    AI Matching & Suggestions
+                    Manual Mentor/Mentee Matching
                   </li>
                   <li className="flex gap-2">
                     <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" />{" "}
@@ -400,6 +400,10 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                   <li className="flex gap-2">
                     <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" />{" "}
                     Admin Dashboard
+                  </li>
+                  <li className="flex gap-2">
+                    <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" />{" "}
+                    Customization Options
                   </li>
                 </ul>
               </div>
@@ -435,6 +439,10 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                   <li className="flex gap-2">
                     <Check className="w-5 h-5 text-emerald-400 flex-shrink-0" />{" "}
                     Everything in Starter
+                  </li>
+                  <li className="flex gap-2">
+                    <Check className="w-5 h-5 text-emerald-400 flex-shrink-0" />{" "}
+                    Smart Auto Matching
                   </li>
                   <li className="flex gap-2">
                     <Check className="w-5 h-5 text-emerald-400 flex-shrink-0" />{" "}
@@ -492,10 +500,6 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                   <li className="flex gap-2">
                     <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" />{" "}
                     Custom Integrations
-                  </li>
-                  <li className="flex gap-2">
-                    <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" />{" "}
-                    White-label Options
                   </li>
                   <li className="flex gap-2">
                     <Check className="w-5 h-5 text-emerald-500 flex-shrink-0" />{" "}
@@ -652,11 +656,18 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         alt={post.title}
                         onError={(e) => {
-                          // Fallback to a placeholder if image fails to load
                           const target = e.target as HTMLImageElement;
-                          target.src = `https://via.placeholder.com/800x600/10b981/ffffff?text=${encodeURIComponent(
-                            post.title
-                          )}`;
+                          // Check if we've already attempted a fallback to prevent infinite loop
+                          if (!target.src.includes('via.placeholder.com')) {
+                            // Fallback to a placeholder if image fails to load
+                            target.src = `https://via.placeholder.com/800x600/10b981/ffffff?text=${encodeURIComponent(
+                              post.title
+                            )}`;
+                          } else {
+                            // If placeholder also fails, set to empty string to prevent infinite loop
+                            target.src = '';
+                            target.style.display = 'none';
+                          }
                         }}
                       />
                       <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-slate-800 uppercase tracking-wide z-20">
@@ -868,7 +879,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                 {[
                   {
                     icon: Sparkles,
-                    title: "AI-Powered Matching",
+                    title: "Smart Auto Matching",
                     description:
                       "Our intelligent algorithm analyzes skills, goals, and compatibility to create perfect mentor-mentee pairs that drive meaningful growth.",
                     bgClass: "bg-emerald-100 dark:bg-emerald-900/30",
@@ -924,9 +935,9 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                   },
                   {
                     icon: Zap,
-                    title: "Custom Branding",
+                    title: "Customization Options",
                     description:
-                      "White-label your program with custom logos, colors, and branded portals that match your organization's identity.",
+                      "Customize your program with custom logos, colors, and branded portals that match your organization's identity.",
                     bgClass: "bg-violet-100 dark:bg-violet-900/30",
                     iconClass: "text-violet-600 dark:text-violet-400",
                   },
