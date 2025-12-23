@@ -43,6 +43,8 @@ functions/node_modules/
 # Service account keys (NEVER commit these!)
 *-service-account-key.json
 service-account-key.json
+meant2grow-dev-*.json
+*.dfcfbc9ebeaa.json
 
 # Compiled TypeScript files in root (should only be in functions/lib)
 types.js
