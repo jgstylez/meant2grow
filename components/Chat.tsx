@@ -512,8 +512,9 @@ const Chat: React.FC<ChatProps> = ({ currentUser, users, organizationId, initial
           }
 
           // DM messages: only sender and recipient can see
+          // For DMs, activeChatId is the chat partner's ID
           const isSender = msg.senderId === currentUser.id;
-          const isRecipient = activeChatId === currentUser.id || activeChatId === msg.senderId;
+          const isRecipient = msg.senderId === activeChatId; // Chat partner sent the message
 
           // Admins can see all messages in their organization
           if (currentUser.role === Role.ADMIN || currentUser.role === Role.PLATFORM_ADMIN) {
