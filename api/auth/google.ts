@@ -26,10 +26,142 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { googleId, email, name, picture, organizationCode, isNewOrg, orgName, role } = req.body;
+    const { googleId, email, name, picture, organizationCode, invitationToken, isNewOrg, orgName, role } = req.body;
 
     if (!googleId || !email || !name) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // If joining existing organization via invitation token (preferred)
+    if (invitationToken) {
+      // Look up invitation by token
+      const invitationSnapshot = await db.collection('invitations')
+        .where('token', '==', invitationToken)
+        .where('status', '==', 'Pending')
+        .limit(1)
+        .get();
+
+      if (invitationSnapshot.empty) {
+        return res.status(404).json({ error: 'Invalid or expired invitation' });
+      }
+
+      const invitationDoc = invitationSnapshot.docs[0];
+      const invitationData = invitationDoc.data();
+
+      // Check expiration
+      if (invitationData.expiresAt) {
+        const expiresAt = invitationData.expiresAt.toDate ? invitationData.expiresAt.toDate() : new Date(invitationData.expiresAt);
+        if (expiresAt < new Date()) {
+          await invitationDoc.ref.update({ status: 'Expired' });
+          return res.status(400).json({ error: 'Invitation has expired' });
+        }
+      }
+
+      // Verify email matches invitation
+      if (invitationData.email && invitationData.email.toLowerCase() !== email.toLowerCase()) {
+        return res.status(400).json({ 
+          error: `This invitation is for ${invitationData.email}. Please sign in with that email address.` 
+        });
+      }
+
+      const organizationId = invitationData.organizationId;
+      const invitationRole = invitationData.role || role || Role.MENTEE;
+
+      // Get organization
+      const orgDoc = await db.collection('organizations').doc(organizationId).get();
+      if (!orgDoc.exists) {
+        return res.status(404).json({ error: 'Organization not found' });
+      }
+
+      // Check if user already exists by Google ID
+      let userSnapshot = await db.collection('users')
+        .where('googleId', '==', googleId)
+        .where('organizationId', '==', organizationId)
+        .limit(1)
+        .get();
+
+      let userDoc = userSnapshot.empty ? null : userSnapshot.docs[0];
+
+      // If not found by Google ID, check by email
+      if (!userDoc) {
+        userSnapshot = await db.collection('users')
+          .where('email', '==', email)
+          .where('organizationId', '==', organizationId)
+          .limit(1)
+          .get();
+        userDoc = userSnapshot.empty ? null : userSnapshot.docs[0];
+      }
+
+      if (userDoc) {
+        // Update existing user with Google ID if not set
+        if (!userDoc.data().googleId) {
+          await userDoc.ref.update({ googleId });
+        }
+
+        // Mark invitation as accepted
+        await invitationDoc.ref.update({ status: 'Accepted' });
+
+        const userData = userDoc.data();
+        return res.json({
+          user: {
+            id: userDoc.id,
+            organizationId: userData.organizationId,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+            avatar: userData.avatar,
+            title: userData.title || '',
+            company: userData.company || '',
+            skills: userData.skills || [],
+            bio: userData.bio || '',
+            googleId: userData.googleId,
+            createdAt: userData.createdAt?.toDate ? userData.createdAt.toDate().toISOString() : (userData.createdAt || new Date().toISOString()),
+          },
+          organizationId,
+          token: 'mock-token',
+        });
+      } else {
+        // Create new user with role from invitation
+        const userRole = invitationRole === Role.MENTOR ? Role.MENTOR : Role.MENTEE;
+        const userRef = db.collection('users').doc();
+        await userRef.set({
+          organizationId,
+          name,
+          email,
+          role: userRole,
+          avatar: picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
+          title: '',
+          company: '',
+          skills: [],
+          bio: '',
+          googleId,
+          createdAt: Timestamp.now(),
+        });
+
+        // Mark invitation as accepted
+        await invitationDoc.ref.update({ status: 'Accepted' });
+
+        const userData = {
+          id: userRef.id,
+          organizationId,
+          name,
+          email,
+          role: userRole,
+          avatar: picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
+          title: '',
+          company: '',
+          skills: [],
+          bio: '',
+          googleId,
+          createdAt: new Date().toISOString(),
+        };
+
+        return res.json({
+          user: userData,
+          organizationId,
+          token: 'mock-token',
+        });
+      }
     }
 
     // If creating new organization
@@ -205,7 +337,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    return res.status(400).json({ error: 'Either organizationCode or isNewOrg must be provided' });
+    return res.status(400).json({ error: 'Either invitationToken, organizationCode, or isNewOrg must be provided' });
   } catch (error: any) {
     console.error('Auth error:', error);
     return res.status(500).json({ error: 'Internal server error', message: error.message });
