@@ -58,11 +58,16 @@ const Layout: React.FC<LayoutProps> = ({
   programSettings,
 }) => {
   // Helper function to check if logo URL is valid
+  // Rejects blob URLs (temporary) and only accepts permanent URLs (http/https) or data URLs
   const hasValidLogo = () => {
     const logo = programSettings?.logo;
     if (!logo || typeof logo !== 'string') return false;
     const trimmed = logo.trim();
-    return trimmed.length > 0;
+    if (trimmed.length === 0) return false;
+    // Reject blob URLs - they're temporary and won't persist across page reloads
+    if (trimmed.startsWith('blob:')) return false;
+    // Accept http/https URLs or data URLs (base64 encoded images)
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:');
   };
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProgramSettings } from '../types';
 import { INPUT_CLASS } from '../styles/common';
+import { Logo } from './Logo';
 
 interface DynamicSignupFormProps {
   programSettings: ProgramSettings;
@@ -17,6 +18,29 @@ const DynamicSignupForm: React.FC<DynamicSignupFormProps> = ({
 }) => {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [logoError, setLogoError] = useState(false);
+
+  // Helper function to check if logo URL is valid
+  // Rejects blob URLs (temporary) and only accepts permanent URLs (http/https) or data URLs
+  const hasValidLogo = () => {
+    const logo = programSettings?.logo;
+    if (!logo || typeof logo !== 'string') return false;
+    const trimmed = logo.trim();
+    if (trimmed.length === 0) return false;
+    // Reject blob URLs - they're temporary and won't persist across page reloads
+    if (trimmed.startsWith('blob:')) return false;
+    // Accept http/https URLs or data URLs (base64 encoded images)
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:');
+  };
+
+  // Reset logo error when logo URL changes
+  useEffect(() => {
+    if (hasValidLogo()) {
+      setLogoError(false);
+    } else {
+      setLogoError(true); // No valid logo, show default Logo component
+    }
+  }, [programSettings?.logo]);
 
   // Helper function to check if a field should be excluded
   const shouldExcludeField = (field: typeof programSettings.fields[0]): boolean => {
@@ -206,12 +230,17 @@ const DynamicSignupForm: React.FC<DynamicSignupFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Header with program branding */}
       <div className="text-center mb-8">
-        {programSettings.logo && (
+        {hasValidLogo() && !logoError ? (
           <img 
-            src={programSettings.logo} 
+            src={programSettings.logo!} 
             alt={programSettings.programName} 
             className="h-12 mx-auto mb-4"
+            onError={() => {
+              setLogoError(true);
+            }}
           />
+        ) : (
+          <Logo className="h-12 mx-auto mb-4" />
         )}
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
           {programSettings.programName}
