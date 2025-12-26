@@ -96,6 +96,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Update existing user with Google ID if not set
         if (!userDoc.data().googleId) {
           await userDoc.ref.update({ googleId });
+          // Refresh the document snapshot to get updated data
+          const updatedDoc = await userDoc.ref.get();
+          userDoc = updatedDoc;
         }
 
         // Mark invitation as accepted
@@ -274,6 +277,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Update existing user with Google ID if not set
         if (!userDoc.data().googleId) {
           await userDoc.ref.update({ googleId });
+          // Refresh the document snapshot to get updated data
+          const updatedDoc = await userDoc.ref.get();
+          userDoc = updatedDoc;
         }
 
         const userData = userDoc.data();

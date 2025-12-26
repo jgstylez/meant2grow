@@ -214,13 +214,12 @@ const Authentication: React.FC<AuthenticationProps> = ({
           // Use invitation from URL token
           invitationToUse = invitation;
           org = invitationOrg;
-        } else if (formData.email) {
-          // Try to find invitation by email (if user is signing up with invited email)
-          // Note: We need organizationId to look up by email, so this is a fallback
-          // The primary flow should use invitation tokens
+        } else if (formData.email && invitation?.organizationId) {
+          // Try to find invitation by email (only if we have organizationId from invitation)
+          // Note: This requires organizationId, so it only works if invitation was loaded
           const emailInvitation = await getInvitationByEmail(
             formData.email.toLowerCase(),
-            invitation?.organizationId || ""
+            invitation.organizationId
           );
           if (emailInvitation) {
             invitationToUse = emailInvitation;
@@ -402,11 +401,12 @@ const Authentication: React.FC<AuthenticationProps> = ({
         if (invitationToken && invitation) {
           invitationToUse = invitation;
           org = invitationOrg;
-        } else if (user.email) {
-          // Try to find invitation by email
+        } else if (user.email && invitation?.organizationId) {
+          // Try to find invitation by email (only if we have organizationId from invitation)
+          // Note: This requires organizationId, so it only works if invitation was loaded
           const emailInvitation = await getInvitationByEmail(
             user.email.toLowerCase(),
-            invitation?.organizationId || ""
+            invitation.organizationId
           );
           if (emailInvitation) {
             invitationToUse = emailInvitation;
