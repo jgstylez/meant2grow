@@ -465,6 +465,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
         // Send invitationToken (preferred) or organizationCode
         // Backend supports both - use invitationToken if available, otherwise organizationCode
+        // Always use the token from invitationToUse to ensure it matches the invitation being used
         const response = await fetch(functionsUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -474,7 +475,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
             name: user.name,
             picture: user.picture,
             ...(invitationToUse
-              ? { invitationToken: invitationToken || invitationToUse.token }
+              ? { invitationToken: invitationToUse.token }
               : { organizationCode: org.organizationCode }),
             role:
               invitationToUse?.role ||
