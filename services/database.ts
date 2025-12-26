@@ -916,35 +916,65 @@ export const deleteCalendarEvent = async (eventId: string): Promise<void> => {
 
 // Get all calendar events across all organizations (for platform admin)
 export const getAllCalendarEvents = async (startDate?: string, endDate?: string): Promise<CalendarEvent[]> => {
-  let q = query(
-    collection(db, 'calendarEvents'),
-    orderBy('date', 'asc')
-  );
+  try {
+    // Try with orderBy first, but fallback to no orderBy if index missing
+    let q = query(
+      collection(db, 'calendarEvents'),
+      orderBy('date', 'asc')
+    );
 
-  if (startDate) {
-    q = query(q, where('date', '>=', startDate));
+    if (startDate) {
+      q = query(q, where('date', '>=', startDate));
+    }
+
+    let snapshot;
+    try {
+      snapshot = await getDocs(q);
+    } catch (error: any) {
+      // If index missing, try without orderBy
+      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+        console.warn('Index missing for calendarEvents date, fetching without orderBy');
+        q = query(collection(db, 'calendarEvents'));
+        if (startDate) {
+          q = query(q, where('date', '>=', startDate));
+        }
+        snapshot = await getDocs(q);
+      } else {
+        throw error;
+      }
+    }
+
+    let events = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: convertTimestamp(doc.data().createdAt),
+    })) as CalendarEvent[];
+
+    // Sort in memory if we had to skip orderBy
+    if (snapshot.docs.length > 0 && !snapshot.query.orderBy) {
+      events = events.sort((a, b) => {
+        const aDate = new Date(a.date).getTime();
+        const bDate = new Date(b.date).getTime();
+        return aDate - bDate; // Ascending
+      });
+    }
+
+    if (endDate) {
+      events = events.filter(e => e.date <= endDate);
+    }
+
+    // Filter to only include past events (completed meetings) with a mentorId
+    const now = new Date();
+    events = events.filter(e => {
+      const eventDate = new Date(`${e.date}T${e.startTime}`);
+      return eventDate < now && e.mentorId; // Only include events with a mentor
+    });
+
+    return events;
+  } catch (error) {
+    console.error('Error in getAllCalendarEvents:', error);
+    throw error;
   }
-
-  const snapshot = await getDocs(q);
-
-  let events = snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: convertTimestamp(doc.data().createdAt),
-  })) as CalendarEvent[];
-
-  if (endDate) {
-    events = events.filter(e => e.date <= endDate);
-  }
-
-  // Filter to only include past events (completed meetings) with a mentorId
-  const now = new Date();
-  events = events.filter(e => {
-    const eventDate = new Date(`${e.date}T${e.startTime}`);
-    return eventDate < now && e.mentorId; // Only include events with a mentor
-  });
-
-  return events;
 };
 
 // ==================== NOTIFICATION OPERATIONS ====================

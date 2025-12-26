@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Match, Goal, Rating, Role, MatchStatus, ProgramSettings, CalendarEvent, Organization } from '../types';
 import { INPUT_CLASS, CARD_CLASS } from '../styles/common';
 import { getAllUsers, getAllOrganizations, getAllCalendarEvents, getAllMatches, getAllGoals, getAllRatings } from '../services/database';
+import { logger } from '../services/logger';
 import {
   Users, Search, Plus, AlertCircle, Star, Check, X, CheckCircle,
   Target, MessageSquare, Calendar, Globe, Repeat, ArrowRight, Settings, Layout, Edit, Copy,
@@ -47,16 +48,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
     user.role === Role.MENTOR || 
     userRoleString === "MENTOR"
   );
-  
-  // Debug logging
-  console.log('Dashboard Role Check:', {
-    userRole: user.role,
-    userRoleString,
-    RoleADMIN: Role.ADMIN,
-    isPlatformAdmin,
-    isAdmin,
-    isMentor
-  });
 
   // Rating Modal State
   const [ratingTarget, setRatingTarget] = useState<User | null>(null);
@@ -371,7 +362,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
       const loadPlatformData = async () => {
         try {
           setPlatformAdminLoading(true);
-          console.log('Loading platform admin data...');
+          logger.debug('Loading platform admin data...');
           
           const [usersData, orgsData, eventsData, matchesData, goalsData, ratingsData] = await Promise.all([
             getAllUsers(),
@@ -382,7 +373,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
             getAllRatings()
           ]);
           
-          console.log('Platform admin data loaded:', {
+          logger.debug('Platform admin data loaded', {
             users: usersData.length,
             organizations: orgsData.length,
             events: eventsData.length,
@@ -418,10 +409,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
       loadPlatformData();
     }
   }, [isPlatformAdmin]);
-
-  // Debug: Log user role to help troubleshoot
-  console.log('Dashboard - User:', { id: user.id, role: user.role, email: user.email, organizationId: user.organizationId });
-  console.log('Dashboard - Checks:', { isPlatformAdmin, isAdmin, roleMatch: user.role === Role.PLATFORM_ADMIN, roleString: user.role === "PLATFORM_ADMIN", RoleEnum: Role.PLATFORM_ADMIN });
 
   // Check both the role enum and string comparison for safety - Platform Admin should see platform dashboard
   // This check MUST come first before admin/mentor/mentee checks
