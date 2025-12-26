@@ -117,17 +117,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       );
 
       // Add synced events to Firestore (avoid duplicates)
+      // Track events processed in this sync batch to prevent duplicates within the batch
+      const processedEvents = new Set<string>();
+      
       for (const syncedEvent of syncedEvents) {
-        // Check if event already exists
-        const exists = events.some(
+        // Create a unique key for duplicate detection
+        const eventKey = `${syncedEvent.title}|${syncedEvent.date}|${syncedEvent.startTime}`;
+        
+        // Check if event already exists in previously loaded events
+        const existsInLoaded = events.some(
           (e) =>
             e.title === syncedEvent.title &&
             e.date === syncedEvent.date &&
             e.startTime === syncedEvent.startTime
         );
+        
+        // Check if event was already processed in this sync batch
+        const existsInBatch = processedEvents.has(eventKey);
 
-        if (!exists) {
+        if (!existsInLoaded && !existsInBatch) {
           await createCalendarEvent(syncedEvent);
+          processedEvents.add(eventKey);
         }
       }
 

@@ -4,7 +4,19 @@
 
 Your OAuth Client ID: `493534533344-e2mcmbht3802t1fhdmtq9rgrf0ljc1qe.apps.googleusercontent.com`
 
-## Step 1: Create `.env.local` File
+## Step 1: Create `.firebaserc` File
+
+**Important:** `.firebaserc` is not committed to version control to prevent accidental deployments to the wrong Firebase project.
+
+Copy the example file:
+
+```bash
+cp .firebaserc.example .firebaserc
+```
+
+Then edit `.firebaserc` and replace `your-firebase-project-id` with your actual Firebase project ID (e.g., `meant2grow-dev` for development, or your production project ID).
+
+## Step 2: Create `.env.local` File
 
 Copy the example file:
 
@@ -30,7 +42,7 @@ VITE_FIREBASE_APP_ID=YOUR_APP_ID_HERE
 VITE_FUNCTIONS_URL=https://us-central1-meant2grow-dev.cloudfunctions.net
 ```
 
-## Step 2: Get Firebase Config Values
+## Step 3: Get Firebase Config Values
 
 1. **Open Firebase Console:**
    https://console.firebase.google.com/project/meant2grow-dev/settings/general
@@ -48,7 +60,7 @@ VITE_FUNCTIONS_URL=https://us-central1-meant2grow-dev.cloudfunctions.net
    - `messagingSenderId` → Replace `YOUR_SENDER_ID_HERE` in `.env.local`
    - `appId` → Replace `YOUR_APP_ID_HERE` in `.env.local`
 
-## Step 3: Verify `.env.local`
+## Step 4: Verify `.env.local`
 
 Your `.env.local` should look like this (with real values):
 

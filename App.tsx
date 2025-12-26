@@ -580,6 +580,18 @@ const App: React.FC = () => {
       const participants = event.participants || [];
       participants.forEach((participantId) => {
         if (participantId !== currentUser?.id) {
+          // Parse date string (YYYY-MM-DD) as local date to avoid timezone issues
+          // When parsing "2025-12-26", new Date() treats it as UTC midnight,
+          // which causes .toLocaleDateString() to return wrong day for timezones west of UTC
+          const dateParts = event.date.split("-");
+          const eventDate =
+            dateParts.length === 3
+              ? new Date(
+                  parseInt(dateParts[0]),
+                  parseInt(dateParts[1]) - 1,
+                  parseInt(dateParts[2])
+                )
+              : new Date(event.date);
           createNotification({
             organizationId,
             userId: participantId,
@@ -587,7 +599,7 @@ const App: React.FC = () => {
             title: "New Meeting Scheduled",
             body: `${currentUser?.name || "Someone"} scheduled "${
               event.title
-            }" on ${new Date(event.date).toLocaleDateString()} at ${
+            }" on ${eventDate.toLocaleDateString()} at ${
               event.startTime
             }`,
             isRead: false,
