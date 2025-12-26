@@ -212,7 +212,20 @@ const App: React.FC = () => {
       loadedUser.id &&
       !onboardingComplete[loadedUser.id];
 
-    // Only auto-navigate if we're on dashboard or a generic page
+    // Don't redirect if user is already on an onboarding page - let them complete it
+    const isOnOnboardingPage = 
+      currentPage === "mentor-onboarding" || 
+      currentPage === "mentee-onboarding" || 
+      currentPage === "setup";
+
+    // If user has completed onboarding but is still on onboarding page, redirect to dashboard
+    if (isOnOnboardingPage && !needsOrgSetup && !needsMentorOnboarding && !needsMenteeOnboarding) {
+      setCurrentPage("dashboard");
+      return;
+    }
+
+    // If user needs onboarding but is not on the onboarding page, redirect them
+    // Only redirect if we're on dashboard or a generic page (not other pages)
     if (currentPage === "dashboard" || !currentPage || currentPage === "") {
       if (needsOrgSetup) {
         setCurrentPage("setup");

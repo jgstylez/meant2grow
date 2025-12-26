@@ -13,6 +13,7 @@ import {
 import { ProgramSettings, Goal, User as UserType } from "../types";
 import DynamicSignupForm from "./DynamicSignupForm";
 import SkillsSelector from "./SkillsSelector";
+import { DatePicker } from "./DatePicker";
 
 interface MenteeOnboardingProps {
   onComplete: (formData: any) => void;
@@ -258,12 +259,11 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                       Target Date
                     </label>
-                    <input
-                      type="date"
+                    <DatePicker
                       value={currentTargetDate}
-                      onChange={(e) => setCurrentTargetDate(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                      className={INPUT_CLASS}
+                      onChange={setCurrentTargetDate}
+                      minDate={new Date().toISOString().split('T')[0]}
+                      placeholder="Select target date"
                     />
                   </div>
 

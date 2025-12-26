@@ -4,6 +4,7 @@ import { Check, ChevronRight, ChevronLeft, User, Briefcase, Target, MessageSquar
 import { ProgramSettings, Goal, User as UserType } from '../types';
 import DynamicSignupForm from './DynamicSignupForm';
 import SkillsSelector from './SkillsSelector';
+import { DatePicker } from './DatePicker';
 
 interface MentorOnboardingProps {
   onComplete: (formData: any) => void;
@@ -97,6 +98,7 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
 
   const handleComplete = () => {
     // Save all form data and complete onboarding
+    // This will mark onboarding as complete and redirect to dashboard
     onComplete({ ...formData, customFieldData });
   };
 
@@ -302,12 +304,11 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                       Target Date
                     </label>
-                    <input 
-                      type="date" 
+                    <DatePicker
                       value={currentTargetDate}
-                      onChange={(e) => setCurrentTargetDate(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                      className={INPUT_CLASS}
+                      onChange={setCurrentTargetDate}
+                      minDate={new Date().toISOString().split('T')[0]}
+                      placeholder="Select target date"
                     />
                   </div>
 

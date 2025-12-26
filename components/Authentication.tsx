@@ -11,17 +11,28 @@ import {
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { signInWithGoogle, initializeGoogleAuth } from "../services/googleAuth";
-import { createUser, createOrganization, getOrganizationByCode, findUserByEmail, getInvitationByToken, getInvitationByEmail, updateInvitation, getOrganization } from "../services/database";
+import {
+  createUser,
+  createOrganization,
+  getOrganizationByCode,
+  findUserByEmail,
+  getInvitationByToken,
+  getInvitationByEmail,
+  updateInvitation,
+  getOrganization,
+} from "../services/database";
 import { Role, User, Invitation, Organization } from "../types";
 
 // Helper function to convert hex to RGB
 const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : null;
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
+    : null;
 };
 
 interface AuthenticationProps {
@@ -42,10 +53,12 @@ const Authentication: React.FC<AuthenticationProps> = ({
   const [mode, setMode] = useState<
     "login" | "org-signup" | "participant-signup" | "choose"
   >(initialMode);
-  const [participantRole, setParticipantRole] = useState<"MENTOR" | "MENTEE" | null>(
-    null
-  );
-  const [participantSignupStep, setParticipantSignupStep] = useState<"select-role" | "create-account">("select-role");
+  const [participantRole, setParticipantRole] = useState<
+    "MENTOR" | "MENTEE" | null
+  >(null);
+  const [participantSignupStep, setParticipantSignupStep] = useState<
+    "select-role" | "create-account"
+  >("select-role");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +73,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
   const [showEmailWarning, setShowEmailWarning] = useState(false);
   const [existingUser, setExistingUser] = useState<User | null>(null);
   const [pendingSignup, setPendingSignup] = useState<{
-    type: 'email' | 'google';
+    type: "email" | "google";
     data?: any;
   } | null>(null);
   const [invitation, setInvitation] = useState<Invitation | null>(null);
@@ -70,35 +83,39 @@ const Authentication: React.FC<AuthenticationProps> = ({
   // Check for invitation token in URL on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const inviteToken = urlParams.get('invite');
-    const orgDomain = urlParams.get('org'); // For organization-specific login pages
-    
+    const inviteToken = urlParams.get("invite");
+    const orgDomain = urlParams.get("org"); // For organization-specific login pages
+
     if (inviteToken) {
       setInvitationToken(inviteToken);
       // Load invitation
-      getInvitationByToken(inviteToken).then(async (inv) => {
-        if (inv) {
-          setInvitation(inv);
-          // Load organization for branding
-          const org = await getOrganization(inv.organizationId);
-          if (org) {
-            setInvitationOrg(org);
-            // Pre-fill email if available
-            setFormData(prev => ({ ...prev, email: inv.email }));
-            // Set mode to participant signup
-            setMode('participant-signup');
-            setParticipantRole(inv.role === Role.MENTOR ? 'MENTOR' : 'MENTEE');
-            setParticipantSignupStep('create-account');
+      getInvitationByToken(inviteToken)
+        .then(async (inv) => {
+          if (inv) {
+            setInvitation(inv);
+            // Load organization for branding
+            const org = await getOrganization(inv.organizationId);
+            if (org) {
+              setInvitationOrg(org);
+              // Pre-fill email if available
+              setFormData((prev) => ({ ...prev, email: inv.email }));
+              // Set mode to participant signup
+              setMode("participant-signup");
+              setParticipantRole(
+                inv.role === Role.MENTOR ? "MENTOR" : "MENTEE"
+              );
+              setParticipantSignupStep("create-account");
+            } else {
+              setError("Invalid invitation: Organization not found");
+            }
           } else {
-            setError('Invalid invitation: Organization not found');
+            setError("Invalid or expired invitation link");
           }
-        } else {
-          setError('Invalid or expired invitation link');
-        }
-      }).catch(err => {
-        console.error('Error loading invitation:', err);
-        setError('Failed to load invitation');
-      });
+        })
+        .catch((err) => {
+          console.error("Error loading invitation:", err);
+          setError("Failed to load invitation");
+        });
     } else if (orgDomain) {
       // Load organization by domain for custom login page
       // This would require a getOrganizationByDomain function
@@ -141,7 +158,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
         const existingUserCheck = await findUserByEmail(formData.email);
         if (existingUserCheck) {
           setExistingUser(existingUserCheck);
-          setPendingSignup({ type: 'email' });
+          setPendingSignup({ type: "email" });
           setShowEmailWarning(true);
           setIsLoading(false);
           return;
@@ -151,29 +168,31 @@ const Authentication: React.FC<AuthenticationProps> = ({
         const orgId = await createOrganization({
           name: formData.orgName,
           logo: null,
-          accentColor: '#10b981',
-          subscriptionTier: 'free',
+          accentColor: "#10b981",
+          subscriptionTier: "free",
           // default settings
           programSettings: {
             programName: formData.orgName,
             logo: null,
-            accentColor: '#10b981',
-            introText: 'Welcome to our mentorship program!',
-            fields: []
-          }
+            accentColor: "#10b981",
+            introText: "Welcome to our mentorship program!",
+            fields: [],
+          },
         });
 
         // Create Admin User
         const userId = await createUser({
-          name: formData.name || 'Organization Admin',
+          name: formData.name || "Organization Admin",
           email: formData.email,
           role: Role.ADMIN,
           organizationId: orgId,
-          bio: 'Program Administrator',
+          bio: "Program Administrator",
           skills: [],
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.orgName)}&background=random`,
-          title: 'Organization Admin',
-          company: formData.orgName
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            formData.orgName
+          )}&background=random`,
+          title: "Organization Admin",
+          company: formData.orgName,
         });
 
         localStorage.setItem("authToken", "simulated-token");
@@ -199,42 +218,73 @@ const Authentication: React.FC<AuthenticationProps> = ({
           // Try to find invitation by email (if user is signing up with invited email)
           // Note: We need organizationId to look up by email, so this is a fallback
           // The primary flow should use invitation tokens
-          const emailInvitation = await getInvitationByEmail(formData.email.toLowerCase(), invitation?.organizationId || '');
+          const emailInvitation = await getInvitationByEmail(
+            formData.email.toLowerCase(),
+            invitation?.organizationId || ""
+          );
           if (emailInvitation) {
             invitationToUse = emailInvitation;
             org = await getOrganization(emailInvitation.organizationId);
           }
         }
 
+        // If no invitation found, try organization code lookup
         if (!invitationToUse || !org) {
-          throw new Error("You need an invitation to join. Please use the invitation link sent to your email.");
+          if (formData.orgCode) {
+            // Try to find organization by code
+            org = await getOrganizationByCode(formData.orgCode.toUpperCase());
+            if (!org) {
+              throw new Error("Invalid organization code. Please check and try again.");
+            }
+            // Organization code found - proceed without invitation
+            invitationToUse = null;
+          } else {
+            throw new Error(
+              "You need an invitation to join or an organization code. Please use the invitation link sent to your email or enter your organization code."
+            );
+          }
         }
 
-        // Verify invitation is still valid
-        if (invitationToUse.status !== 'Pending') {
-          throw new Error("This invitation has already been used or has expired");
-        }
+        // Verify invitation is still valid (only if using invitation)
+        if (invitationToUse) {
+          if (invitationToUse.status !== "Pending") {
+            throw new Error(
+              "This invitation has already been used or has expired"
+            );
+          }
 
-        // Verify email matches invitation (if invitation has email)
-        if (invitationToUse.email && invitationToUse.email.toLowerCase() !== formData.email.toLowerCase()) {
-          throw new Error(`This invitation is for ${invitationToUse.email}. Please sign up with that email address.`);
+          // Verify email matches invitation (if invitation has email)
+          if (
+            invitationToUse.email &&
+            invitationToUse.email.toLowerCase() !== formData.email.toLowerCase()
+          ) {
+            throw new Error(
+              `This invitation is for ${invitationToUse.email}. Please sign up with that email address.`
+            );
+          }
         }
 
         // Create User
         const userId = await createUser({
           name: formData.name,
           email: formData.email,
-          role: invitationToUse.role || (participantRole === "MENTOR" ? Role.MENTOR : Role.MENTEE),
+          role:
+            invitationToUse?.role ||
+            (participantRole === "MENTOR" ? Role.MENTOR : Role.MENTEE),
           organizationId: org.id,
-          bio: '',
+          bio: "",
           skills: [],
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name)}&background=random`,
-          title: '',
-          company: org.name
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            formData.name
+          )}&background=random`,
+          title: "",
+          company: org.name,
         });
 
-        // Mark invitation as accepted
-        await updateInvitation(invitationToUse.id, { status: 'Accepted' });
+        // Mark invitation as accepted (only if using invitation)
+        if (invitationToUse) {
+          await updateInvitation(invitationToUse.id, { status: "Accepted" });
+        }
 
         localStorage.setItem("authToken", "simulated-token");
         localStorage.setItem("organizationId", org.id);
@@ -284,14 +334,14 @@ const Authentication: React.FC<AuthenticationProps> = ({
         if (existingUserCheck) {
           setExistingUser(existingUserCheck);
           setPendingSignup({
-            type: 'google',
+            type: "google",
             data: {
               googleId: user.id,
               email: user.email,
               name: user.name,
               picture: user.picture,
               orgName: formData.orgName || `${user.name}'s Organization`,
-            }
+            },
           });
           setShowEmailWarning(true);
           setIsGoogleLoading(false);
@@ -303,8 +353,8 @@ const Authentication: React.FC<AuthenticationProps> = ({
         const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL
           ? `${import.meta.env.VITE_FUNCTIONS_URL}/authGoogle`
           : import.meta.env.DEV
-            ? "http://localhost:5001/meant2grow-dev/us-central1/authGoogle"
-            : "https://us-central1-meant2grow-dev.cloudfunctions.net/authGoogle";
+          ? "http://localhost:5001/meant2grow-dev/us-central1/authGoogle"
+          : "https://us-central1-meant2grow-dev.cloudfunctions.net/authGoogle";
 
         const response = await fetch(functionsUrl, {
           method: "POST",
@@ -354,40 +404,67 @@ const Authentication: React.FC<AuthenticationProps> = ({
           org = invitationOrg;
         } else if (user.email) {
           // Try to find invitation by email
-          const emailInvitation = await getInvitationByEmail(user.email.toLowerCase(), invitation?.organizationId || '');
+          const emailInvitation = await getInvitationByEmail(
+            user.email.toLowerCase(),
+            invitation?.organizationId || ""
+          );
           if (emailInvitation) {
             invitationToUse = emailInvitation;
             org = await getOrganization(emailInvitation.organizationId);
           }
         }
 
+        // If no invitation found, try organization code lookup
         if (!invitationToUse || !org) {
-          setError("You need an invitation to join. Please use the invitation link sent to your email.");
-          setIsGoogleLoading(false);
-          return;
+          if (formData.orgCode) {
+            // Try to find organization by code
+            org = await getOrganizationByCode(formData.orgCode.toUpperCase());
+            if (!org) {
+              setError("Invalid organization code. Please check and try again.");
+              setIsGoogleLoading(false);
+              return;
+            }
+            // Organization code found - proceed without invitation
+            invitationToUse = null;
+          } else {
+            setError(
+              "You need an invitation to join or an organization code. Please use the invitation link sent to your email or enter your organization code."
+            );
+            setIsGoogleLoading(false);
+            return;
+          }
         }
 
-        // Verify invitation is still valid
-        if (invitationToUse.status !== 'Pending') {
-          setError("This invitation has already been used or has expired");
-          setIsGoogleLoading(false);
-          return;
-        }
+        // Verify invitation is still valid (only if using invitation)
+        if (invitationToUse) {
+          if (invitationToUse.status !== "Pending") {
+            setError("This invitation has already been used or has expired");
+            setIsGoogleLoading(false);
+            return;
+          }
 
-        // Verify email matches invitation
-        if (invitationToUse.email && invitationToUse.email.toLowerCase() !== user.email.toLowerCase()) {
-          setError(`This invitation is for ${invitationToUse.email}. Please sign in with that Google account.`);
-          setIsGoogleLoading(false);
-          return;
+          // Verify email matches invitation
+          if (
+            invitationToUse.email &&
+            invitationToUse.email.toLowerCase() !== user.email.toLowerCase()
+          ) {
+            setError(
+              `This invitation is for ${invitationToUse.email}. Please sign in with that Google account.`
+            );
+            setIsGoogleLoading(false);
+            return;
+          }
         }
 
         // Use Firebase Cloud Functions URL
         const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL
           ? `${import.meta.env.VITE_FUNCTIONS_URL}/authGoogle`
           : import.meta.env.DEV
-            ? "http://localhost:5001/meant2grow-dev/us-central1/authGoogle"
-            : "https://us-central1-meant2grow-dev.cloudfunctions.net/authGoogle";
+          ? "http://localhost:5001/meant2grow-dev/us-central1/authGoogle"
+          : "https://us-central1-meant2grow-dev.cloudfunctions.net/authGoogle";
 
+        // Send invitationToken (preferred) or organizationCode
+        // Backend supports both - use invitationToken if available, otherwise organizationCode
         const response = await fetch(functionsUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -396,8 +473,12 @@ const Authentication: React.FC<AuthenticationProps> = ({
             email: user.email,
             name: user.name,
             picture: user.picture,
-            invitationToken: invitationToken || invitationToUse.token,
-            role: invitationToUse.role || (participantRole === "MENTOR" ? Role.MENTOR : Role.MENTEE),
+            ...(invitationToUse
+              ? { invitationToken: invitationToken || invitationToUse.token }
+              : { organizationCode: org.organizationCode }),
+            role:
+              invitationToUse?.role ||
+              (participantRole === "MENTOR" ? Role.MENTOR : Role.MENTEE),
           }),
         });
 
@@ -412,9 +493,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
           token,
         } = await response.json();
 
-        // Mark invitation as accepted
+        // Mark invitation as accepted (only if using invitation)
         if (invitationToUse) {
-          await updateInvitation(invitationToUse.id, { status: 'Accepted' });
+          await updateInvitation(invitationToUse.id, { status: "Accepted" });
         }
 
         // Store auth data
@@ -426,7 +507,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
       } else {
         // Regular login - find user by email or Google ID
         const existingUser = await findUserByEmail(user.email);
-        
+
         if (!existingUser) {
           setError("No account found with this email. Please sign up first.");
           setIsGoogleLoading(false);
@@ -467,33 +548,35 @@ const Authentication: React.FC<AuthenticationProps> = ({
     setError(null);
 
     try {
-      if (pendingSignup?.type === 'email') {
+      if (pendingSignup?.type === "email") {
         setIsLoading(true);
         // Proceed with email/password signup
         const orgId = await createOrganization({
           name: formData.orgName,
           logo: null,
-          accentColor: '#10b981',
-          subscriptionTier: 'free',
+          accentColor: "#10b981",
+          subscriptionTier: "free",
           programSettings: {
             programName: formData.orgName,
             logo: null,
-            accentColor: '#10b981',
-            introText: 'Welcome to our mentorship program!',
-            fields: []
-          }
+            accentColor: "#10b981",
+            introText: "Welcome to our mentorship program!",
+            fields: [],
+          },
         });
 
         const userId = await createUser({
-          name: formData.name || 'Admin',
+          name: formData.name || "Admin",
           email: formData.email,
           role: Role.ADMIN,
           organizationId: orgId,
-          bio: 'Program Administrator',
+          bio: "Program Administrator",
           skills: [],
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.orgName)}&background=random`,
-          title: 'Administrator',
-          company: formData.orgName
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            formData.orgName
+          )}&background=random`,
+          title: "Administrator",
+          company: formData.orgName,
         });
 
         localStorage.setItem("authToken", "simulated-token");
@@ -501,14 +584,14 @@ const Authentication: React.FC<AuthenticationProps> = ({
         localStorage.setItem("userId", userId);
 
         onLogin(true, false);
-      } else if (pendingSignup?.type === 'google' && pendingSignup.data) {
+      } else if (pendingSignup?.type === "google" && pendingSignup.data) {
         setIsGoogleLoading(true);
         // Proceed with Google signup
         const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL
           ? `${import.meta.env.VITE_FUNCTIONS_URL}/authGoogle`
           : import.meta.env.DEV
-            ? "http://localhost:5001/meant2grow-dev/us-central1/authGoogle"
-            : "https://us-central1-meant2grow-dev.cloudfunctions.net/authGoogle";
+          ? "http://localhost:5001/meant2grow-dev/us-central1/authGoogle"
+          : "https://us-central1-meant2grow-dev.cloudfunctions.net/authGoogle";
 
         const response = await fetch(functionsUrl, {
           method: "POST",
@@ -563,15 +646,20 @@ const Authentication: React.FC<AuthenticationProps> = ({
   };
 
   // Determine accent color and branding from organization (only during signup with invitation, not login)
-  const isSignupWithInvitation = invitation && invitationOrg && (mode === 'participant-signup' || mode === 'org-signup');
+  const isSignupWithInvitation =
+    invitation &&
+    invitationOrg &&
+    (mode === "participant-signup" || mode === "org-signup");
   const accentColor = isSignupWithInvitation
-    ? (invitationOrg.accentColor || invitationOrg.programSettings?.accentColor || '#10b981')
-    : '#10b981'; // Default Meant2Grow green for login
+    ? invitationOrg.accentColor ||
+      invitationOrg.programSettings?.accentColor ||
+      "#10b981"
+    : "#10b981"; // Default Meant2Grow green for login
   const orgLogo = isSignupWithInvitation
-    ? (invitationOrg.logo || invitationOrg.programSettings?.logo)
+    ? invitationOrg.logo || invitationOrg.programSettings?.logo
     : null;
   const orgName = isSignupWithInvitation
-    ? (invitationOrg.name || invitationOrg.programSettings?.programName)
+    ? invitationOrg.name || invitationOrg.programSettings?.programName
     : null;
   const orgIntroText = isSignupWithInvitation
     ? invitationOrg.programSettings?.introText
@@ -580,7 +668,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
   return (
     <div className="min-h-screen flex bg-white">
       {/* Left Side - Visual */}
-      <div 
+      <div
         className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center text-white p-12"
         style={{ backgroundColor: accentColor }}
       >
@@ -588,21 +676,27 @@ const Authentication: React.FC<AuthenticationProps> = ({
         <div className="relative z-10 max-w-lg">
           <div className="flex items-center space-x-2 mb-8">
             {orgLogo ? (
-              <img src={orgLogo} alt={orgName || 'Organization'} className="w-10 h-10 rounded" />
+              <img
+                src={orgLogo}
+                alt={orgName || "Organization"}
+                className="w-10 h-10 rounded"
+              />
             ) : (
-            <Logo className="w-10 h-10" />
+              <Logo className="w-10 h-10" />
             )}
             <span className="font-bold text-2xl uppercase tracking-tight">
-              {orgName || 'Meant2Grow'}
+              {orgName || "Meant2Grow"}
             </span>
           </div>
           <h1 className="text-5xl font-bold mb-6">
-            {isSignupWithInvitation && orgIntroText ? orgIntroText : 'Grow your career with confidence.'}
+            {isSignupWithInvitation && orgIntroText
+              ? orgIntroText
+              : "Grow your career with confidence."}
           </h1>
           <p className="text-white/90 text-lg leading-relaxed mb-8">
             {isSignupWithInvitation && orgName
               ? `Join ${orgName}'s mentorship program and connect with professionals in your organization.`
-              : 'Join thousands of professionals and mentors connecting, learning, and advancing together.'}
+              : "Join thousands of professionals and mentors connecting, learning, and advancing together."}
           </p>
           <div className="space-y-4">
             <div className="flex items-center">
@@ -635,14 +729,16 @@ const Authentication: React.FC<AuthenticationProps> = ({
           {isSignupWithInvitation && (orgLogo || orgName) && (
             <div className="mb-6 text-center">
               {orgLogo && (
-                <img 
-                  src={orgLogo} 
-                  alt={orgName || 'Organization'} 
+                <img
+                  src={orgLogo}
+                  alt={orgName || "Organization"}
                   className="h-12 mx-auto mb-3 rounded"
                 />
               )}
               {orgName && !orgLogo && (
-                <h3 className="text-xl font-bold text-slate-900 mb-2">{orgName}</h3>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">
+                  {orgName}
+                </h3>
               )}
             </div>
           )}
@@ -652,12 +748,15 @@ const Authentication: React.FC<AuthenticationProps> = ({
               {mode === "choose"
                 ? "Get Started"
                 : mode === "login"
-                  ? "Welcome back"
-                  : mode === "org-signup"
-                    ? "Start Your Program"
-                    : mode === "participant-signup" && participantSignupStep === "select-role"
-                      ? isSignupWithInvitation ? `Join ${orgName || 'Your Organization'}` : "Join Your Organization"
-                      : "Create Your Account"}
+                ? "Welcome back"
+                : mode === "org-signup"
+                ? "Start Your Program"
+                : mode === "participant-signup" &&
+                  participantSignupStep === "select-role"
+                ? isSignupWithInvitation
+                  ? `Join ${orgName || "Your Organization"}`
+                  : "Join Your Organization"
+                : "Create Your Account"}
             </h2>
             {mode !== "choose" && participantSignupStep !== "select-role" && (
               <p className="mt-2 text-sm text-slate-600">
@@ -684,17 +783,18 @@ const Authentication: React.FC<AuthenticationProps> = ({
                 )}
               </p>
             )}
-            {mode === "participant-signup" && participantSignupStep === "select-role" && (
-              <p className="mt-2 text-sm text-slate-600">
-                Already have an account?{" "}
-                <button
-                  onClick={() => setMode("login")}
-                  className="font-medium text-emerald-600 hover:text-emerald-500"
-                >
-                  Log in
-                </button>
-              </p>
-            )}
+            {mode === "participant-signup" &&
+              participantSignupStep === "select-role" && (
+                <p className="mt-2 text-sm text-slate-600">
+                  Already have an account?{" "}
+                  <button
+                    onClick={() => setMode("login")}
+                    className="font-medium text-emerald-600 hover:text-emerald-500"
+                  >
+                    Log in
+                  </button>
+                </p>
+              )}
           </div>
 
           {/* Choose Mode - Show signup options prominently */}
@@ -775,130 +875,141 @@ const Authentication: React.FC<AuthenticationProps> = ({
           )}
 
           {/* Step 1: Role Selection for Participant Signup */}
-          {mode === "participant-signup" && participantSignupStep === "select-role" && (
-            <div className="space-y-6">
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 dark:bg-emerald-700 flex items-center justify-center text-white font-bold text-sm">
-                    1
+          {mode === "participant-signup" &&
+            participantSignupStep === "select-role" && (
+              <div className="space-y-6">
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 dark:bg-emerald-700 flex items-center justify-center text-white font-bold text-sm">
+                      1
+                    </div>
+                    <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold text-sm">
+                      2
+                    </div>
                   </div>
-                  <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-700 rounded"></div>
-                  <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold text-sm">
-                    2
-                  </div>
+                  <p className="text-xs text-slate-500 text-center">
+                    Step 1 of 2: Choose your role
+                  </p>
                 </div>
-                <p className="text-xs text-slate-500 text-center">
-                  Step 1 of 2: Choose your role
-                </p>
-              </div>
-              <div className="text-center mb-6">
-                <h3 className="text-xl font-bold text-slate-900 mb-2">
-                  Choose Your Role
-                </h3>
-                <p className="text-sm text-slate-600">
-                  Select how you'd like to participate in the mentorship program
-                </p>
-              </div>
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">
+                    Choose Your Role
+                  </h3>
+                  <p className="text-sm text-slate-600">
+                    Select how you'd like to participate in the mentorship
+                    program
+                  </p>
+                </div>
 
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setParticipantRole("MENTOR");
-                    setParticipantSignupStep("create-account");
-                  }}
-                  className="w-full p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 transition-all text-left group bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
-                >
-                  <div className="flex items-start">
-                    <div className="flex-1">
-                      <div className="text-lg font-bold text-slate-900 dark:text-white mb-1">
-                        Mentor
-                      </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                        Share your expertise and guide others in their career journey
-                      </div>
-                      <div className="flex items-center text-xs text-emerald-600 font-medium">
-                        Continue as Mentor{" "}
-                        <ArrowLeft className="w-3 h-3 ml-1 rotate-180 group-hover:translate-x-1 transition-transform" />
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setParticipantRole("MENTOR");
+                      setParticipantSignupStep("create-account");
+                    }}
+                    className="w-full p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 transition-all text-left group bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
+                  >
+                    <div className="flex items-start">
+                      <div className="flex-1">
+                        <div className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                          Mentor
+                        </div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                          Share your expertise and guide others in their career
+                          journey
+                        </div>
+                        <div className="flex items-center text-xs text-emerald-600 font-medium">
+                          Continue as Mentor{" "}
+                          <ArrowLeft className="w-3 h-3 ml-1 rotate-180 group-hover:translate-x-1 transition-transform" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setParticipantRole("MENTEE");
-                    setParticipantSignupStep("create-account");
-                  }}
-                  className="w-full p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 transition-all text-left group bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
-                >
-                  <div className="flex items-start">
-                    <div className="flex-1">
-                      <div className="text-lg font-bold text-slate-900 dark:text-white mb-1">
-                        Mentee
-                      </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                        Seek guidance and grow your career with experienced mentors
-                      </div>
-                      <div className="flex items-center text-xs text-emerald-600 font-medium">
-                        Continue as Mentee{" "}
-                        <ArrowLeft className="w-3 h-3 ml-1 rotate-180 group-hover:translate-x-1 transition-transform" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setParticipantRole("MENTEE");
+                      setParticipantSignupStep("create-account");
+                    }}
+                    className="w-full p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 transition-all text-left group bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
+                  >
+                    <div className="flex items-start">
+                      <div className="flex-1">
+                        <div className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                          Mentee
+                        </div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                          Seek guidance and grow your career with experienced
+                          mentors
+                        </div>
+                        <div className="flex items-center text-xs text-emerald-600 font-medium">
+                          Continue as Mentee{" "}
+                          <ArrowLeft className="w-3 h-3 ml-1 rotate-180 group-hover:translate-x-1 transition-transform" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
-              </div>
+                  </button>
+                </div>
 
-              <button
-                onClick={() => {
-                  setMode("choose");
-                  setParticipantRole(null);
-                  setParticipantSignupStep("select-role");
-                }}
-                className="w-full py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              >
-                ← Back
-              </button>
-            </div>
-          )}
-
-          {/* Step 2: Account Creation for Participant Signup */}
-          {mode === "participant-signup" && participantSignupStep === "create-account" && participantRole && (
-            <div className="space-y-4">
-              <div className="mb-4">
                 <button
                   onClick={() => {
+                    setMode("choose");
+                    setParticipantRole(null);
                     setParticipantSignupStep("select-role");
                   }}
-                  className="flex items-center text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-3"
+                  className="w-full py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                 >
-                  <ArrowLeft className="w-4 h-4 mr-1" /> Back to role selection
+                  ← Back
                 </button>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 dark:bg-emerald-700 flex items-center justify-center text-white font-bold text-sm">
-                    ✓
+              </div>
+            )}
+
+          {/* Step 2: Account Creation for Participant Signup */}
+          {mode === "participant-signup" &&
+            participantSignupStep === "create-account" &&
+            participantRole && (
+              <div className="space-y-4">
+                <div className="mb-4">
+                  <button
+                    onClick={() => {
+                      setParticipantSignupStep("select-role");
+                    }}
+                    className="flex items-center text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-3"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-1" /> Back to role
+                    selection
+                  </button>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 dark:bg-emerald-700 flex items-center justify-center text-white font-bold text-sm">
+                      ✓
+                    </div>
+                    <div className="flex-1 h-1 bg-emerald-200 dark:bg-emerald-800 rounded"></div>
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 dark:bg-emerald-700 flex items-center justify-center text-white font-bold text-sm">
+                      2
+                    </div>
                   </div>
-                  <div className="flex-1 h-1 bg-emerald-200 dark:bg-emerald-800 rounded"></div>
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 dark:bg-emerald-700 flex items-center justify-center text-white font-bold text-sm">
-                    2
+                  <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium mb-1">
+                      Joining as:{" "}
+                      <span className="font-bold">
+                        {participantRole === "MENTOR" ? "Mentor" : "Mentee"}
+                      </span>
+                    </p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                      {participantRole === "MENTOR"
+                        ? "You'll be sharing your expertise and guiding others"
+                        : "You'll be seeking guidance and growing your career"}
+                    </p>
                   </div>
-                </div>
-                <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium mb-1">
-                    Joining as: <span className="font-bold">{participantRole === "MENTOR" ? "Mentor" : "Mentee"}</span>
-                  </p>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                    {participantRole === "MENTOR" 
-                      ? "You'll be sharing your expertise and guiding others"
-                      : "You'll be seeking guidance and growing your career"}
-                  </p>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {(mode === "login" || (mode !== "choose" && participantSignupStep !== "select-role")) && (
+          {(mode === "login" ||
+            (mode !== "choose" && participantSignupStep !== "select-role")) && (
             <>
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
@@ -924,8 +1035,8 @@ const Authentication: React.FC<AuthenticationProps> = ({
                     {isGoogleLoading
                       ? "Signing in..."
                       : mode === "login"
-                        ? "Continue with Google"
-                        : "Sign up with Google"}
+                      ? "Continue with Google"
+                      : "Sign up with Google"}
                   </button>
                 </div>
 
@@ -986,22 +1097,50 @@ const Authentication: React.FC<AuthenticationProps> = ({
                     </div>
                   )}
 
-                  {mode === "participant-signup" && invitation && invitationOrg && (
-                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                      <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium mb-1">
-                        Joining: {invitationOrg.name}
-                      </p>
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                        {invitation.role === Role.MENTOR ? "As a Mentor" : invitation.role === Role.MENTEE ? "As a Mentee" : `As ${invitation.role}`}
-                      </p>
+                  {mode === "participant-signup" &&
+                    invitation &&
+                    invitationOrg && (
+                      <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                        <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium mb-1">
+                          Joining: {invitationOrg.name}
+                        </p>
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                          {invitation.role === Role.MENTOR
+                            ? "As a Mentor"
+                            : invitation.role === Role.MENTEE
+                            ? "As a Mentee"
+                            : `As ${invitation.role}`}
+                        </p>
                       </div>
-                  )}
+                    )}
 
                   {mode === "participant-signup" && !invitation && (
-                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                      <p className="text-sm text-amber-700 dark:text-amber-300">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
                         <AlertCircle className="w-4 h-4 inline mr-1" />
-                        You need an invitation to join. Please use the invitation link sent to your email.
+                        Enter your organization code to join, or use an invitation link if you have one.
+                      </p>
+                    </div>
+                  )}
+                  {mode === "participant-signup" && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Organization Code
+                      </label>
+                      <input
+                        type="text"
+                        className={INPUT_CLASS}
+                        placeholder="Enter your organization code (e.g., ABC123)"
+                        value={formData.orgCode}
+                        onChange={(e) =>
+                          setFormData({ ...formData, orgCode: e.target.value.toUpperCase() })
+                        }
+                        required={!invitation}
+                      />
+                      <p className="mt-1 text-xs text-slate-500">
+                        {invitation
+                          ? "Optional: You can also enter an organization code"
+                          : "Required: Enter the code provided by your organization"}
                       </p>
                     </div>
                   )}
@@ -1066,35 +1205,63 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
                   <button
                     type="submit"
-                    disabled={isLoading || (mode === "participant-signup" && !participantRole)}
+                    disabled={
+                      isLoading ||
+                      (mode === "participant-signup" && !participantRole) ||
+                      (mode === "participant-signup" && !invitation && !formData.orgCode)
+                    }
                     className={
                       isSignupWithInvitation
                         ? "w-full py-2.5 text-base shadow-lg text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center"
-                        : BUTTON_PRIMARY + " w-full py-2.5 text-base shadow-lg shadow-emerald-900/10"
+                        : BUTTON_PRIMARY +
+                          " w-full py-2.5 text-base shadow-lg shadow-emerald-900/10"
                     }
-                    style={isSignupWithInvitation ? { 
-                      backgroundColor: accentColor,
-                      boxShadow: `0 10px 15px -3px ${accentColor}20, 0 4px 6px -2px ${accentColor}10`
-                    } : undefined}
-                    onMouseEnter={isSignupWithInvitation ? (e) => {
-                      // Darken on hover
-                      const rgb = hexToRgb(accentColor);
-                      if (rgb) {
-                        e.currentTarget.style.backgroundColor = `rgb(${Math.max(0, rgb.r - 20)}, ${Math.max(0, rgb.g - 20)}, ${Math.max(0, rgb.b - 20)})`;
-                      }
-                    } : undefined}
-                    onMouseLeave={isSignupWithInvitation ? (e) => {
-                      e.currentTarget.style.backgroundColor = accentColor;
-                    } : undefined}
+                    style={
+                      isSignupWithInvitation
+                        ? {
+                            backgroundColor: accentColor,
+                            boxShadow: `0 10px 15px -3px ${accentColor}20, 0 4px 6px -2px ${accentColor}10`,
+                          }
+                        : undefined
+                    }
+                    onMouseEnter={
+                      isSignupWithInvitation
+                        ? (e) => {
+                            // Darken on hover
+                            const rgb = hexToRgb(accentColor);
+                            if (rgb) {
+                              e.currentTarget.style.backgroundColor = `rgb(${Math.max(
+                                0,
+                                rgb.r - 20
+                              )}, ${Math.max(0, rgb.g - 20)}, ${Math.max(
+                                0,
+                                rgb.b - 20
+                              )})`;
+                            }
+                          }
+                        : undefined
+                    }
+                    onMouseLeave={
+                      isSignupWithInvitation
+                        ? (e) => {
+                            e.currentTarget.style.backgroundColor = accentColor;
+                          }
+                        : undefined
+                    }
                   >
                     {isLoading
                       ? "Processing..."
                       : mode === "login"
-                        ? "Sign In"
-                        : mode === "org-signup"
-                          ? "Create Organization"
-                          : `Join as ${participantRole === "MENTOR" ? "Mentor" : participantRole === "MENTEE" ? "Mentee" : "Participant"
-                          }`}
+                      ? "Sign In"
+                      : mode === "org-signup"
+                      ? "Create Organization"
+                      : `Join as ${
+                          participantRole === "MENTOR"
+                            ? "Mentor"
+                            : participantRole === "MENTEE"
+                            ? "Mentee"
+                            : "Participant"
+                        }`}
                   </button>
                 </form>
               </div>
@@ -1132,12 +1299,18 @@ const Authentication: React.FC<AuthenticationProps> = ({
                   Email Already Registered
                 </h3>
                 <p className="text-sm text-slate-600 mb-4">
-                  This email address ({pendingSignup?.type === 'google' ? pendingSignup.data?.email : formData.email}) is already registered
-                  with an account in another organization ({existingUser.company || 'another organization'}).
+                  This email address (
+                  {pendingSignup?.type === "google"
+                    ? pendingSignup.data?.email
+                    : formData.email}
+                  ) is already registered with an account in another
+                  organization ({existingUser.company || "another organization"}
+                  ).
                 </p>
                 <p className="text-sm text-slate-600 mb-6">
-                  You can still create a new organization with this email, which will create a separate
-                  account. Alternatively, you can sign in to your existing account.
+                  You can still create a new organization with this email, which
+                  will create a separate account. Alternatively, you can sign in
+                  to your existing account.
                 </p>
               </div>
             </div>
@@ -1154,7 +1327,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
                 disabled={isLoading || isGoogleLoading}
                 className={`${BUTTON_PRIMARY} flex-1 px-4 py-2.5 text-sm font-medium`}
               >
-                {(isLoading || isGoogleLoading) ? "Creating..." : "Create New Organization"}
+                {isLoading || isGoogleLoading
+                  ? "Creating..."
+                  : "Create New Organization"}
               </button>
             </div>
           </div>
