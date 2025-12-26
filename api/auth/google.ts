@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { googleId, email, name, picture, organizationCode, isNewOrg, orgName } = req.body;
+    const { googleId, email, name, picture, organizationCode, isNewOrg, orgName, role } = req.body;
 
     if (!googleId || !email || !name) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -145,23 +145,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const userData = userDoc.data();
+        // Properly structure the response with user object
         return res.json({
           user: {
             id: userDoc.id,
-            ...userData,
-            createdAt: userData.createdAt?.toDate().toISOString() || new Date().toISOString(),
+            organizationId: userData.organizationId,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+            avatar: userData.avatar,
+            title: userData.title || '',
+            company: userData.company || '',
+            skills: userData.skills || [],
+            bio: userData.bio || '',
+            googleId: userData.googleId,
+            createdAt: userData.createdAt?.toDate ? userData.createdAt.toDate().toISOString() : (userData.createdAt || new Date().toISOString()),
           },
           organizationId,
           token: 'mock-token',
         });
       } else {
-        // Create new user (role will be determined by invitation or default to MENTEE)
+        // Create new user (use role from request, or default to MENTEE)
+        const userRole = role === Role.MENTOR ? Role.MENTOR : Role.MENTEE;
         const userRef = db.collection('users').doc();
         await userRef.set({
           organizationId,
           name,
           email,
-          role: Role.MENTEE, // Default, can be updated via invitation
+          role: userRole,
           avatar: picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
           title: '',
           company: '',
@@ -176,7 +187,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           organizationId,
           name,
           email,
-          role: Role.MENTEE,
+          role: userRole,
           avatar: picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
           title: '',
           company: '',

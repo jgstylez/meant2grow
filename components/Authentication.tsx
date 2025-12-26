@@ -32,9 +32,10 @@ const Authentication: React.FC<AuthenticationProps> = ({
   const [mode, setMode] = useState<
     "login" | "org-signup" | "participant-signup" | "choose"
   >(initialMode);
-  const [participantRole, setParticipantRole] = useState<"MENTOR" | "MENTEE">(
-    "MENTEE"
+  const [participantRole, setParticipantRole] = useState<"MENTOR" | "MENTEE" | null>(
+    null
   );
+  const [participantSignupStep, setParticipantSignupStep] = useState<"select-role" | "create-account">("select-role");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +130,11 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
         onLogin(true, false);
       } else if (mode === "participant-signup") {
+        // Verify role is selected
+        if (!participantRole) {
+          throw new Error("Please select your role first");
+        }
+
         // Verify Org Code
         const org = await getOrganizationByCode(formData.orgCode);
         if (!org) {
@@ -251,6 +257,11 @@ const Authentication: React.FC<AuthenticationProps> = ({
         onLogin(true, false);
       } else if (mode === "participant-signup") {
         // Join existing organization
+        if (!participantRole) {
+          setError("Please select your role first");
+          setIsGoogleLoading(false);
+          return;
+        }
         if (!formData.orgCode) {
           setError("Please enter your organization code");
           setIsGoogleLoading(false);
@@ -487,9 +498,11 @@ const Authentication: React.FC<AuthenticationProps> = ({
                   ? "Welcome back"
                   : mode === "org-signup"
                     ? "Start Your Program"
-                    : "Join Your Organization"}
+                    : mode === "participant-signup" && participantSignupStep === "select-role"
+                      ? "Join Your Organization"
+                      : "Create Your Account"}
             </h2>
-            {mode !== "choose" && (
+            {mode !== "choose" && participantSignupStep !== "select-role" && (
               <p className="mt-2 text-sm text-slate-600">
                 {mode === "login" ? (
                   <>
@@ -512,6 +525,17 @@ const Authentication: React.FC<AuthenticationProps> = ({
                     </button>
                   </>
                 )}
+              </p>
+            )}
+            {mode === "participant-signup" && participantSignupStep === "select-role" && (
+              <p className="mt-2 text-sm text-slate-600">
+                Already have an account?{" "}
+                <button
+                  onClick={() => setMode("login")}
+                  className="font-medium text-emerald-600 hover:text-emerald-500"
+                >
+                  Log in
+                </button>
               </p>
             )}
           </div>
@@ -545,7 +569,11 @@ const Authentication: React.FC<AuthenticationProps> = ({
                 </button>
 
                 <button
-                  onClick={() => setMode("participant-signup")}
+                  onClick={() => {
+                    setMode("participant-signup");
+                    setParticipantSignupStep("select-role");
+                    setParticipantRole(null);
+                  }}
                   className="p-6 border-2 border-slate-200 hover:border-emerald-500 rounded-xl bg-white hover:bg-slate-50 transition-all text-left group"
                 >
                   <div className="flex items-start justify-between">
@@ -589,48 +617,131 @@ const Authentication: React.FC<AuthenticationProps> = ({
             </div>
           )}
 
-          {/* Role Selection for Participant Signup */}
-          {mode === "participant-signup" && (
-            <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                I am joining as:
-              </label>
-              <div className="grid grid-cols-2 gap-3">
+          {/* Step 1: Role Selection for Participant Signup */}
+          {mode === "participant-signup" && participantSignupStep === "select-role" && (
+            <div className="space-y-6">
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 dark:bg-emerald-700 flex items-center justify-center text-white font-bold text-sm">
+                    1
+                  </div>
+                  <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                  <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold text-sm">
+                    2
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500 text-center">
+                  Step 1 of 2: Choose your role
+                </p>
+              </div>
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-bold text-slate-900 mb-2">
+                  Choose Your Role
+                </h3>
+                <p className="text-sm text-slate-600">
+                  Select how you'd like to participate in the mentorship program
+                </p>
+              </div>
+
+              <div className="space-y-3">
                 <button
                   type="button"
-                  onClick={() => setParticipantRole("MENTOR")}
-                  className={`p-3 rounded-lg border-2 transition-all ${participantRole === "MENTOR"
-                    ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
-                    : "border-slate-200 dark:border-slate-700 hover:border-emerald-300"
-                    }`}
+                  onClick={() => {
+                    setParticipantRole("MENTOR");
+                    setParticipantSignupStep("create-account");
+                  }}
+                  className="w-full p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 transition-all text-left group bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
                 >
-                  <div className="text-sm font-bold text-slate-900 dark:text-white">
-                    Mentor
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Sharing expertise
+                  <div className="flex items-start">
+                    <div className="flex-1">
+                      <div className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                        Mentor
+                      </div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                        Share your expertise and guide others in their career journey
+                      </div>
+                      <div className="flex items-center text-xs text-emerald-600 font-medium">
+                        Continue as Mentor{" "}
+                        <ArrowLeft className="w-3 h-3 ml-1 rotate-180 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
                   </div>
                 </button>
+
                 <button
                   type="button"
-                  onClick={() => setParticipantRole("MENTEE")}
-                  className={`p-3 rounded-lg border-2 transition-all ${participantRole === "MENTEE"
-                    ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20"
-                    : "border-slate-200 dark:border-slate-700 hover:border-emerald-300"
-                    }`}
+                  onClick={() => {
+                    setParticipantRole("MENTEE");
+                    setParticipantSignupStep("create-account");
+                  }}
+                  className="w-full p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-500 transition-all text-left group bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
                 >
-                  <div className="text-sm font-bold text-slate-900 dark:text-white">
-                    Mentee
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Seeking guidance
+                  <div className="flex items-start">
+                    <div className="flex-1">
+                      <div className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                        Mentee
+                      </div>
+                      <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                        Seek guidance and grow your career with experienced mentors
+                      </div>
+                      <div className="flex items-center text-xs text-emerald-600 font-medium">
+                        Continue as Mentee{" "}
+                        <ArrowLeft className="w-3 h-3 ml-1 rotate-180 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
                   </div>
                 </button>
+              </div>
+
+              <button
+                onClick={() => {
+                  setMode("choose");
+                  setParticipantRole(null);
+                  setParticipantSignupStep("select-role");
+                }}
+                className="w-full py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              >
+                ← Back
+              </button>
+            </div>
+          )}
+
+          {/* Step 2: Account Creation for Participant Signup */}
+          {mode === "participant-signup" && participantSignupStep === "create-account" && participantRole && (
+            <div className="space-y-4">
+              <div className="mb-4">
+                <button
+                  onClick={() => {
+                    setParticipantSignupStep("select-role");
+                  }}
+                  className="flex items-center text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 mb-3"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" /> Back to role selection
+                </button>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 dark:bg-emerald-700 flex items-center justify-center text-white font-bold text-sm">
+                    ✓
+                  </div>
+                  <div className="flex-1 h-1 bg-emerald-200 dark:bg-emerald-800 rounded"></div>
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 dark:bg-emerald-700 flex items-center justify-center text-white font-bold text-sm">
+                    2
+                  </div>
+                </div>
+                <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium mb-1">
+                    Joining as: <span className="font-bold">{participantRole === "MENTOR" ? "Mentor" : "Mentee"}</span>
+                  </p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    {participantRole === "MENTOR" 
+                      ? "You'll be sharing your expertise and guiding others"
+                      : "You'll be seeking guidance and growing your career"}
+                  </p>
+                </div>
               </div>
             </div>
           )}
 
-          {mode !== "choose" && (
+          {mode !== "choose" && participantSignupStep !== "select-role" && (
             <>
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
@@ -805,7 +916,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
                   <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isLoading || (mode === "participant-signup" && !participantRole)}
                     className={
                       BUTTON_PRIMARY +
                       " w-full py-2.5 text-base shadow-lg shadow-emerald-900/10"
@@ -817,7 +928,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
                         ? "Sign In"
                         : mode === "org-signup"
                           ? "Create Organization"
-                          : `Join as ${participantRole === "MENTOR" ? "Mentor" : "Mentee"
+                          : `Join as ${participantRole === "MENTOR" ? "Mentor" : participantRole === "MENTEE" ? "Mentee" : "Participant"
                           }`}
                   </button>
                 </form>

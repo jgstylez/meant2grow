@@ -49,3 +49,6 @@ meant2grow-dev-*.json
 # Compiled TypeScript files in root (should only be in functions/lib)
 types.js
 types.js.map
+
+# Vercel (contains sensitive project IDs)
+.vercel/

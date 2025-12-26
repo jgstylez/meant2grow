@@ -27,6 +27,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, currentUser, onAddE
     const [showParticipantDropdown, setShowParticipantDropdown] = useState(false);
     const [calendarConnected, setCalendarConnected] = useState(false);
     const [syncing, setSyncing] = useState(false);
+    const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+    const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
     useEffect(() => {
       // Check if any calendar is connected
@@ -146,26 +148,108 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, currentUser, onAddE
           </div>
   
           <div className="flex-1 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
+              {/* Month Navigation */}
+              <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-800">
+                  <button
+                      onClick={() => {
+                          if (currentMonth === 0) {
+                              setCurrentMonth(11);
+                              setCurrentYear(currentYear - 1);
+                          } else {
+                              setCurrentMonth(currentMonth - 1);
+                          }
+                      }}
+                      className="px-3 py-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+                  >
+                      ←
+                  </button>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                      {new Date(currentYear, currentMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </h2>
+                  <button
+                      onClick={() => {
+                          if (currentMonth === 11) {
+                              setCurrentMonth(0);
+                              setCurrentYear(currentYear + 1);
+                          } else {
+                              setCurrentMonth(currentMonth + 1);
+                          }
+                      }}
+                      className="px-3 py-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+                  >
+                      →
+                  </button>
+              </div>
               <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 text-center py-2 bg-slate-50 dark:bg-slate-950">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
                       <div key={d} className="text-xs font-bold text-slate-500 uppercase">{d}</div>
                   ))}
               </div>
               <div className="flex-1 grid grid-cols-7">
-                  {[...Array(35)].map((_, i) => {
-                      const day = i - 2; 
-                      const isToday = day === new Date().getDate();
+                  {(() => {
+                      // Calculate calendar days for current month
+                      const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+                      const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+                      const daysInMonth = lastDayOfMonth.getDate();
+                      const startingDayOfWeek = firstDayOfMonth.getDay(); // 0 = Sunday, 6 = Saturday
+                      
+                      // Calculate previous month's days to show
+                      const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+                      const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+                      const daysInPrevMonth = new Date(prevYear, prevMonth + 1, 0).getDate();
+                      
+                      // Generate 35 days (5 weeks)
+                      const calendarDays: Array<{ day: number; isCurrentMonth: boolean; date: Date }> = [];
+                      
+                      // Add previous month's trailing days
+                      for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+                          calendarDays.push({
+                              day: daysInPrevMonth - i,
+                              isCurrentMonth: false,
+                              date: new Date(prevYear, prevMonth, daysInPrevMonth - i)
+                          });
+                      }
+                      
+                      // Add current month's days
+                      for (let day = 1; day <= daysInMonth; day++) {
+                          calendarDays.push({
+                              day,
+                              isCurrentMonth: true,
+                              date: new Date(currentYear, currentMonth, day)
+                          });
+                      }
+                      
+                      // Add next month's leading days to fill 35 slots
+                      const remainingDays = 35 - calendarDays.length;
+                      for (let day = 1; day <= remainingDays; day++) {
+                          const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+                          const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+                          calendarDays.push({
+                              day,
+                              isCurrentMonth: false,
+                              date: new Date(nextYear, nextMonth, day)
+                          });
+                      }
+                      
+                      return calendarDays.map((calendarDay, i) => {
+                          const today = new Date();
+                          const isToday = calendarDay.isCurrentMonth && 
+                                         calendarDay.date.getDate() === today.getDate() &&
+                                         calendarDay.date.getMonth() === today.getMonth() &&
+                                         calendarDay.date.getFullYear() === today.getFullYear();
+                          
+                          // Filter events for this specific date
                       const dayEvents = events.filter(e => {
                           const eDate = new Date(e.date);
-                          return eDate.getDate() === day;
+                              return eDate.getDate() === calendarDay.date.getDate() &&
+                                     eDate.getMonth() === calendarDay.date.getMonth() &&
+                                     eDate.getFullYear() === calendarDay.date.getFullYear();
                       });
   
                       return (
-                          <div key={i} className={`border-r border-b border-slate-100 dark:border-slate-800 p-2 min-h-[100px] relative ${i % 7 === 6 ? 'border-r-0' : ''}`}>
-                              {day > 0 && day <= 30 && (
-                                  <>
-                                      <span className={`text-sm font-medium block mb-2 ${isToday ? 'bg-emerald-600 text-white w-6 h-6 rounded-full flex items-center justify-center' : 'text-slate-700 dark:text-slate-300'}`}>
-                                          {day}
+                              <div key={i} className={`border-r border-b border-slate-100 dark:border-slate-800 p-2 min-h-[100px] relative ${i % 7 === 6 ? 'border-r-0' : ''} ${!calendarDay.isCurrentMonth ? 'bg-slate-50/50 dark:bg-slate-950/50' : ''}`}>
+                                  <span className={`text-sm font-medium block mb-2 ${isToday ? 'bg-emerald-600 text-white w-6 h-6 rounded-full flex items-center justify-center' : calendarDay.isCurrentMonth ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 dark:text-slate-600'}`}>
+                                      {calendarDay.day}
                                       </span>
                                       <div className="space-y-1">
                                           {dayEvents.map(ev => {

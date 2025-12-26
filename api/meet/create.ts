@@ -56,21 +56,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error: any) {
     console.error('Error creating Meet link:', error);
 
-    // If Meet API fails, return a fallback link format
-    // In production, you might want to handle this differently
-    if (error.code === 'ENOTFOUND' || error.message?.includes('meet')) {
-      // Generate a temporary meeting code (for development)
-      const tempCode = `temp-${Date.now().toString(36)}`;
-      return res.json({
-        meetLink: `https://meet.google.com/${tempCode}`,
-        meetingCode: tempCode,
-        note: 'Using temporary meeting link (Meet API not fully configured)',
-      });
-    }
-
+    // Return proper error instead of fake meeting link
+    // Fake links break meeting creation and confuse users
     return res.status(500).json({
       error: 'Failed to create meeting',
-      message: error.message
+      message: error.message || 'Google Meet API error',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
