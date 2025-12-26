@@ -509,15 +509,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           </div>
           <div className={CARD_CLASS}>
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-              <Crown className="w-3 h-3" /> Operators
+              <UserCheck className="w-3 h-3" /> Mentees
             </div>
-            <div className="text-2xl font-bold text-amber-600">{platformAdminLoading ? '...' : platformStats.platformAdmins}</div>
-          </div>
-          <div className={CARD_CLASS}>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-              <Shield className="w-3 h-3" /> Org Admins
-            </div>
-            <div className="text-2xl font-bold text-blue-600">{platformAdminLoading ? '...' : platformStats.orgAdmins}</div>
+            <div className="text-2xl font-bold text-purple-600">{platformAdminLoading ? '...' : platformStats.mentees}</div>
           </div>
           <div className={CARD_CLASS}>
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
@@ -527,15 +521,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           </div>
           <div className={CARD_CLASS}>
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-              <UserCheck className="w-3 h-3" /> Mentees
-            </div>
-            <div className="text-2xl font-bold text-purple-600">{platformAdminLoading ? '...' : platformStats.mentees}</div>
-          </div>
-          <div className={CARD_CLASS}>
-            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
               <Building className="w-3 h-3" /> Organizations
             </div>
             <div className="text-2xl font-bold text-slate-900 dark:text-white">{platformAdminLoading ? '...' : platformStats.totalOrgs}</div>
+          </div>
+          <div className={CARD_CLASS}>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
+              <Shield className="w-3 h-3" /> Org Admins
+            </div>
+            <div className="text-2xl font-bold text-blue-600">{platformAdminLoading ? '...' : platformStats.orgAdmins}</div>
+          </div>
+          <div className={CARD_CLASS}>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
+              <Crown className="w-3 h-3" /> Operators
+            </div>
+            <div className="text-2xl font-bold text-amber-600">{platformAdminLoading ? '...' : platformStats.platformAdmins}</div>
           </div>
         </div>
 

@@ -215,15 +215,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
         </div>
         <div className={CARD_CLASS}>
           <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-            <Crown className="w-3 h-3" /> Platform Operators
-          </div>
-          <div className="text-2xl font-bold text-amber-600">{stats.platformAdmins}</div>
-        </div>
-        <div className={CARD_CLASS}>
-          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
             <Shield className="w-3 h-3" /> Org Admins
           </div>
           <div className="text-2xl font-bold text-blue-600">{stats.orgAdmins}</div>
+        </div>
+        <div className={CARD_CLASS}>
+          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <Crown className="w-3 h-3" /> Operators
+          </div>
+          <div className="text-2xl font-bold text-amber-600">{stats.platformAdmins}</div>
         </div>
       </div>
 
