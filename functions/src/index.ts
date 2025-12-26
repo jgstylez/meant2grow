@@ -53,7 +53,8 @@ export const authGoogle = functions.onRequest(
         email,
         name,
         picture,
-        organizationCode,
+        organizationCode, // Deprecated - kept for backward compatibility
+        invitationToken, // New: invitation token for joining via invite
         isNewOrg,
         orgName,
         role: requestedRole,
@@ -143,7 +144,164 @@ export const authGoogle = functions.onRequest(
         return;
       }
 
-      // If joining existing organization
+      // If joining existing organization via invitation token (preferred)
+      if (invitationToken) {
+        // Look up invitation by token
+        const invitationSnapshot = await db
+          .collection("invitations")
+          .where("token", "==", invitationToken)
+          .where("status", "==", "Pending")
+          .limit(1)
+          .get();
+
+        if (invitationSnapshot.empty) {
+          res.status(404).json({ error: "Invalid or expired invitation" });
+          return;
+        }
+
+        const invitationDoc = invitationSnapshot.docs[0];
+        const invitationData = invitationDoc.data();
+
+        // Check expiration
+        if (invitationData.expiresAt) {
+          const expiresAt = invitationData.expiresAt.toDate();
+          if (expiresAt < new Date()) {
+            await invitationDoc.ref.update({ status: "Expired" });
+            res.status(400).json({ error: "Invitation has expired" });
+            return;
+          }
+        }
+
+        // Verify email matches invitation
+        if (invitationData.email && invitationData.email.toLowerCase() !== email.toLowerCase()) {
+          res.status(400).json({ 
+            error: `This invitation is for ${invitationData.email}. Please sign in with that email address.` 
+          });
+          return;
+        }
+
+        const organizationId = invitationData.organizationId;
+        const invitationRole = invitationData.role || requestedRole || Role.MENTEE;
+
+        // Get organization
+        const orgDoc = await db.collection("organizations").doc(organizationId).get();
+        if (!orgDoc.exists) {
+          res.status(404).json({ error: "Organization not found" });
+          return;
+        }
+
+        // Check if user already exists by Google ID
+        let userSnapshot = await db
+          .collection("users")
+          .where("googleId", "==", googleId)
+          .where("organizationId", "==", organizationId)
+          .limit(1)
+          .get();
+
+        let userDoc = userSnapshot.empty ? null : userSnapshot.docs[0];
+
+        // If not found by Google ID, check by email
+        if (!userDoc) {
+          userSnapshot = await db
+            .collection("users")
+            .where("email", "==", email)
+            .where("organizationId", "==", organizationId)
+            .limit(1)
+            .get();
+          userDoc = userSnapshot.empty ? null : userSnapshot.docs[0];
+        }
+
+        if (userDoc) {
+          // Update existing user with Google ID if not set
+          if (!userDoc.data().googleId) {
+            await userDoc.ref.update({ googleId });
+          }
+
+          const userData = userDoc.data();
+          const userResponse: User = {
+            id: userDoc.id,
+            ...(userData as Omit<User, 'id' | 'createdAt'>),
+            createdAt:
+              userData?.createdAt?.toDate().toISOString() ||
+              new Date().toISOString(),
+          };
+
+          // Get organization data for welcome back email
+          const orgData = orgDoc.data();
+          const orgResponse: Organization = {
+            id: orgDoc.id,
+            ...(orgData as Omit<Organization, 'id' | 'createdAt'>),
+            createdAt:
+              orgData?.createdAt?.toDate().toISOString() ||
+              new Date().toISOString(),
+          };
+
+          // Mark invitation as accepted
+          await invitationDoc.ref.update({ status: "Accepted" });
+
+          // Send welcome back email (don't await - send async)
+          emailService.sendWelcomeBack(userResponse, orgResponse).catch((err) => {
+            console.error("Failed to send welcome back email:", err);
+          });
+
+          res.json({
+            user: userResponse,
+            organizationId,
+            token: "mock-token",
+          });
+          return;
+        } else {
+          // Create new user with role from invitation
+          const userRole = invitationRole;
+          const userRef = db.collection("users").doc();
+          await userRef.set({
+            organizationId,
+            name,
+            email,
+            role: userRole,
+            avatar:
+              picture ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
+            title: "",
+            company: orgDoc.data()?.name || "",
+            skills: [],
+            bio: "",
+            googleId,
+            createdAt: admin.firestore.Timestamp.now(),
+          });
+
+          // Mark invitation as accepted
+          await invitationDoc.ref.update({ status: "Accepted" });
+
+          const userData = {
+            id: userRef.id,
+            organizationId,
+            name,
+            email,
+            role: userRole,
+            avatar:
+              picture ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
+            title: "",
+            company: orgDoc.data()?.name || "",
+            skills: [],
+            bio: "",
+            googleId,
+            createdAt: new Date().toISOString(),
+          };
+
+          // Note: Welcome email is now handled by onUserCreated trigger
+
+          res.json({
+            user: userData,
+            organizationId,
+            token: "mock-token",
+          });
+          return;
+        }
+      }
+
+      // Legacy: If joining existing organization via organization code (deprecated)
       if (organizationCode) {
         const orgSnapshot = await db
           .collection("organizations")
@@ -266,7 +424,7 @@ export const authGoogle = functions.onRequest(
 
       res
         .status(400)
-        .json({ error: "Either organizationCode or isNewOrg must be provided" });
+        .json({ error: "Either invitationToken, organizationCode, or isNewOrg must be provided" });
     } catch (error: any) {
       console.error("Auth error:", error);
       res

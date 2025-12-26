@@ -325,11 +325,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, currentUser, onAddE
                                             );
                                           })}
                                       </div>
-                                  </>
-                              )}
-                          </div>
+                              </div>
                       );
-                  })}
+                  })})()}
               </div>
           </div>
           

@@ -931,10 +931,130 @@ export const deleteNotification = async (notificationId: string): Promise<void> 
 
 // ==================== INVITATION OPERATIONS ====================
 
-export const createInvitation = async (invitationData: Omit<Invitation, 'id'>): Promise<string> => {
+/**
+ * Generates a unique invitation token
+ */
+const generateInvitationToken = (): string => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let token = '';
+  for (let i = 0; i < 32; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+};
+
+/**
+ * Creates an invitation with auto-generated token and link
+ */
+export const createInvitation = async (invitationData: Omit<Invitation, 'id' | 'token' | 'invitationLink'>): Promise<string> => {
+  const token = generateInvitationToken();
+  const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+  const invitationLink = `${appUrl}/auth?invite=${token}`;
+  
   const invitationRef = doc(collection(db, 'invitations'));
-  await setDoc(invitationRef, invitationData);
+  await setDoc(invitationRef, {
+    ...invitationData,
+    token,
+    invitationLink,
+    expiresAt: invitationData.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default 30 days
+  });
   return invitationRef.id;
+};
+
+/**
+ * Gets invitation by ID
+ */
+export const getInvitation = async (invitationId: string): Promise<Invitation | null> => {
+  const invitationRef = doc(db, 'invitations', invitationId);
+  const invitationSnap = await getDoc(invitationRef);
+
+  if (!invitationSnap.exists()) {
+    return null;
+  }
+
+  const data = invitationSnap.data();
+  return {
+    id: invitationSnap.id,
+    ...data,
+    sentDate: convertTimestamp(data.sentDate),
+    expiresAt: data.expiresAt ? convertTimestamp(data.expiresAt) : undefined,
+  } as Invitation;
+};
+
+/**
+ * Gets invitation by token
+ */
+export const getInvitationByToken = async (token: string): Promise<Invitation | null> => {
+  const q = query(
+    collection(db, 'invitations'),
+    where('token', '==', token),
+    where('status', '==', 'Pending')
+  );
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const invitationDoc = snapshot.docs[0];
+  const data = invitationDoc.data();
+  
+  // Check expiration
+  if (data.expiresAt) {
+    const expiresAt = typeof data.expiresAt === 'string' 
+      ? new Date(data.expiresAt) 
+      : data.expiresAt.toDate();
+    if (expiresAt < new Date()) {
+      // Mark as expired
+      await updateInvitation(invitationDoc.id, { status: 'Expired' });
+      return null;
+    }
+  }
+
+  return {
+    id: invitationDoc.id,
+    ...data,
+    sentDate: convertTimestamp(data.sentDate),
+    expiresAt: data.expiresAt ? convertTimestamp(data.expiresAt) : undefined,
+  } as Invitation;
+};
+
+/**
+ * Gets invitation by email and organization
+ */
+export const getInvitationByEmail = async (email: string, organizationId: string): Promise<Invitation | null> => {
+  const q = query(
+    collection(db, 'invitations'),
+    where('email', '==', email.toLowerCase()),
+    where('organizationId', '==', organizationId),
+    where('status', '==', 'Pending')
+  );
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const invitationDoc = snapshot.docs[0];
+  const data = invitationDoc.data();
+  
+  // Check expiration
+  if (data.expiresAt) {
+    const expiresAt = typeof data.expiresAt === 'string' 
+      ? new Date(data.expiresAt) 
+      : data.expiresAt.toDate();
+    if (expiresAt < new Date()) {
+      await updateInvitation(invitationDoc.id, { status: 'Expired' });
+      return null;
+    }
+  }
+
+  return {
+    id: invitationDoc.id,
+    ...data,
+    sentDate: convertTimestamp(data.sentDate),
+    expiresAt: data.expiresAt ? convertTimestamp(data.expiresAt) : undefined,
+  } as Invitation;
 };
 
 export const getInvitationsByOrganization = async (organizationId: string): Promise<Invitation[]> => {
@@ -948,6 +1068,8 @@ export const getInvitationsByOrganization = async (organizationId: string): Prom
   return snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
+    sentDate: convertTimestamp(doc.data().sentDate),
+    expiresAt: doc.data().expiresAt ? convertTimestamp(doc.data().expiresAt) : undefined,
   })) as Invitation[];
 };
 

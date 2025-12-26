@@ -544,18 +544,45 @@ const App: React.FC = () => {
 
   const handleSendInvite = async (inviteData: any) => {
     try {
-      if (!organizationId || !currentUser)
-        throw new Error("Organization ID and user are required");
-      const newInvite: Omit<Invitation, "id"> = {
+      if (!organizationId || !currentUser || !organization)
+        throw new Error("Organization ID, user, and organization are required");
+      
+      // Create invitation (this will auto-generate token and link)
+      const invitationId = await createInvitation({
         organizationId,
         name: inviteData.name || "Unknown",
-        email: inviteData.email,
+        email: inviteData.email.toLowerCase(),
         role: inviteData.role,
         status: "Pending",
         sentDate: new Date().toISOString().split("T")[0],
         inviterId: currentUser.id,
-      };
-      await createInvitation(newInvite);
+      });
+
+      // Get the created invitation to retrieve the link
+      const { getInvitation } = await import("./services/database");
+      const createdInvitation = await getInvitation(invitationId);
+      
+      if (!createdInvitation) {
+        throw new Error("Failed to retrieve created invitation");
+      }
+      
+      if (createdInvitation && createdInvitation.invitationLink) {
+        // Note: Email sending should be done via Cloud Function
+        // For now, the invitation link is created and can be shared manually
+        // TODO: Create Cloud Function endpoint to send invitation emails
+        console.log("Invitation created with link:", createdInvitation.invitationLink);
+        
+        // Optionally copy link to clipboard for easy sharing
+        if (navigator.clipboard) {
+          try {
+            await navigator.clipboard.writeText(createdInvitation.invitationLink);
+            addToast(`Invitation link copied to clipboard!`, "success");
+          } catch (clipboardError) {
+            console.error("Failed to copy to clipboard:", clipboardError);
+          }
+        }
+      }
+
       addToast(`Invitation sent to ${inviteData.email}`, "success");
     } catch (error: unknown) {
       console.error("Error sending invitation:", error);

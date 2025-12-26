@@ -482,3 +482,85 @@ export const emailService = {
   },
 };
 
+// Standalone function for sending invitation emails (can be called from client)
+export const sendInvitationEmail = async (
+  invitee: { email: string; name: string },
+  organization: Organization,
+  invitationLink: string,
+  role: Role,
+  inviterName: string
+) => {
+  const roleText = role === Role.MENTOR ? "Mentor" : role === Role.MENTEE ? "Mentee" : role;
+  const appUrl = process.env.VITE_APP_URL || "https://meant2grow.com";
+  
+  const subject = `You've been invited to join ${organization.name} on Meant2Grow!`;
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Invitation to Meant2Grow</title>
+      </head>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, ${organization.accentColor || organization.programSettings?.accentColor || '#10b981'} 0%, ${organization.accentColor || organization.programSettings?.accentColor || '#059669'} 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+          ${organization.logo || organization.programSettings?.logo ? `<img src="${organization.logo || organization.programSettings?.logo}" alt="${organization.name}" style="max-height: 60px; margin-bottom: 10px;" />` : ''}
+          <h1 style="color: white; margin: 0;">You've been invited!</h1>
+        </div>
+        <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+          <p style="font-size: 16px; margin-bottom: 20px;">Hi ${invitee.name},</p>
+          <p style="font-size: 16px; margin-bottom: 20px;">
+            <strong>${inviterName}</strong> has invited you to join <strong>${organization.name}</strong>'s mentorship program as a <strong>${roleText}</strong>.
+          </p>
+          <p style="font-size: 16px; margin-bottom: 20px;">
+            Join us to connect with professionals, track your career goals, and advance your professional growth.
+          </p>
+          <div style="margin: 30px 0; text-align: center;">
+            <a href="${invitationLink}" 
+               style="display: inline-block; background: ${organization.accentColor || organization.programSettings?.accentColor || '#10b981'}; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+              Accept Invitation
+            </a>
+          </div>
+          <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
+            Or copy and paste this link into your browser:<br/>
+            <a href="${invitationLink}" style="color: #10b981; word-break: break-all;">${invitationLink}</a>
+          </p>
+          <p style="font-size: 14px; color: #6b7280; margin-top: 20px;">
+            This invitation will expire in 30 days. If you have any questions, please contact your organization administrator.
+          </p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+          <p style="font-size: 12px; color: #9ca3af;">
+            This email was sent by Meant2Grow on behalf of ${organization.name}.<br/>
+            If you didn't expect this invitation, you can safely ignore this email.
+          </p>
+        </div>
+      </body>
+    </html>
+  `.trim();
+  
+  const text = `
+Hi ${invitee.name},
+
+${inviterName} has invited you to join ${organization.name}'s mentorship program as a ${roleText}.
+
+Join us to connect with professionals, track your career goals, and advance your professional growth.
+
+Accept your invitation here: ${invitationLink}
+
+This invitation will expire in 30 days. If you have any questions, please contact your organization administrator.
+
+---
+This email was sent by Meant2Grow on behalf of ${organization.name}.
+If you didn't expect this invitation, you can safely ignore this email.
+  `.trim();
+
+  await sendEmail({
+    to: [{ email: invitee.email, name: invitee.name }],
+    subject,
+    html,
+    text,
+    category: "Invitation",
+  });
+};
+

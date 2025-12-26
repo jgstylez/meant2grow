@@ -154,6 +154,9 @@ export interface Invitation {
   status: "Pending" | "Accepted" | "Expired";
   sentDate: string;
   inviterId: string;
+  token: string; // Unique token for invitation link
+  invitationLink?: string; // Full invitation URL
+  expiresAt?: string; // Optional expiration date
 }
 
 export interface CalendarEvent {

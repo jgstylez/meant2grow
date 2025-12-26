@@ -561,6 +561,7 @@ const Chat: React.FC<ChatProps> = ({
     | "report"
     | "clearHistory"
     | "shareContact"
+    | "newMessage"
   >(null);
 
   // New States for Actions
@@ -579,6 +580,7 @@ const Chat: React.FC<ChatProps> = ({
     string | null
   >(null);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [newMessageSearchQuery, setNewMessageSearchQuery] = useState("");
   const [sentiment, setSentiment] = useState<
     "Positive" | "Neutral" | "Negative"
   >("Neutral");
@@ -1485,6 +1487,118 @@ const Chat: React.FC<ChatProps> = ({
     );
   };
 
+  const NewMessageModal = () => {
+    // Get all users that can be messaged (same logic as availableDMs)
+    const messageableUsers = users.filter((u) => {
+      if (u.id === currentUser.id) return false;
+
+      // Platform admins can see users from all organizations
+      if (isPlatformAdmin) {
+        return true;
+      }
+
+      // Ensure users are in the same organization
+      if (u.organizationId !== currentUser.organizationId) return false;
+
+      // Regular admins can see everyone in their organization
+      if (currentUser.role === Role.ADMIN) {
+        return true;
+      }
+
+      // Regular users can only see admins in their organization
+      return u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN;
+    });
+
+    // Filter users based on search query
+    const filteredUsers = messageableUsers.filter((u) =>
+      u.name.toLowerCase().includes(newMessageSearchQuery.toLowerCase())
+    );
+
+    const handleSelectUser = (userId: string) => {
+      setActiveChatId(userId);
+      setActiveModal(null);
+      setNewMessageSearchQuery("");
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 border border-slate-200 dark:border-slate-800 max-h-[80vh] flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+              New Message
+            </h3>
+            <button
+              onClick={() => {
+                setActiveModal(null);
+                setNewMessageSearchQuery("");
+              }}
+              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+            </button>
+          </div>
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={newMessageSearchQuery}
+            onChange={(e) => setNewMessageSearchQuery(e.target.value)}
+            className="w-full text-sm bg-slate-100 dark:bg-slate-800 border-none rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white mb-4"
+            autoFocus
+          />
+          <div className="overflow-y-auto flex-1">
+            {filteredUsers.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                <p className="text-sm">
+                  {newMessageSearchQuery
+                    ? "No users found"
+                    : "No users available to message"}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {filteredUsers.map((user) => {
+                  const isAlreadyInChats = allChats.some((c) => c.id === user.id);
+                  return (
+                    <button
+                      key={user.id}
+                      onClick={() => handleSelectUser(user.id)}
+                      className="w-full p-3 flex items-center space-x-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-left"
+                    >
+                      <div className="relative">
+                        <img
+                          src={user.avatar || "https://via.placeholder.com/40"}
+                          alt={user.name}
+                          className="w-10 h-10 rounded-full object-cover border-2 border-slate-200 dark:border-slate-700"
+                        />
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-sm text-slate-900 dark:text-white truncate">
+                            {user.name}
+                          </h4>
+                          {isAlreadyInChats && (
+                            <span className="text-xs text-emerald-600 dark:text-emerald-400 ml-2">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {user.role}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="h-[calc(100vh-4rem)] sm:h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden relative">
       {/* Sidebar List - Mobile: only show when no chat selected */}
@@ -1500,7 +1614,14 @@ const Chat: React.FC<ChatProps> = ({
             <h2 className="font-bold text-slate-800 dark:text-white text-lg">
               Messages
             </h2>
-            {/* Quick Filter/Search Toggle could go here */}
+            <button
+              onClick={() => setActiveModal("newMessage")}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              aria-label="New message"
+              title="New message"
+            >
+              <Plus className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            </button>
           </div>
           <input
             type="text"
@@ -2615,6 +2736,7 @@ const Chat: React.FC<ChatProps> = ({
       {activeModal === "block" && <BlockUserModal />}
       {activeModal === "report" && <ReportUserModal />}
       {activeModal === "shareContact" && <ShareContactModal />}
+      {activeModal === "newMessage" && <NewMessageModal />}
       {activeModal === "clearHistory" && <ClearHistoryModal />}
     </div>
   );
