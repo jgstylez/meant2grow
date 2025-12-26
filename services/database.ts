@@ -1599,11 +1599,24 @@ export const subscribeToChatGroups = (
         ...doc.data(),
         createdAt: convertTimestamp(doc.data().createdAt),
       })) as ChatGroup[];
+      console.log('[subscribeToChatGroups] Received groups', {
+        count: groups.length,
+        groupIds: groups.map(g => g.id),
+        groupDetails: groups.map(g => ({
+          id: g.id,
+          name: g.name,
+          members: g.members?.length || 0,
+          organizationId: g.organizationId,
+        })),
+        organizationId,
+      });
       callback(groups);
     },
     (error) => {
       console.error('Error subscribing to chat groups:', error);
       console.error('OrganizationId:', organizationId);
+      console.error('Error code:', (error as any)?.code);
+      console.error('Error message:', (error as any)?.message);
       // Call callback with empty array on error to prevent UI from hanging
       callback([]);
     }

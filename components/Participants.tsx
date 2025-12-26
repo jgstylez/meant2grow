@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Role, Match, MatchStatus } from '../types';
 import { BUTTON_PRIMARY, INPUT_CLASS, CARD_CLASS } from '../styles/common';
-import { Plus, MoreVertical, Mail, Edit2, X, Trash2, Shield, User as UserIcon, Filter, Repeat, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { Plus, MoreVertical, Mail, Edit2, X, Trash2, Shield, User as UserIcon, Filter, Repeat, CheckCircle, XCircle, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { updateUser, deleteUser } from '../services/database';
 import { emailService } from '../services/emailService';
 
@@ -29,6 +29,8 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [openMenuUserId, setOpenMenuUserId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const formatRole = (role: Role) => {
     switch (role) {
@@ -74,6 +76,22 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
     if (roleFilter === 'ALL') return true;
     return u.role === roleFilter;
   });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [roleFilter]);
+
+  // Reset to page 1 when items per page changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [itemsPerPage]);
 
   // Validate email format
   const isValidEmail = (email: string): boolean => {
@@ -307,12 +325,18 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
                   <th className="px-6 py-4 w-12">
                     <input
                       type="checkbox"
-                      checked={selectedUserIds.size === filteredUsers.length && filteredUsers.length > 0}
+                      checked={selectedUserIds.size === paginatedUsers.length && paginatedUsers.length > 0 && selectedUserIds.size > 0}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedUserIds(new Set(filteredUsers.map(u => u.id)));
+                          setSelectedUserIds(new Set(paginatedUsers.map(u => u.id)));
                         } else {
-                          setSelectedUserIds(new Set());
+                          // Only deselect current page users
+                          const pageIds = new Set(paginatedUsers.map(u => u.id));
+                          setSelectedUserIds(prev => {
+                            const newSet = new Set(prev);
+                            pageIds.forEach(id => newSet.delete(id));
+                            return newSet;
+                          });
                         }
                       }}
                       className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
@@ -328,7 +352,7 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredUsers.map(user => {
+              {paginatedUsers.map(user => {
                 const userMatches = getUserMatches(user.id);
                 const matchedPartner = getMatchedPartner(user.id);
                 return (
@@ -554,6 +578,76 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination Controls */}
+        {filteredUsers.length > 0 && (
+          <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} participants
+              </span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                className="ml-2 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value={10}>10 per page</option>
+                <option value={25}>25 per page</option>
+                <option value={50}>50 per page</option>
+                <option value={100}>100 per page</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-slate-800 flex items-center gap-1"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                  let pageNum: number;
+                  if (totalPages <= 7) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 4) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 3) {
+                    pageNum = totalPages - 6 + i;
+                  } else {
+                    pageNum = currentPage - 3 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-lg ${
+                        currentPage === pageNum
+                          ? 'bg-emerald-600 text-white'
+                          : 'text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-slate-800 flex items-center gap-1"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Email Participant Modal */}

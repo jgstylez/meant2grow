@@ -57,9 +57,18 @@ const Layout: React.FC<LayoutProps> = ({
   removeToast,
   programSettings,
 }) => {
+  // Helper function to check if logo URL is valid
+  const hasValidLogo = () => {
+    const logo = programSettings?.logo;
+    if (!logo || typeof logo !== 'string') return false;
+    const trimmed = logo.trim();
+    return trimmed.length > 0;
+  };
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [logoError, setLogoError] = useState(false);
+  // Initialize logoError - default to true (show Logo component) if no valid logo exists
+  const [logoError, setLogoError] = useState(!hasValidLogo());
 
   const formatRole = (role: Role) => {
     switch (role) {
@@ -71,9 +80,13 @@ const Layout: React.FC<LayoutProps> = ({
     }
   };
 
-  // Reset logo error when logo URL changes
+  // Reset logo error when logo URL changes - default to Logo component if no valid logo
   useEffect(() => {
-    setLogoError(false);
+    if (hasValidLogo()) {
+      setLogoError(false);
+    } else {
+      setLogoError(true); // No valid logo, show default Logo component
+    }
   }, [programSettings?.logo]);
 
   // Role checks - handle both enum and string values for robustness
@@ -217,12 +230,13 @@ const Layout: React.FC<LayoutProps> = ({
       {/* Mobile Header */}
       <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 flex justify-between items-center sticky top-0 z-30">
         <div className="flex items-center space-x-2 min-w-0 flex-1">
-          {programSettings?.logo && !logoError ? (
+          {hasValidLogo() && !logoError ? (
             <img
-              src={programSettings.logo}
+              src={programSettings!.logo!}
               alt="Logo"
               className="w-8 h-8 object-contain flex-shrink-0"
               onError={() => setLogoError(true)}
+              onLoad={() => setLogoError(false)}
             />
           ) : (
             <Logo className="w-8 h-8 flex-shrink-0" />
@@ -335,12 +349,13 @@ const Layout: React.FC<LayoutProps> = ({
         <div className="p-4 h-full flex flex-col">
           <div className="hidden md:flex items-center mb-4">
             <div className="flex items-center space-x-2 min-w-0 flex-1">
-              {programSettings?.logo && !logoError ? (
+              {hasValidLogo() && !logoError ? (
                 <img
-                  src={programSettings.logo}
+                  src={programSettings!.logo!}
                   alt="Logo"
                   className="w-7 h-7 object-contain flex-shrink-0"
                   onError={() => setLogoError(true)}
+                  onLoad={() => setLogoError(false)}
                 />
               ) : (
                 <Logo className="w-7 h-7 flex-shrink-0" />

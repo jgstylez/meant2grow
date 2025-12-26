@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   User,
   Role,
@@ -261,29 +261,51 @@ const Chat: React.FC<ChatProps> = ({
           organizationId
         );
 
-        // Find existing groups
-        const mentorGroup = existingGroups.find(
-          (g) => g.id === "g-mentors" || g.name === "Mentors Circle"
-        );
-        const menteeGroup = existingGroups.find(
-          (g) => g.id === "g-mentees" || g.name === "Mentees Hub"
-        );
+        logger.debug("Syncing group membership", {
+          existingGroupsCount: existingGroups.length,
+          existingGroupIds: existingGroups.map(g => ({ id: g.id, name: g.name })),
+        });
+
+        // Find existing groups - prioritize by ID, then by name
+        const mentorGroupById = existingGroups.find((g) => g.id === "g-mentors");
+        const mentorGroupByName = existingGroups.find((g) => g.name === "Mentors Circle");
+        const mentorGroup = mentorGroupById || mentorGroupByName;
+        
+        const menteeGroupById = existingGroups.find((g) => g.id === "g-mentees");
+        const menteeGroupByName = existingGroups.find((g) => g.name === "Mentees Hub");
+        const menteeGroup = menteeGroupById || menteeGroupByName;
+        
+        // If group exists with wrong ID, we need to handle it
+        if (mentorGroupByName && mentorGroupByName.id !== "g-mentors") {
+          logger.warn("Found Mentors Circle with wrong ID", {
+            wrongId: mentorGroupByName.id,
+            correctId: "g-mentors",
+          });
+          // We'll create the correct one and the old one will be orphaned (could delete it later)
+        }
+        if (menteeGroupByName && menteeGroupByName.id !== "g-mentees") {
+          logger.warn("Found Mentees Hub with wrong ID", {
+            wrongId: menteeGroupByName.id,
+            correctId: "g-mentees",
+          });
+        }
 
         const mentorUsers = users.filter((u) => u.role === Role.MENTOR);
         const menteeUsers = users.filter((u) => u.role === Role.MENTEE);
         // Admins and platform operators should have access to both groups
+        // Handle both "ADMIN" and "ORGANIZATION_ADMIN" role values for backward compatibility
         const adminUsers = users.filter(
-          (u) => u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN
+          (u) => u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN || u.role === "ADMIN" || u.role === "PLATFORM_ADMIN"
         );
 
-        // Create Mentors Circle if it doesn't exist
-        if (!mentorGroup) {
+        // Create Mentors Circle if it doesn't exist with correct ID
+        if (!mentorGroupById) {
           // Include mentors + admins/platform admins
           const mentorGroupMembers = [
             ...mentorUsers.map((u) => u.id),
             ...adminUsers.map((u) => u.id),
           ];
-          await createChatGroup(
+          const createdId = await createChatGroup(
             {
               organizationId,
               name: "Mentors Circle",
@@ -295,10 +317,14 @@ const Chat: React.FC<ChatProps> = ({
             },
             "g-mentors"
           );
-          logger.info("Created Mentors Circle group");
+          logger.info("Created Mentors Circle group", {
+            id: createdId,
+            expectedId: "g-mentors",
+            membersCount: mentorGroupMembers.length,
+          });
         } else {
           // Update membership to include all current mentors + admins/platform admins
-          const currentMembers = mentorGroup.members || [];
+          const currentMembers = mentorGroupById.members || [];
           const mentorIds = mentorUsers.map((u) => u.id);
           const adminIds = adminUsers.map((u) => u.id);
           const expectedMembers = [...mentorIds, ...adminIds];
@@ -313,18 +339,20 @@ const Chat: React.FC<ChatProps> = ({
             logger.info("Updated Mentors Circle membership", {
               mentors: mentorIds.length,
               admins: adminIds.length,
+              currentMembersCount: currentMembers.length,
+              expectedMembersCount: expectedMembers.length,
             });
           }
         }
 
-        // Create Mentees Hub if it doesn't exist
-        if (!menteeGroup) {
+        // Create Mentees Hub if it doesn't exist with correct ID
+        if (!menteeGroupById) {
           // Include mentees + admins/platform admins
           const menteeGroupMembers = [
             ...menteeUsers.map((u) => u.id),
             ...adminUsers.map((u) => u.id),
           ];
-          await createChatGroup(
+          const createdId = await createChatGroup(
             {
               organizationId,
               name: "Mentees Hub",
@@ -336,10 +364,14 @@ const Chat: React.FC<ChatProps> = ({
             },
             "g-mentees"
           );
-          logger.info("Created Mentees Hub group");
+          logger.info("Created Mentees Hub group", {
+            id: createdId,
+            expectedId: "g-mentees",
+            membersCount: menteeGroupMembers.length,
+          });
         } else {
           // Update membership to include all current mentees + admins/platform admins
-          const currentMembers = menteeGroup.members || [];
+          const currentMembers = menteeGroupById.members || [];
           const menteeIds = menteeUsers.map((u) => u.id);
           const adminIds = adminUsers.map((u) => u.id);
           const expectedMembers = [...menteeIds, ...adminIds];
@@ -354,6 +386,8 @@ const Chat: React.FC<ChatProps> = ({
             logger.info("Updated Mentees Hub membership", {
               mentees: menteeIds.length,
               admins: adminIds.length,
+              currentMembersCount: currentMembers.length,
+              expectedMembersCount: expectedMembers.length,
             });
           }
         }
@@ -374,6 +408,16 @@ const Chat: React.FC<ChatProps> = ({
     unsubscribeGroupsRef.current = subscribeToChatGroups(
       organizationId,
       (groups) => {
+        logger.debug("Received chat groups from subscription", {
+          count: groups.length,
+          groupIds: groups.map(g => g.id),
+          groupDetails: groups.map(g => ({
+            id: g.id,
+            name: g.name,
+            members: g.members?.length || 0,
+            hasCurrentUser: g.members?.includes(currentUser.id) || false,
+          })),
+        });
         setChatGroups(groups);
       }
     );
@@ -383,7 +427,7 @@ const Chat: React.FC<ChatProps> = ({
         unsubscribeGroupsRef.current();
       }
     };
-  }, [organizationId]);
+  }, [organizationId, currentUser.id]);
 
   // Use Firestore groups if available, otherwise use fallback
   // Also ensure requested groups are always included (for direct navigation)
@@ -392,12 +436,20 @@ const Chat: React.FC<ChatProps> = ({
     const fallback: ChatGroup[] = [];
 
     // Always include fallback groups if they're requested or if no groups exist
+    // Also include if groups exist but user should have access based on role
+    // Handle both "ADMIN" and "ORGANIZATION_ADMIN" role values for backward compatibility
+    const isAdmin = currentUser.role === Role.ADMIN || currentUser.role === Role.PLATFORM_ADMIN || currentUser.role === "ADMIN" || currentUser.role === "PLATFORM_ADMIN";
+    const isMentor = currentUser.role === Role.MENTOR;
+    const isMentee = currentUser.role === Role.MENTEE;
+    
     const needsMentors =
       initialChatId === "g-mentors" ||
-      (chatGroups.length === 0 && users.some((u) => u.role === Role.MENTOR));
+      (chatGroups.length === 0 && (isMentor || isAdmin)) ||
+      (isMentor || isAdmin); // Always show if user should have access
     const needsMentees =
       initialChatId === "g-mentees" ||
-      (chatGroups.length === 0 && users.some((u) => u.role === Role.MENTEE));
+      (chatGroups.length === 0 && (isMentee || isAdmin)) ||
+      (isMentee || isAdmin); // Always show if user should have access
 
     // Check if groups already exist in Firestore groups
     const hasMentorsGroup = groups.some((g) => g.id === "g-mentors");
@@ -409,7 +461,7 @@ const Chat: React.FC<ChatProps> = ({
         ...users.filter((u) => u.role === Role.MENTOR).map((u) => u.id),
         ...users
           .filter(
-            (u) => u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN
+            (u) => u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN || u.role === "ADMIN" || u.role === "PLATFORM_ADMIN"
           )
           .map((u) => u.id),
       ];
@@ -449,12 +501,41 @@ const Chat: React.FC<ChatProps> = ({
     }
 
     // Merge Firestore groups with fallback, avoiding duplicates
+    // But ensure default groups always have current user in members if they should have access
     const merged = [...groups];
+    
+    logger.debug("Before merge", {
+      firestoreGroups: groups.map(g => ({ id: g.id, name: g.name, members: g.members?.length || 0 })),
+      fallbackGroups: fallback.map(g => ({ id: g.id, name: g.name })),
+      currentUserRole: currentUser.role,
+      currentUserId: currentUser.id,
+    });
+    
+    // Ensure default groups have current user in members if they should have access
+    merged.forEach((g) => {
+      if (g.id === "g-mentors" || g.id === "g-mentees") {
+        const shouldHaveAccess = 
+          (g.id === "g-mentors" && (currentUser.role === Role.MENTOR || currentUser.role === Role.ADMIN || currentUser.role === Role.PLATFORM_ADMIN)) ||
+          (g.id === "g-mentees" && (currentUser.role === Role.MENTEE || currentUser.role === Role.ADMIN || currentUser.role === Role.PLATFORM_ADMIN));
+        
+        if (shouldHaveAccess && (!g.members || !g.members.includes(currentUser.id))) {
+          // Ensure user is in members array
+          g.members = [...(g.members || []), currentUser.id];
+          logger.debug("Added current user to default group members", { groupId: g.id });
+        }
+      }
+    });
+    
     fallback.forEach((fb) => {
       if (!merged.some((g) => g.id === fb.id)) {
         merged.push(fb);
       }
     });
+    
+    logger.debug("After merge", {
+      mergedGroups: merged.map(g => ({ id: g.id, name: g.name, members: g.members?.length || 0 })),
+    });
+    
     return merged;
   })();
 
@@ -466,29 +547,56 @@ const Chat: React.FC<ChatProps> = ({
     // Platform admins can see groups from all organizations
     // Other users can only see groups from their organization
     if (!isPlatformAdmin && g.organizationId !== organizationId) {
+      logger.debug("Filtered out group - wrong organization", {
+        groupId: g.id,
+        groupOrgId: g.organizationId,
+        userOrgId: organizationId,
+      });
       return false;
     }
 
-    // Check if user is a member of the group
+    // Special handling for default groups (g-mentors, g-mentees)
+    // These groups should be visible based on role, even if membership hasn't synced yet
+    if (g.id === "g-mentors" || g.id === "g-mentees") {
+      // Check if user is a member (or should be based on role)
+      const isMember = g.members && g.members.includes(currentUser.id);
+      // Handle both "ADMIN" and "ORGANIZATION_ADMIN" role values for backward compatibility
+      const isAdminRole = currentUser.role === Role.ADMIN || currentUser.role === "ADMIN";
+      const shouldHaveAccess = 
+        (g.id === "g-mentors" && (currentUser.role === Role.MENTOR || isAdminRole || isPlatformAdmin)) ||
+        (g.id === "g-mentees" && (currentUser.role === Role.MENTEE || isAdminRole || isPlatformAdmin));
+      
+      // Show group if user is a member OR should have access (handles race conditions)
+      if (shouldHaveAccess) {
+        logger.debug("Including default group", {
+          groupId: g.id,
+          groupName: g.name,
+          isMember,
+          shouldHaveAccess,
+          currentUserRole: currentUser.role,
+          membersCount: g.members?.length || 0,
+        });
+        return true;
+      }
+      logger.debug("Filtered out default group - no access", {
+        groupId: g.id,
+        currentUserRole: currentUser.role,
+      });
+      return false;
+    }
+
+    // For other groups, check membership normally
     const isMember = g.members && g.members.includes(currentUser.id);
-
-    // Org admins and platform operators can see both Mentees Hub and Mentors Circle
-    if (currentUser.role === Role.ADMIN || isPlatformAdmin) {
-      // They should see both groups if they're members (they're automatically added)
-      return (g.id === "g-mentors" || g.id === "g-mentees") && isMember;
+    if (!isMember) {
+      logger.debug("Filtered out group - not a member", { groupId: g.id });
     }
-
-    // All mentors should see Mentors Circle (they're automatically members)
-    if (currentUser.role === Role.MENTOR) {
-      return g.id === "g-mentors" && isMember;
-    }
-
-    // All mentees should see Mentees Hub (they're automatically members)
-    if (currentUser.role === Role.MENTEE) {
-      return g.id === "g-mentees" && isMember;
-    }
-
-    return false;
+    return isMember;
+  });
+  
+  logger.debug("Available groups after filtering", {
+    count: availableGroups.length,
+    groupIds: availableGroups.map(g => g.id),
+    groupNames: availableGroups.map(g => g.name),
   });
 
   // Filter DMs based on role and organization:
@@ -541,13 +649,23 @@ const Chat: React.FC<ChatProps> = ({
       if (foundChat) {
         // Group chat is now available, select it if not already selected
         if (activeChatId !== initialChatId) {
+          logger.debug("Auto-selecting chat", { chatId: initialChatId });
           setActiveChatId(initialChatId);
         }
+      } else {
+        // Chat not found - log for debugging
+        logger.debug("Chat not found in allChats", {
+          initialChatId,
+          allChatIds: allChats.map(c => c.id),
+          chatGroupsCount: chatGroups.length,
+        });
       }
     }
   }, [initialChatId, allChats, activeChatId]);
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const previousMessagesHashRef = useRef<string>("");
+  const previousSentimentHashRef = useRef<string>("");
   const [showMenu, setShowMenu] = useState(false);
   const [activeModal, setActiveModal] = useState<
     | null
@@ -598,32 +716,48 @@ const Chat: React.FC<ChatProps> = ({
 
   // Update unread counts when messages arrive
   useEffect(() => {
-    Object.keys(messages).forEach((chatId) => {
-      if (chatId === activeChatId) {
-        // Reset unread count for active chat
-        setUnreadCounts((prev) => {
-          const updated = { ...prev };
+    // Create a hash based on message counts and IDs to detect actual changes
+    const currentHash = Object.keys(messages).map(chatId => {
+      const msgs = messages[chatId] || [];
+      return `${chatId}:${msgs.length}:${msgs.map(m => m.id).join(',')}`;
+    }).join('|');
+
+    // Only update if messages actually changed
+    if (currentHash === previousMessagesHashRef.current) {
+      return;
+    }
+    previousMessagesHashRef.current = currentHash;
+
+    // Calculate all unread counts first, then update state once
+    setUnreadCounts((prev) => {
+      const updated = { ...prev };
+      let hasChanges = false;
+
+      Object.keys(messages).forEach((chatId) => {
+        if (chatId === activeChatId) {
+          // Reset unread count for active chat
           if (updated[chatId] > 0) {
             updated[chatId] = 0;
+            hasChanges = true;
           }
-          return updated;
-        });
-      } else {
-        // Count unread messages for inactive chats
-        const chatMessages = messages[chatId] || [];
-        const unreadCount = chatMessages.filter(
-          (msg) =>
-            msg.senderId !== currentUser.id &&
-            (!msg.isRead || !msg.readBy?.includes(currentUser.id))
-        ).length;
+        } else {
+          // Count unread messages for inactive chats
+          const chatMessages = messages[chatId] || [];
+          const unreadCount = chatMessages.filter(
+            (msg) =>
+              msg.senderId !== currentUser.id &&
+              (!msg.isRead || !msg.readBy?.includes(currentUser.id))
+          ).length;
 
-        if (unreadCount > 0) {
-          setUnreadCounts((prev) => ({
-            ...prev,
-            [chatId]: unreadCount,
-          }));
+          if (updated[chatId] !== unreadCount) {
+            updated[chatId] = unreadCount;
+            hasChanges = true;
+          }
         }
-      }
+      });
+
+      // Only return new object if there are changes to prevent unnecessary re-renders
+      return hasChanges ? updated : prev;
     });
   }, [messages, activeChatId, currentUser.id]);
 
@@ -642,10 +776,13 @@ const Chat: React.FC<ChatProps> = ({
         activeGroup.members && activeGroup.members.includes(currentUser.id);
       if (!isMember) {
         // User is not a member of this group - don't subscribe to messages
-        setMessages((prev) => ({
-          ...prev,
-          [activeChatId]: [],
-        }));
+        setMessages((prev) => {
+          if (prev[activeChatId]?.length === 0) return prev; // Already empty
+          return {
+            ...prev,
+            [activeChatId]: [],
+          };
+        });
         return;
       }
     } else {
@@ -659,10 +796,13 @@ const Chat: React.FC<ChatProps> = ({
         chatPartner &&
         chatPartner.organizationId !== currentUser.organizationId
       ) {
-        setMessages((prev) => ({
-          ...prev,
-          [activeChatId]: [],
-        }));
+        setMessages((prev) => {
+          if (prev[activeChatId]?.length === 0) return prev; // Already empty
+          return {
+            ...prev,
+            [activeChatId]: [],
+          };
+        });
         return;
       }
 
@@ -677,10 +817,13 @@ const Chat: React.FC<ChatProps> = ({
         chatPartner.role !== Role.PLATFORM_ADMIN
       ) {
         // Regular user trying to chat with another regular user - not allowed
-        setMessages((prev) => ({
-          ...prev,
-          [activeChatId]: [],
-        }));
+        setMessages((prev) => {
+          if (prev[activeChatId]?.length === 0) return prev; // Already empty
+          return {
+            ...prev,
+            [activeChatId]: [],
+          };
+        });
         return;
       }
     }
@@ -750,10 +893,20 @@ const Chat: React.FC<ChatProps> = ({
           return isSender || isRecipient;
         });
 
-        setMessages((prev) => ({
-          ...prev,
-          [activeChatId]: filteredMessages,
-        }));
+        setMessages((prev) => {
+          // Only update if messages actually changed
+          const prevMessages = prev[activeChatId] || [];
+          if (
+            prevMessages.length === filteredMessages.length &&
+            prevMessages.every((msg, idx) => msg.id === filteredMessages[idx]?.id)
+          ) {
+            return prev; // No changes
+          }
+          return {
+            ...prev,
+            [activeChatId]: filteredMessages,
+          };
+        });
 
         // TODO: Implement real-time typing detection
         // When messages arrive, check if sender is currently typing
@@ -813,6 +966,19 @@ const Chat: React.FC<ChatProps> = ({
     if (sentimentManuallySet) return;
 
     const currentChatMessages = messages[activeChatId] || [];
+    
+    // Create a hash of the last 5 messages to detect actual changes
+    const msgs = currentChatMessages;
+    const currentHash = msgs.length > 0 
+      ? `${msgs.length}:${msgs.slice(-5).map(m => `${m.id}:${m.text}`).join('|')}`
+      : '';
+
+    // Only update if messages actually changed
+    if (currentHash === previousSentimentHashRef.current && currentHash !== '') {
+      return;
+    }
+    previousSentimentHashRef.current = currentHash;
+
     // Only auto-update if messages exist
     if (!currentChatMessages.length) {
       setSentiment("Neutral");
@@ -873,19 +1039,20 @@ const Chat: React.FC<ChatProps> = ({
     analyzeSentiment();
   }, [messages, activeChatId, sentimentManuallySet]);
 
-  // Reset manual sentiment flag when switching chats
+  // Reset manual sentiment flag and hash refs when switching chats
   useEffect(() => {
     setSentimentManuallySet(false);
+    previousSentimentHashRef.current = ""; // Reset hash so sentiment updates for new chat
   }, [activeChatId]);
 
   // Don't show "Loading" if we just haven't selected a chat yet
   // Only show loading if we're waiting for a specific chat to load
+  // But don't wait forever - if we have chats but the requested one isn't there, show the list
   const isWaitingForSpecificChat =
     activeChatId &&
     !activeChat &&
-    (activeChatId === "g-mentors" ||
-      activeChatId === "g-mentees" ||
-      allChats.length === 0); // Still loading chat list
+    (activeChatId === "g-mentors" || activeChatId === "g-mentees") &&
+    allChats.length === 0; // Only show loading if we're still loading the chat list
 
   if (isWaitingForSpecificChat) {
     // Show a better loading state
@@ -898,6 +1065,25 @@ const Chat: React.FC<ChatProps> = ({
       </div>
     );
   }
+
+  // If we have an activeChatId but no activeChat and we have chats loaded,
+  // it means the requested chat doesn't exist or user doesn't have access
+  // Clear the selection to show the chat list instead
+  useEffect(() => {
+    if (activeChatId && !activeChat && allChats.length > 0) {
+      const requestedChat = allChats.find(c => c.id === activeChatId);
+      if (!requestedChat) {
+        logger.warn("Requested chat not found or user doesn't have access", {
+          activeChatId,
+          availableChatIds: allChats.map(c => c.id),
+        });
+        // Don't clear if it's a DM (might be loading)
+        if (activeChatId === "g-mentors" || activeChatId === "g-mentees") {
+          setActiveChatId("");
+        }
+      }
+    }
+  }, [activeChatId, activeChat, allChats]);
 
   const currentChatMessages = messages[activeChatId] || [];
   // @ts-ignore
