@@ -97,6 +97,22 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
     
+    // ==================== MILESTONES ====================
+    
+    match /milestones/{milestoneId} {
+      // Authenticated users can create milestones
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read milestones
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update milestones
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete milestones
+      allow delete: if isAuthenticated();
+    }
+    
     // ==================== CALENDAR EVENTS ====================
     
     match /calendarEvents/{eventId} {

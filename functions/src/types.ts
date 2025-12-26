@@ -67,6 +67,22 @@ export interface Goal {
   dueDate: string;
 }
 
+export interface Milestone {
+  id: string;
+  goalId: string;
+  organizationId: string; // For organization isolation
+  title: string;
+  description?: string;
+  dueDate: string;
+  completed: boolean;
+  completedAt?: string;
+  createdBy: string; // userId who created it
+  createdAt: string;
+  // Track who can see/edit (for collaboration)
+  visibleToMentor: boolean;
+  visibleToMentee: boolean;
+}
+
 export interface Rating {
   id: string;
   organizationId: string; // Isolated per organization

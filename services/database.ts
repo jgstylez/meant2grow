@@ -44,7 +44,7 @@ const convertTimestamp = (value: any): string => {
 // Export Unsubscribe type for use in hooks
 export type { Unsubscribe };
 import { db } from './firebase';
-import { User, Match, Goal, Rating, Resource, CalendarEvent, Notification, Invitation, Organization, ProgramSettings, ChatMessage, ChatGroup, BlogPost, DiscussionGuide, CareerTemplate, TrainingVideo } from '../types';
+import { User, Match, Goal, Milestone, Rating, Resource, CalendarEvent, Notification, Invitation, Organization, ProgramSettings, ChatMessage, ChatGroup, BlogPost, DiscussionGuide, CareerTemplate, TrainingVideo } from '../types';
 
 // ==================== ORGANIZATION OPERATIONS ====================
 
@@ -473,6 +473,62 @@ export const getAllGoals = async (): Promise<Goal[]> => {
     console.error('Error in getAllGoals:', error);
     throw error;
   }
+};
+
+// ==================== MILESTONE OPERATIONS ====================
+
+export const createMilestone = async (milestoneData: Omit<Milestone, 'id'>): Promise<string> => {
+  const milestoneRef = doc(collection(db, 'milestones'));
+  await setDoc(milestoneRef, milestoneData);
+  return milestoneRef.id;
+};
+
+export const getMilestonesByGoal = async (goalId: string): Promise<Milestone[]> => {
+  const q = query(
+    collection(db, 'milestones'),
+    where('goalId', '==', goalId),
+    orderBy('dueDate', 'asc')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Milestone[];
+};
+
+export const updateMilestone = async (
+  milestoneId: string,
+  updates: Partial<Milestone>
+): Promise<void> => {
+  const milestoneRef = doc(db, 'milestones', milestoneId);
+  await updateDoc(milestoneRef, updates);
+};
+
+export const deleteMilestone = async (milestoneId: string): Promise<void> => {
+  const milestoneRef = doc(db, 'milestones', milestoneId);
+  await deleteDoc(milestoneRef);
+};
+
+export const subscribeToMilestones = (
+  goalId: string,
+  callback: (milestones: Milestone[]) => void
+): (() => void) => {
+  const q = query(
+    collection(db, 'milestones'),
+    where('goalId', '==', goalId),
+    orderBy('dueDate', 'asc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const milestones = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Milestone[];
+    callback(milestones);
+  }, (error) => {
+    console.error('Error subscribing to milestones:', error);
+    callback([]);
+  });
 };
 
 // ==================== RATING OPERATIONS ====================

@@ -754,6 +754,7 @@ const App: React.FC = () => {
               <Goals
                 user={currentUser}
                 goals={goals}
+                matches={matches}
                 onAddGoal={handleAddGoal}
                 onUpdateGoal={handleUpdateGoal}
               />
