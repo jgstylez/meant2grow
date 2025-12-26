@@ -233,7 +233,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
             // Try to find organization by code
             org = await getOrganizationByCode(formData.orgCode.toUpperCase());
             if (!org) {
-              throw new Error("Invalid organization code. Please check and try again.");
+              throw new Error(
+                "Invalid organization code. Please check and try again."
+              );
             }
             // Organization code found - proceed without invitation
             invitationToUse = null;
@@ -348,14 +350,10 @@ const Authentication: React.FC<AuthenticationProps> = ({
         }
 
         // Create new organization
-        // Use Firebase Cloud Functions URL
-        const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL
-          ? `${import.meta.env.VITE_FUNCTIONS_URL}/authGoogle`
-          : import.meta.env.DEV
-          ? "http://localhost:5001/meant2grow-dev/us-central1/authGoogle"
-          : "https://us-central1-meant2grow-dev.cloudfunctions.net/authGoogle";
+        // Use Vercel API route
+        const apiUrl = "/api/auth/google";
 
-        const response = await fetch(functionsUrl, {
+        const response = await fetch(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -420,7 +418,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
             // Try to find organization by code
             org = await getOrganizationByCode(formData.orgCode.toUpperCase());
             if (!org) {
-              setError("Invalid organization code. Please check and try again.");
+              setError(
+                "Invalid organization code. Please check and try again."
+              );
               setIsGoogleLoading(false);
               return;
             }
@@ -456,17 +456,13 @@ const Authentication: React.FC<AuthenticationProps> = ({
           }
         }
 
-        // Use Firebase Cloud Functions URL
-        const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL
-          ? `${import.meta.env.VITE_FUNCTIONS_URL}/authGoogle`
-          : import.meta.env.DEV
-          ? "http://localhost:5001/meant2grow-dev/us-central1/authGoogle"
-          : "https://us-central1-meant2grow-dev.cloudfunctions.net/authGoogle";
+        // Use Vercel API route
+        const apiUrl = "/api/auth/google";
 
         // Send invitationToken (preferred) or organizationCode
         // Backend supports both - use invitationToken if available, otherwise organizationCode
         // Always use the token from invitationToUse to ensure it matches the invitation being used
-        const response = await fetch(functionsUrl, {
+        const response = await fetch(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -588,13 +584,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
       } else if (pendingSignup?.type === "google" && pendingSignup.data) {
         setIsGoogleLoading(true);
         // Proceed with Google signup
-        const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL
-          ? `${import.meta.env.VITE_FUNCTIONS_URL}/authGoogle`
-          : import.meta.env.DEV
-          ? "http://localhost:5001/meant2grow-dev/us-central1/authGoogle"
-          : "https://us-central1-meant2grow-dev.cloudfunctions.net/authGoogle";
+        const apiUrl = "/api/auth/google";
 
-        const response = await fetch(functionsUrl, {
+        const response = await fetch(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1119,7 +1111,8 @@ const Authentication: React.FC<AuthenticationProps> = ({
                     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                       <p className="text-sm text-blue-700 dark:text-blue-300">
                         <AlertCircle className="w-4 h-4 inline mr-1" />
-                        Enter your organization code to join, or use an invitation link if you have one.
+                        Enter your organization code to join, or use an
+                        invitation link if you have one.
                       </p>
                     </div>
                   )}
@@ -1134,7 +1127,10 @@ const Authentication: React.FC<AuthenticationProps> = ({
                         placeholder="Enter your organization code (e.g., ABC123)"
                         value={formData.orgCode}
                         onChange={(e) =>
-                          setFormData({ ...formData, orgCode: e.target.value.toUpperCase() })
+                          setFormData({
+                            ...formData,
+                            orgCode: e.target.value.toUpperCase(),
+                          })
                         }
                         required={!invitation}
                       />
@@ -1209,7 +1205,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
                     disabled={
                       isLoading ||
                       (mode === "participant-signup" && !participantRole) ||
-                      (mode === "participant-signup" && !invitation && !formData.orgCode)
+                      (mode === "participant-signup" &&
+                        !invitation &&
+                        !formData.orgCode)
                     }
                     className={
                       isSignupWithInvitation
