@@ -15,7 +15,22 @@ if (!getApps().length) {
     initializeApp({
       credential: cert(serviceAccount as any),
     });
+  } else {
+    // Fail fast with clear error message if credentials are missing
+    const missingVars: string[] = [];
+    if (!serviceAccount.projectId) missingVars.push('FIREBASE_PROJECT_ID');
+    if (!serviceAccount.clientEmail) missingVars.push('FIREBASE_CLIENT_EMAIL');
+    if (!serviceAccount.privateKey) missingVars.push('FIREBASE_PRIVATE_KEY');
+    
+    throw new Error(
+      `Firebase Admin SDK initialization failed: Missing required environment variables: ${missingVars.join(', ')}`
+    );
   }
+}
+
+// Verify Firebase is initialized before getting Firestore
+if (!getApps().length) {
+  throw new Error('Firebase Admin SDK was not initialized. Cannot access Firestore.');
 }
 
 const db = getFirestore();
