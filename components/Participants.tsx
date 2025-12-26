@@ -27,6 +27,8 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [openMenuUserId, setOpenMenuUserId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
 
   const formatRole = (role: Role) => {
     switch (role) {
@@ -37,7 +39,18 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
       default: return role;
     }
   };
-  const isAdmin = currentUser?.role === Role.ADMIN;
+  
+  // Check if user is admin (organization admin or platform admin)
+  const userRoleString = currentUser ? String(currentUser.role) : '';
+  const isPlatformAdmin = currentUser?.role === Role.PLATFORM_ADMIN || 
+                         userRoleString === "PLATFORM_ADMIN" || 
+                         userRoleString === "PLATFORM_OPERATOR";
+  const isOrgAdmin = !isPlatformAdmin && (
+    currentUser?.role === Role.ADMIN || 
+    userRoleString === "ORGANIZATION_ADMIN" || 
+    userRoleString === "ADMIN"
+  );
+  const isAdmin = isOrgAdmin || isPlatformAdmin;
 
   // Get active matches for a user
   const getUserMatches = (userId: string): Match[] => {
@@ -95,8 +108,8 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
       return;
     }
 
-    // Verify user belongs to same organization (for organization admins)
-    if (user && organizationId && user.organizationId !== organizationId) {
+    // Verify user belongs to same organization (for organization admins only, platform admins can update any)
+    if (!isPlatformAdmin && user && organizationId && user.organizationId !== organizationId) {
       alert('You can only update email addresses for users in your organization');
       return;
     }
@@ -420,56 +433,121 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
                     )}
                   </td>
                   <td className="px-6 py-4 text-right">
+                    <div className="relative" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => {
+                          if (openMenuUserId === user.id) {
+                            setOpenMenuUserId(null);
+                            setMenuPosition(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setMenuPosition({
+                              top: rect.bottom + window.scrollY + 4,
+                              right: window.innerWidth - rect.right,
+                            });
+                            setOpenMenuUserId(user.id);
+                          }
+                        }}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                        title="Actions"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                      {openMenuUserId === user.id && menuPosition && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => {
+                              setOpenMenuUserId(null);
+                              setMenuPosition(null);
+                            }}
+                          />
+                          <div 
+                            className="fixed w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-50 py-1"
+                            style={{
+                              top: `${menuPosition.top}px`,
+                              right: `${menuPosition.right}px`,
+                            }}
+                          >
                     {isAdmin ? (
-                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => {
-                            setSelectedUser(user);
-                          }}
-                          className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 p-1"
-                          title="View details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEmailingUser(user.id);
-                            setEmailSubject('');
-                            setEmailBody('');
-                          }}
-                          className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 p-1"
-                          title="Email participant"
-                        >
-                          <Mail className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingUser(user.id);
-                            setEditEmail(user.email);
-                          }}
-                          className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 p-1"
-                          title="Update email address"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setRoleChangingUser(user)}
-                          className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1"
-                          title="Change role"
-                        >
-                          <Shield className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 p-1"
-                          title="Remove participant"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><MoreVertical className="w-4 h-4" /></button>
-                    )}
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setSelectedUser(user);
+                                    setOpenMenuUserId(null);
+                                    setMenuPosition(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  View Details
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEmailingUser(user.id);
+                                    setEmailSubject('');
+                                    setEmailBody('');
+                                    setOpenMenuUserId(null);
+                                    setMenuPosition(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                >
+                                  <Mail className="w-4 h-4" />
+                                  Email Participant
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingUser(user.id);
+                                    setEditEmail(user.email);
+                                    setOpenMenuUserId(null);
+                                    setMenuPosition(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                  Update Email
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setRoleChangingUser(user);
+                                    setOpenMenuUserId(null);
+                                    setMenuPosition(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                >
+                                  <Shield className="w-4 h-4" />
+                                  Change Role
+                                </button>
+                                <div className="border-t border-slate-200 dark:border-slate-700 my-1" />
+                                <button
+                                  onClick={() => {
+                                    handleDeleteUser(user.id);
+                                    setOpenMenuUserId(null);
+                                    setMenuPosition(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Remove Participant
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(user);
+                                  setOpenMenuUserId(null);
+                                  setMenuPosition(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                              >
+                                <Eye className="w-4 h-4" />
+                                View Details
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )})}
