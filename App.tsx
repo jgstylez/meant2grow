@@ -110,22 +110,48 @@ type PublicRoute =
   | "help"
   | "contact";
 
+// Helper to compute initial auth state synchronously to prevent flash
+const getInitialAuthState = () => {
+  const storedUserId = localStorage.getItem("userId");
+  const storedOrgId = localStorage.getItem("organizationId");
+  const lastPage = localStorage.getItem("lastPage");
+  const isAuthenticated = !!(storedUserId && storedOrgId);
+
+  // Don't restore onboarding pages - let the onboarding logic handle those
+  const isOnboardingPage =
+    lastPage === "mentor-onboarding" ||
+    lastPage === "mentee-onboarding" ||
+    lastPage === "setup";
+
+  return {
+    userId: storedUserId,
+    organizationId: storedOrgId,
+    publicRoute: isAuthenticated
+      ? ("hidden" as const)
+      : ("landing" as PublicRoute),
+    // Only restore lastPage if authenticated and it's not an onboarding page
+    currentPage:
+      isAuthenticated && lastPage && !isOnboardingPage ? lastPage : "dashboard",
+  };
+};
+
 const App: React.FC = () => {
-  // Navigation State
+  // Compute initial state synchronously from localStorage to prevent flash
+  const initialAuthState = React.useMemo(() => getInitialAuthState(), []);
+
+  // Navigation State - initialized based on auth status to prevent landing page flash
   const [publicRoute, setPublicRoute] = useState<PublicRoute | "hidden">(
-    "landing"
+    initialAuthState.publicRoute
   );
   const [authInitialMode, setAuthInitialMode] = useState<
     "login" | "org-signup" | "participant-signup" | "choose"
   >("choose");
-  const [currentPage, setCurrentPage] = useState("dashboard");
+  const [currentPage, setCurrentPage] = useState(initialAuthState.currentPage);
 
   // Get userId and organizationId from localStorage (set during authentication)
-  const [userId, setUserId] = useState<string | null>(
-    localStorage.getItem("userId")
-  );
+  const [userId, setUserId] = useState<string | null>(initialAuthState.userId);
   const [organizationId, setOrganizationId] = useState<string | null>(
-    localStorage.getItem("organizationId")
+    initialAuthState.organizationId
   );
 
   // Load all organization data from Firestore
@@ -189,26 +215,18 @@ const App: React.FC = () => {
     }
   }, [loadedNotifications]);
 
-  // Restore authentication state on page refresh
-  useEffect(() => {
-    const storedUserId = localStorage.getItem("userId");
-    const storedOrgId = localStorage.getItem("organizationId");
-    
-    // If user is already authenticated (has userId and organizationId), 
-    // set publicRoute to "hidden" to show the dashboard instead of landing page
-    if (storedUserId && storedOrgId) {
-      setPublicRoute("hidden");
-      // Optionally restore the last page from localStorage if you want to preserve navigation state
-      const lastPage = localStorage.getItem("lastPage");
-      if (lastPage && lastPage !== "dashboard") {
-        setCurrentPage(lastPage);
-      }
-    }
-  }, []); // Run only once on mount
+  // Note: Authentication state is now restored synchronously during initialization
+  // via getInitialAuthState() to prevent flash of landing page on refresh
 
   // Save current page to localStorage when it changes (for page refresh persistence)
+  // Don't save onboarding pages - let the onboarding logic handle those
   useEffect(() => {
-    if (publicRoute === "hidden" && currentPage) {
+    const isOnboardingPage =
+      currentPage === "mentor-onboarding" ||
+      currentPage === "mentee-onboarding" ||
+      currentPage === "setup";
+
+    if (publicRoute === "hidden" && currentPage && !isOnboardingPage) {
       localStorage.setItem("lastPage", currentPage);
     }
   }, [currentPage, publicRoute]);
@@ -237,20 +255,25 @@ const App: React.FC = () => {
       !onboardingComplete[loadedUser.id];
 
     // Don't redirect if user is already on an onboarding page - let them complete it
-    const isOnOnboardingPage = 
-      currentPage === "mentor-onboarding" || 
-      currentPage === "mentee-onboarding" || 
+    const isOnOnboardingPage =
+      currentPage === "mentor-onboarding" ||
+      currentPage === "mentee-onboarding" ||
       currentPage === "setup";
 
     // If user has completed onboarding but is still on onboarding page, redirect to dashboard
-    if (isOnOnboardingPage && !needsOrgSetup && !needsMentorOnboarding && !needsMenteeOnboarding) {
+    if (
+      isOnOnboardingPage &&
+      !needsOrgSetup &&
+      !needsMentorOnboarding &&
+      !needsMenteeOnboarding
+    ) {
       setCurrentPage("dashboard");
       return;
     }
 
     // If user needs onboarding but is not on the onboarding page, redirect them
-    // Only redirect if we're on dashboard or a generic page (not other pages)
-    if (currentPage === "dashboard" || !currentPage || currentPage === "") {
+    // Redirect regardless of current page to prevent bypassing onboarding via page refresh
+    if (!isOnOnboardingPage) {
       if (needsOrgSetup) {
         setCurrentPage("setup");
       } else if (needsMentorOnboarding) {
@@ -584,7 +607,7 @@ const App: React.FC = () => {
     try {
       if (!organizationId || !currentUser || !organization)
         throw new Error("Organization ID, user, and organization are required");
-      
+
       // Create invitation (this will auto-generate token and link)
       const invitationId = await createInvitation({
         organizationId,
@@ -599,21 +622,26 @@ const App: React.FC = () => {
       // Get the created invitation to retrieve the link
       const { getInvitation } = await import("./services/database");
       const createdInvitation = await getInvitation(invitationId);
-      
+
       if (!createdInvitation) {
         throw new Error("Failed to retrieve created invitation");
       }
-      
+
       if (createdInvitation && createdInvitation.invitationLink) {
         // Note: Email sending should be done via Cloud Function
         // For now, the invitation link is created and can be shared manually
         // TODO: Create Cloud Function endpoint to send invitation emails
-        console.log("Invitation created with link:", createdInvitation.invitationLink);
-        
+        console.log(
+          "Invitation created with link:",
+          createdInvitation.invitationLink
+        );
+
         // Optionally copy link to clipboard for easy sharing
         if (navigator.clipboard) {
           try {
-            await navigator.clipboard.writeText(createdInvitation.invitationLink);
+            await navigator.clipboard.writeText(
+              createdInvitation.invitationLink
+            );
             addToast(`Invitation link copied to clipboard!`, "success");
           } catch (clipboardError) {
             console.error("Failed to copy to clipboard:", clipboardError);
