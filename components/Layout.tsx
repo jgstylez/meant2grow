@@ -64,10 +64,12 @@ const Layout: React.FC<LayoutProps> = ({
     if (!logo || typeof logo !== 'string') return false;
     const trimmed = logo.trim();
     if (trimmed.length === 0) return false;
+    // Normalize to lowercase for case-insensitive scheme comparison (RFC 3986)
+    const lowercased = trimmed.toLowerCase();
     // Reject blob URLs - they're temporary and won't persist across page reloads
-    if (trimmed.startsWith('blob:')) return false;
+    if (lowercased.startsWith('blob:')) return false;
     // Accept http/https URLs or data URLs (base64 encoded images)
-    return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:');
+    return lowercased.startsWith('http://') || lowercased.startsWith('https://') || lowercased.startsWith('data:');
   };
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
