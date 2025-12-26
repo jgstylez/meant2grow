@@ -189,6 +189,30 @@ const App: React.FC = () => {
     }
   }, [loadedNotifications]);
 
+  // Restore authentication state on page refresh
+  useEffect(() => {
+    const storedUserId = localStorage.getItem("userId");
+    const storedOrgId = localStorage.getItem("organizationId");
+    
+    // If user is already authenticated (has userId and organizationId), 
+    // set publicRoute to "hidden" to show the dashboard instead of landing page
+    if (storedUserId && storedOrgId) {
+      setPublicRoute("hidden");
+      // Optionally restore the last page from localStorage if you want to preserve navigation state
+      const lastPage = localStorage.getItem("lastPage");
+      if (lastPage && lastPage !== "dashboard") {
+        setCurrentPage(lastPage);
+      }
+    }
+  }, []); // Run only once on mount
+
+  // Save current page to localStorage when it changes (for page refresh persistence)
+  useEffect(() => {
+    if (publicRoute === "hidden" && currentPage) {
+      localStorage.setItem("lastPage", currentPage);
+    }
+  }, [currentPage, publicRoute]);
+
   // Hooks for state management and actions
   const { toasts, addToast, removeToast } = useToasts();
   const {
@@ -351,6 +375,7 @@ const App: React.FC = () => {
     localStorage.removeItem("organizationId");
     localStorage.removeItem("authToken");
     localStorage.removeItem("google_id_token");
+    localStorage.removeItem("lastPage"); // Clear saved page on logout
     setUserId(null);
     setOrganizationId(null);
     setCurrentUser(null);

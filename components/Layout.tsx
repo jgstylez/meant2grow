@@ -235,10 +235,15 @@ const Layout: React.FC<LayoutProps> = ({
               src={programSettings!.logo!}
               alt="Logo"
               className="w-8 h-8 object-contain flex-shrink-0"
-              onError={() => setLogoError(true)}
-              onLoad={() => setLogoError(false)}
+              onError={() => {
+                setLogoError(true);
+              }}
+              onLoad={() => {
+                setLogoError(false);
+              }}
             />
-          ) : (
+          ) : null}
+          {(!hasValidLogo() || logoError) && (
             <Logo className="w-8 h-8 flex-shrink-0" />
           )}
           <span className="font-bold text-sm uppercase text-slate-800 dark:text-white break-words leading-tight" title={programName}>
@@ -354,10 +359,15 @@ const Layout: React.FC<LayoutProps> = ({
                   src={programSettings!.logo!}
                   alt="Logo"
                   className="w-7 h-7 object-contain flex-shrink-0"
-                  onError={() => setLogoError(true)}
-                  onLoad={() => setLogoError(false)}
+                  onError={() => {
+                    setLogoError(true);
+                  }}
+                  onLoad={() => {
+                    setLogoError(false);
+                  }}
                 />
-              ) : (
+              ) : null}
+              {(!hasValidLogo() || logoError) && (
                 <Logo className="w-7 h-7 flex-shrink-0" />
               )}
               <span
