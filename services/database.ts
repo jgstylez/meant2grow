@@ -928,12 +928,14 @@ export const getAllCalendarEvents = async (startDate?: string, endDate?: string)
     }
 
     let snapshot;
+    let hasOrderBy = true; // Track whether we're using orderBy
     try {
       snapshot = await getDocs(q);
     } catch (error: any) {
       // If index missing, try without orderBy
       if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
         console.warn('Index missing for calendarEvents date, fetching without orderBy');
+        hasOrderBy = false; // Mark that we're not using orderBy
         q = query(collection(db, 'calendarEvents'));
         if (startDate) {
           q = query(q, where('date', '>=', startDate));
@@ -950,8 +952,8 @@ export const getAllCalendarEvents = async (startDate?: string, endDate?: string)
       createdAt: convertTimestamp(doc.data().createdAt),
     })) as CalendarEvent[];
 
-    // Sort in memory if we had to skip orderBy
-    if (snapshot.docs.length > 0 && !snapshot.query.orderBy) {
+    // Sort in memory only if we had to skip orderBy
+    if (snapshot.docs.length > 0 && !hasOrderBy) {
       events = events.sort((a, b) => {
         const aDate = new Date(a.date).getTime();
         const bDate = new Date(b.date).getTime();
