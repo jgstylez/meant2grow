@@ -520,6 +520,96 @@ export const createMeetLink = functions.onRequest(
   }
 );
 
+// Admin email endpoint - allows admins to send emails to mentors/mentees
+export const sendAdminEmail = functions.onRequest(
+  {
+    cors: true,
+    region: "us-central1",
+  },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method not allowed" });
+      return;
+    }
+
+    try {
+      const { recipients, subject, body, fromAdmin, adminUserId, organizationId } = req.body;
+
+      // Validate required fields
+      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        res.status(400).json({ error: "Recipients array is required" });
+        return;
+      }
+
+      if (!subject || !body) {
+        res.status(400).json({ error: "Subject and body are required" });
+        return;
+      }
+
+      // Verify admin permissions if adminUserId and organizationId are provided
+      if (adminUserId && organizationId) {
+        const adminDoc = await db.collection("users").doc(adminUserId).get();
+        if (!adminDoc.exists) {
+          res.status(403).json({ error: "Admin user not found" });
+          return;
+        }
+
+        const adminData = adminDoc.data();
+        const adminRole = adminData?.role;
+        const adminOrgId = adminData?.organizationId;
+
+        // Check if user is an admin and belongs to the organization
+        const isAdmin = adminRole === Role.ADMIN || adminRole === "ORGANIZATION_ADMIN" || adminRole === "ADMIN";
+        const isPlatformAdmin = adminRole === Role.PLATFORM_ADMIN || adminRole === "PLATFORM_ADMIN";
+
+        if (!isAdmin && !isPlatformAdmin) {
+          res.status(403).json({ error: "Only admins can send emails" });
+          return;
+        }
+
+        // For organization admins, verify they belong to the same organization
+        if (!isPlatformAdmin && adminOrgId !== organizationId) {
+          res.status(403).json({ error: "Unauthorized: Admin does not belong to this organization" });
+          return;
+        }
+
+        // Verify all recipients belong to the same organization (for organization admins)
+        if (!isPlatformAdmin) {
+          const recipientIds = recipients
+            .map((r: any) => r.userId)
+            .filter((id: string) => id);
+          
+          if (recipientIds.length > 0) {
+            const recipientDocs = await Promise.all(
+              recipientIds.map((id: string) => db.collection("users").doc(id).get())
+            );
+            
+            const invalidRecipients = recipientDocs.filter(
+              (doc, idx) => !doc.exists || doc.data()?.organizationId !== organizationId
+            );
+            
+            if (invalidRecipients.length > 0) {
+              res.status(403).json({ error: "All recipients must belong to your organization" });
+              return;
+            }
+          }
+        }
+      }
+
+      // Send email to all recipients
+      await emailService.sendCustomEmail(recipients, subject, body, fromAdmin);
+
+      res.json({ success: true, message: `Email sent to ${recipients.length} recipient(s)` });
+    } catch (error: any) {
+      console.error("Error sending admin email:", error);
+      res.status(500).json({
+        error: "Failed to send email",
+        message: error.message,
+      });
+    }
+  }
+);
+
 // Trigger when a new user is created
 export const onUserCreated = functionsV1.firestore
   .document("users/{userId}")

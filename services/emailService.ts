@@ -480,6 +480,39 @@ export const emailService = {
       category: "Billing",
     });
   },
+
+  // Send custom email from admin to user(s) - calls Cloud Function
+  sendCustomEmail: async (
+    recipients: { email: string; name?: string; userId?: string }[],
+    subject: string,
+    body: string,
+    fromAdmin?: { name: string; email: string },
+    adminUserId?: string,
+    organizationId?: string
+  ) => {
+    const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://us-central1-meant2grow-dev.cloudfunctions.net';
+    const response = await fetch(`${functionsUrl}/sendAdminEmail`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipients,
+        subject,
+        body,
+        fromAdmin,
+        adminUserId,
+        organizationId,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to send email' }));
+      throw new Error(error.error || 'Failed to send email');
+    }
+
+    return response.json();
+  },
 };
 
 // Standalone function for sending invitation emails (can be called from client)

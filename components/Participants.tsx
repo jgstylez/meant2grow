@@ -4,6 +4,7 @@ import { User, Role, Match, MatchStatus } from '../types';
 import { BUTTON_PRIMARY, INPUT_CLASS, CARD_CLASS } from '../styles/common';
 import { Plus, MoreVertical, Mail, Edit2, X, Trash2, Shield, User as UserIcon, Filter, Repeat, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { updateUser, deleteUser } from '../services/database';
+import { emailService } from '../services/emailService';
 
 interface ParticipantsProps {
   users: User[];
@@ -16,12 +17,16 @@ interface ParticipantsProps {
 const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate, currentUser, organizationId }) => {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editEmail, setEditEmail] = useState('');
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [emailingUser, setEmailingUser] = useState<string | null>(null);
+  const [emailingUsers, setEmailingUsers] = useState<string[]>([]); // For bulk email
+  const [isBulkEmail, setIsBulkEmail] = useState(false);
   const [roleChangingUser, setRoleChangingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL');
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
   const formatRole = (role: Role) => {
     switch (role) {
@@ -57,33 +62,152 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
     return u.role === roleFilter;
   });
 
+  // Validate email format
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleUpdateEmail = async (userId: string) => {
-    if (!editEmail || !editEmail.includes('@')) {
-      alert('Please enter a valid email address');
+    // Trim whitespace and convert to lowercase
+    const trimmedEmail = editEmail.trim().toLowerCase();
+    
+    if (!trimmedEmail) {
+      alert('Please enter an email address');
       return;
     }
+
+    if (!isValidEmail(trimmedEmail)) {
+      alert('Please enter a valid email address (e.g., user@example.com)');
+      return;
+    }
+
+    // Check if email is the same as current
+    const user = users.find(u => u.id === userId);
+    if (user && user.email.toLowerCase() === trimmedEmail) {
+      alert('This is already the current email address');
+      return;
+    }
+
+    // Verify admin permissions
+    if (!isAdmin) {
+      alert('Only admins can update email addresses');
+      return;
+    }
+
+    // Verify user belongs to same organization (for organization admins)
+    if (user && organizationId && user.organizationId !== organizationId) {
+      alert('You can only update email addresses for users in your organization');
+      return;
+    }
+
+    setIsUpdatingEmail(true);
     try {
-      await updateUser(userId, { email: editEmail });
+      await updateUser(userId, { email: trimmedEmail });
+      alert(`Email address updated successfully to ${trimmedEmail}`);
       setEditingUser(null);
       setEditEmail('');
-    } catch (error) {
+      
+      // The useOrganizationData hook uses real-time Firestore listeners,
+      // so the users array should update automatically when the document changes
+    } catch (error: any) {
       console.error('Error updating email:', error);
-      alert('Failed to update email address');
+      const errorMessage = error?.message || 'Failed to update email address';
+      alert(`Failed to update email address: ${errorMessage}`);
+    } finally {
+      setIsUpdatingEmail(false);
     }
   };
 
-  const handleSendEmail = async (user: User) => {
+  const handleSendEmail = async (user?: User) => {
     if (!emailSubject || !emailBody) {
       alert('Please fill in both subject and body');
       return;
     }
-    // In a real implementation, this would call an email service
-    // For now, we'll use mailto link
-    const mailtoLink = `mailto:${user.email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-    window.location.href = mailtoLink;
+
+    if (!currentUser || !organizationId) {
+      alert('Unable to send email: Missing user or organization information');
+      return;
+    }
+
+    try {
+      // Show loading state
+      const sendButton = document.querySelector('[data-email-send-button]') as HTMLButtonElement;
+      if (sendButton) {
+        sendButton.disabled = true;
+        sendButton.textContent = 'Sending...';
+      }
+
+      let recipients: { email: string; name?: string; userId?: string }[];
+
+      if (isBulkEmail && emailingUsers.length > 0) {
+        // Bulk email to multiple users
+        recipients = emailingUsers
+          .map(userId => {
+            const u = users.find(usr => usr.id === userId);
+            return u ? { email: u.email, name: u.name, userId: u.id } : null;
+          })
+          .filter((r): r is { email: string; name?: string; userId?: string } => r !== null);
+      } else if (user) {
+        // Single user email
+        recipients = [{ email: user.email, name: user.name, userId: user.id }];
+      } else {
+        alert('No recipients selected');
+        return;
+      }
+
+      if (recipients.length === 0) {
+        alert('No valid recipients found');
+        return;
+      }
+
+      await emailService.sendCustomEmail(
+        recipients,
+        emailSubject,
+        emailBody,
+        { name: currentUser.name, email: currentUser.email },
+        currentUser.id,
+        organizationId || undefined
+      );
+
+      alert(`Email sent successfully to ${recipients.length} recipient(s)!`);
     setEmailingUser(null);
+      setEmailingUsers([]);
+      setIsBulkEmail(false);
+      setSelectedUserIds(new Set());
+      setEmailSubject('');
+      setEmailBody('');
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      alert(`Failed to send email: ${error.message || 'Unknown error'}`);
+    } finally {
+      const sendButton = document.querySelector('[data-email-send-button]') as HTMLButtonElement;
+      if (sendButton) {
+        sendButton.disabled = false;
+        sendButton.innerHTML = '<Mail className="w-4 h-4 mr-2 inline" /> Send Email';
+      }
+    }
+  };
+
+  const handleBulkEmailClick = () => {
+    if (selectedUserIds.size === 0) {
+      alert('Please select at least one participant to email');
+      return;
+    }
+    setEmailingUsers(Array.from(selectedUserIds));
+    setIsBulkEmail(true);
     setEmailSubject('');
     setEmailBody('');
+  };
+
+  const toggleUserSelection = (userId: string) => {
+    const newSelection = new Set(selectedUserIds);
+    if (newSelection.has(userId)) {
+      newSelection.delete(userId);
+    } else {
+      newSelection.add(userId);
+    }
+    setSelectedUserIds(newSelection);
   };
 
   const handleRoleChange = async (userId: string, newRole: Role) => {
@@ -112,9 +236,16 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Member Management</h1>
+        <div className="flex gap-2">
+          {isAdmin && selectedUserIds.size > 0 && (
+            <button onClick={handleBulkEmailClick} className={BUTTON_PRIMARY}>
+              <Mail className="w-4 h-4 mr-2" /> Email Selected ({selectedUserIds.size})
+            </button>
+          )}
         <button onClick={() => onNavigate('referrals')} className={BUTTON_PRIMARY}>
           <Plus className="w-4 h-4 mr-2" /> Invite Participant
         </button>
+        </div>
       </div>
 
       {/* Role Filter */}
@@ -159,6 +290,22 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
             <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
               <tr>
+                {isAdmin && (
+                  <th className="px-6 py-4 w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedUserIds.size === filteredUsers.length && filteredUsers.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedUserIds(new Set(filteredUsers.map(u => u.id)));
+                        } else {
+                          setSelectedUserIds(new Set());
+                        }
+                      }}
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                  </th>
+                )}
                 <th className="px-6 py-4">Name</th>
                 <th className="px-6 py-4">Role</th>
                 <th className="px-6 py-4">Organization</th>
@@ -177,6 +324,16 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
                   className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   onClick={() => setSelectedUser(user)}
                 >
+                  {isAdmin && (
+                    <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedUserIds.has(user.id)}
+                        onChange={() => toggleUserSelection(user.id)}
+                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                    </td>
+                  )}
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       <img src={user.avatar} alt="" className="w-8 h-8 rounded-full mr-3" />
@@ -291,7 +448,7 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
                             setEditEmail(user.email);
                           }}
                           className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 p-1"
-                          title="Edit email"
+                          title="Update email address"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
@@ -322,23 +479,40 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
       </div>
 
       {/* Email Participant Modal */}
-      {emailingUser && (
+      {(emailingUser || (isBulkEmail && emailingUsers.length > 0)) && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Email Participant</h3>
-              <button onClick={() => setEmailingUser(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {isBulkEmail ? `Email ${emailingUsers.length} Participant(s)` : 'Email Participant'}
+              </h3>
+              <button onClick={() => {
+                setEmailingUser(null);
+                setEmailingUsers([]);
+                setIsBulkEmail(false);
+              }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">To</label>
+                {isBulkEmail ? (
+                  <div className={INPUT_CLASS + " max-h-32 overflow-y-auto"}>
+                    {emailingUsers.map(userId => {
+                      const u = users.find(usr => usr.id === userId);
+                      return u ? (
+                        <div key={userId} className="text-sm py-1">{u.name} ({u.email})</div>
+                      ) : null;
+                    })}
+                  </div>
+                ) : (
                 <input
                   className={INPUT_CLASS}
                   value={users.find(u => u.id === emailingUser)?.email || ''}
                   disabled
                 />
+                )}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Subject</label>
@@ -362,15 +536,26 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
             </div>
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setEmailingUser(null)}
+                onClick={() => {
+                  setEmailingUser(null);
+                  setEmailingUsers([]);
+                  setIsBulkEmail(false);
+                  setEmailSubject('');
+                  setEmailBody('');
+                }}
                 className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
               >
                 Cancel
               </button>
               <button
+                data-email-send-button
                 onClick={() => {
+                  if (isBulkEmail) {
+                    handleSendEmail();
+                  } else {
                   const user = users.find(u => u.id === emailingUser);
                   if (user) handleSendEmail(user);
+                  }
                 }}
                 className={BUTTON_PRIMARY + " flex-1"}
               >
@@ -408,7 +593,11 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
                   placeholder="new@email.com"
+                  disabled={isUpdatingEmail}
                 />
+                {editEmail && !isValidEmail(editEmail.trim()) && (
+                  <p className="text-xs text-red-500 mt-1">Please enter a valid email address</p>
+                )}
               </div>
             </div>
             <div className="flex gap-3 mt-6">
@@ -420,9 +609,18 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
               </button>
               <button
                 onClick={() => handleUpdateEmail(editingUser)}
-                className={BUTTON_PRIMARY + " flex-1"}
+                disabled={isUpdatingEmail || !editEmail.trim() || !isValidEmail(editEmail.trim())}
+                className={BUTTON_PRIMARY + " flex-1 disabled:opacity-50 disabled:cursor-not-allowed"}
               >
+                {isUpdatingEmail ? (
+                  <>
+                    <Repeat className="w-4 h-4 mr-2 inline animate-spin" /> Updating...
+                  </>
+                ) : (
+                  <>
                 <Edit2 className="w-4 h-4 mr-2 inline" /> Update Email
+                  </>
+                )}
               </button>
             </div>
           </div>

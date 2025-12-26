@@ -552,5 +552,61 @@ export const emailService = {
       category: "Meeting",
     });
   },
+
+  // Send custom email from admin to user(s)
+  sendCustomEmail: async (
+    recipients: { email: string; name?: string }[],
+    subject: string,
+    body: string,
+    fromAdmin?: { name: string; email: string }
+  ) => {
+    // Convert plain text body to HTML
+    const htmlBody = body
+      .split('\n')
+      .map((line) => `<p style="font-size: 16px; margin-bottom: 12px; line-height: 1.6;">${line || '<br/>'}</p>`)
+      .join('');
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${subject}</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0;">Message from Meant2Grow</h1>
+          </div>
+          <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+            ${fromAdmin ? `<p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">From: <strong>${fromAdmin.name}</strong> (${fromAdmin.email})</p>` : ''}
+            <div style="font-size: 16px; margin-bottom: 20px;">
+              ${htmlBody}
+            </div>
+            <div style="margin: 30px 0; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+              <p style="font-size: 14px; color: #6b7280;">
+                This message was sent from your organization's Meant2Grow admin.
+              </p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const text = `
+${fromAdmin ? `From: ${fromAdmin.name} (${fromAdmin.email})\n\n` : ''}${body}
+
+---
+This message was sent from your organization's Meant2Grow admin.
+    `.trim();
+
+    await sendEmail({
+      to: recipients,
+      subject,
+      html,
+      text,
+      category: "Admin",
+    });
+  },
 };
 
