@@ -197,15 +197,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
         </div>
         <div className={CARD_CLASS}>
           <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-            <Crown className="w-3 h-3" /> Platform Admins
+            <UserCheck className="w-3 h-3" /> Mentees
           </div>
-          <div className="text-2xl font-bold text-amber-600">{stats.platformAdmins}</div>
-        </div>
-        <div className={CARD_CLASS}>
-          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-            <Shield className="w-3 h-3" /> Org Admins
-          </div>
-          <div className="text-2xl font-bold text-blue-600">{stats.orgAdmins}</div>
+          <div className="text-2xl font-bold text-purple-600">{stats.mentees}</div>
         </div>
         <div className={CARD_CLASS}>
           <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -215,15 +209,21 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
         </div>
         <div className={CARD_CLASS}>
           <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-            <UserCheck className="w-3 h-3" /> Mentees
-          </div>
-          <div className="text-2xl font-bold text-purple-600">{stats.mentees}</div>
-        </div>
-        <div className={CARD_CLASS}>
-          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
             <Building className="w-3 h-3" /> Organizations
           </div>
           <div className="text-2xl font-bold text-slate-900 dark:text-white">{stats.totalOrgs}</div>
+        </div>
+        <div className={CARD_CLASS}>
+          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <Crown className="w-3 h-3" /> Platform Operators
+          </div>
+          <div className="text-2xl font-bold text-amber-600">{stats.platformAdmins}</div>
+        </div>
+        <div className={CARD_CLASS}>
+          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <Shield className="w-3 h-3" /> Org Admins
+          </div>
+          <div className="text-2xl font-bold text-blue-600">{stats.orgAdmins}</div>
         </div>
       </div>
 
@@ -281,7 +281,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
               className={INPUT_CLASS + " w-full sm:w-48"}
             >
               <option value="ALL">All Roles</option>
-              <option value={Role.PLATFORM_ADMIN}>Platform Admin</option>
+              <option value={Role.PLATFORM_ADMIN}>Platform Operator</option>
               <option value={Role.ADMIN}>Organization Admin</option>
               <option value={Role.MENTOR}>Mentor</option>
               <option value={Role.MENTEE}>Mentee</option>

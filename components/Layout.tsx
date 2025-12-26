@@ -450,13 +450,13 @@ const Layout: React.FC<LayoutProps> = ({
                 <NavItem
                   page="user-management"
                   icon={Users}
-                  label="User Management"
+                  label="Users"
                   className="text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30"
                 />
                 <NavItem
                   page="settings:platform-admin"
                   icon={Crown}
-                  label="Platform Operator"
+                  label="Operators"
                   className="text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30"
                 />
               </>

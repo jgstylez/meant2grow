@@ -29,7 +29,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
   // Role checks - handle both enum and string values for robustness
   const userRoleString = String(user.role);
   
-  // Check both enum and string value for platform admin (database stores as string "PLATFORM_ADMIN")
+  // Check both enum and string value for platform operator (database stores as string "PLATFORM_ADMIN")
   // Also check for legacy "PLATFORM_OPERATOR" value for backwards compatibility
   // THIS CHECK MUST COME FIRST before admin/mentor checks
   const isPlatformAdmin = user.role === Role.PLATFORM_ADMIN || 
@@ -37,7 +37,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                          userRoleString === "PLATFORM_OPERATOR";
   
   // Check for organization admin - handle both "ORGANIZATION_ADMIN" and "ADMIN" values
-  // Must check AFTER platform admin to avoid conflicts
+  // Must check AFTER platform operator to avoid conflicts
   const isAdmin = !isPlatformAdmin && (
     user.role === Role.ADMIN || 
     userRoleString === "ORGANIZATION_ADMIN" || 
@@ -59,7 +59,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
   // Participants Modal State
   const [showParticipantsModal, setShowParticipantsModal] = useState<'mentors' | 'mentees' | null>(null);
 
-  // Platform Admin State
+  // Platform Operator State
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [allOrganizations, setAllOrganizations] = useState<Organization[]>([]);
   const [allCalendarEvents, setAllCalendarEvents] = useState<CalendarEvent[]>([]);
@@ -355,14 +355,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
     };
   };
 
-  // --- PLATFORM ADMIN VIEW ---
-  // Load platform admin data
+  // --- PLATFORM OPERATOR VIEW ---
+  // Load platform operator data
   useEffect(() => {
     if (isPlatformAdmin) {
       const loadPlatformData = async () => {
         try {
           setPlatformAdminLoading(true);
-          logger.debug('Loading platform admin data...');
+          logger.debug('Loading platform operator data...');
           
           const [usersData, orgsData, eventsData, matchesData, goalsData, ratingsData] = await Promise.all([
             getAllUsers(),
@@ -373,7 +373,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
             getAllRatings()
           ]);
           
-          logger.debug('Platform admin data loaded', {
+          logger.debug('Platform operator data loaded', {
             users: usersData.length,
             organizations: orgsData.length,
             events: eventsData.length,
@@ -389,7 +389,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           setAllGoals(goalsData);
           setAllRatings(ratingsData);
         } catch (error) {
-          console.error('Error loading platform admin data:', error);
+          console.error('Error loading platform operator data:', error);
           // Log more details about the error
           if (error instanceof Error) {
             console.error('Error message:', error.message);
@@ -410,7 +410,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
     }
   }, [isPlatformAdmin]);
 
-  // Check both the role enum and string comparison for safety - Platform Admin should see platform dashboard
+  // Check both the role enum and string comparison for safety - Platform Operator should see platform dashboard
   // This check MUST come first before admin/mentor/mentee checks
   if (isPlatformAdmin) {
     // Calculate platform-wide metrics
@@ -493,7 +493,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Globe className="w-6 h-6 text-amber-500" />
-              Platform Admin Dashboard
+              Platform Operator Dashboard
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               Overview and management of all users and organizations
@@ -509,7 +509,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           </div>
           <div className={CARD_CLASS}>
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-              <Crown className="w-3 h-3" /> Platform Admins
+              <Crown className="w-3 h-3" /> Operators
             </div>
             <div className="text-2xl font-bold text-amber-600">{platformAdminLoading ? '...' : platformStats.platformAdmins}</div>
           </div>
@@ -634,7 +634,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                 >
                   <div className="flex items-center gap-2">
                     <Crown className="w-4 h-4 text-amber-600" />
-                    <span className="text-sm font-medium text-slate-900 dark:text-white">Create Platform Admin</span>
+                    <span className="text-sm font-medium text-slate-900 dark:text-white">Create Platform Operator</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </button>

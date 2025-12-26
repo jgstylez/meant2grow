@@ -253,15 +253,22 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
         { id: 'security', label: 'Security', icon: Shield },
         { id: 'calendar', label: 'Sync Calendar', icon: Calendar },
         { id: 'billing', label: 'Billing', icon: CreditCard },
-        { id: 'platform-admin', label: 'Platform Admin', icon: Crown }
+        { id: 'platform-admin', label: 'Platform Operator', icon: Crown }
     ];
 
     const isPlatformAdmin = user.role === Role.PLATFORM_ADMIN;
     const visibleTabs = isPlatformAdmin
-        ? tabs // Platform admins see all tabs including platform-admin
+        ? tabs.filter(t => t.id !== 'billing') // Platform operators see all tabs except billing
         : user.role === Role.ADMIN
             ? tabs.filter(t => t.id !== 'preferences' && t.id !== 'platform-admin')
             : tabs.filter(t => t.id !== 'billing' && t.id !== 'platform-admin');
+
+    // Redirect platform operators away from billing tab if they somehow land on it
+    useEffect(() => {
+        if (isPlatformAdmin && activeTab === 'billing') {
+            setActiveTab('profile');
+        }
+    }, [isPlatformAdmin, activeTab]);
 
     return (
         <div className="flex h-[calc(100vh-8rem)] bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -1056,16 +1063,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                         <div className="space-y-6">
                             <div>
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 flex items-center">
-                                    <Crown className="w-5 h-5 mr-2 text-amber-500" /> Platform Admin Management
+                                    <Crown className="w-5 h-5 mr-2 text-amber-500" /> Platform Operator Management
                                 </h3>
                                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                                    Create new platform admin users who can manage platform-wide content and resources.
+                                    Create new platform operator users who can manage platform-wide content and resources.
                                 </p>
                             </div>
 
                             <div className={CARD_CLASS}>
                                 <h4 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center">
-                                    <UserPlus className="w-4 h-4 mr-2" /> Create Platform Admin
+                                    <UserPlus className="w-4 h-4 mr-2" /> Create Platform Operator
                                 </h4>
                                 <div className="space-y-4">
                                     <div>
@@ -1088,7 +1095,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                         <input
                                             type="text"
                                             className={INPUT_CLASS}
-                                            placeholder="Platform Admin"
+                                            placeholder="Platform Operator"
                                             value={newAdminName}
                                             onChange={(e) => setNewAdminName(e.target.value)}
                                             disabled={creatingAdmin}
@@ -1129,7 +1136,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     });
                                                     setAdminMessage({
                                                         type: 'success',
-                                                        text: `Updated ${newAdminEmail} to Platform Admin role`
+                                                        text: `Updated ${newAdminEmail} to Platform Operator role`
                                                     });
                                                 } else {
                                                     // Create new platform admin
@@ -1139,14 +1146,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                         role: Role.PLATFORM_ADMIN,
                                                         organizationId: 'platform',
                                                         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(newAdminName)}&background=10b981&color=fff`,
-                                                        title: 'Platform Administrator',
+                                                        title: 'Platform Operator',
                                                         company: 'Meant2Grow',
                                                         skills: [],
                                                         bio: 'Platform administrator for Meant2Grow',
                                                     });
                                                     setAdminMessage({
                                                         type: 'success',
-                                                        text: `Created Platform Admin: ${newAdminName} (${newAdminEmail})`
+                                                        text: `Created Platform Operator: ${newAdminName} (${newAdminEmail})`
                                                     });
                                                 }
 
@@ -1156,7 +1163,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                 console.error('Error creating platform admin:', error);
                                                 setAdminMessage({
                                                     type: 'error',
-                                                    text: error.message || 'Failed to create platform admin'
+                                                    text: error.message || 'Failed to create platform operator'
                                                 });
                                             } finally {
                                                 setCreatingAdmin(false);
@@ -1169,7 +1176,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                             <>Creating...</>
                                         ) : (
                                             <>
-                                                <UserPlus className="w-4 h-4 mr-2" /> Create Platform Admin
+                                                <UserPlus className="w-4 h-4 mr-2" /> Create Platform Operator
                                             </>
                                         )}
                                     </button>
@@ -1179,10 +1186,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                             <div className={CARD_CLASS}>
                                 <h4 className="font-bold text-slate-900 dark:text-white mb-4">Important Notes</h4>
                                 <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-2 list-disc list-inside">
-                                    <li>Platform admins can manage blog posts and platform-wide resources</li>
+                                    <li>Platform operators can manage blog posts and platform-wide resources</li>
                                     <li>They can see all organizations but manage platform content only</li>
-                                    <li>New platform admins will need to sign in through the app</li>
-                                    <li>If a user already exists, their role will be updated to Platform Admin</li>
+                                    <li>New platform operators will need to sign in through the app</li>
+                                    <li>If a user already exists, their role will be updated to Platform Operator</li>
                                 </ul>
                             </div>
                         </div>
