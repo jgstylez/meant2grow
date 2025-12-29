@@ -1,10 +1,12 @@
-# How to Access Platform Admin Dashboard
+# How to Access Platform Operator Dashboard
 
-This guide provides step-by-step instructions for creating and accessing the Platform Admin dashboard.
+This guide provides step-by-step instructions for creating and accessing the Platform Operator dashboard.
 
-## Step 1: Create a Platform Admin Account
+**Note:** "Platform Operator" is the preferred terminology, though the role value in the database is `PLATFORM_ADMIN` for technical reasons.
 
-You need to create a platform admin user account first. There are two ways to do this:
+## Step 1: Create a Platform Operator Account
+
+You need to create a platform operator user account first. There are two ways to do this:
 
 ### Option A: Using the Script (Recommended for First Admin)
 
@@ -17,7 +19,7 @@ You need to create a platform admin user account first. There are two ways to do
    
    **Example:**
    ```bash
-   npm run create:platform-admin admin@meant2grow.com "Platform Admin"
+   npm run create:platform-admin admin@meant2grow.com "Platform Operator"
    ```
 
 3. **Verify the account was created:**
@@ -44,7 +46,7 @@ You need to create a platform admin user account first. There are two ways to do
    - `bio`: `Platform administrator for Meant2Grow`
    - `createdAt`: Click the timestamp icon to set current time
 
-## Step 2: Log In to the Platform Admin Dashboard
+## Step 2: Log In to the Platform Operator Dashboard
 
 1. **Start your development server** (if not already running):
    ```bash
@@ -55,24 +57,26 @@ You need to create a platform admin user account first. There are two ways to do
 
 3. **Click "Sign In"** on the landing page
 
-4. **Enter your platform admin email** in the email field
+4. **Enter your platform operator email** in the email field
 
 5. **Enter any password** (password validation is not implemented yet, so any password will work)
 
 6. **Click "Sign In"**
 
-7. **You should be redirected to the Platform Admin Dashboard**
+7. **You should be redirected to the Platform Operator Dashboard**
 
-## Step 3: Verify You're on the Platform Admin Dashboard
+## Step 3: Verify You're on the Platform Operator Dashboard
 
-When you successfully log in as a platform admin, you should see:
+When you successfully log in as a platform operator, you should see:
 
 - **Dashboard Header**: "Platform Admin Dashboard" with a globe icon (🌐)
 - **Description**: "Manage platform-wide content, resources, and settings"
 - **Special Cards**: 
   - Platform Resources card
   - Platform Admin Settings card
-- **Navigation Menu**: Should show platform admin-specific options
+- **Navigation Menu**: Should show platform operator-specific options
+
+**Note:** Platform operators do NOT have automatic access to "Mentors Circle" or "Mentees Hub" chat groups. They must be explicitly invited to these groups if access is needed.
 
 ## Troubleshooting
 
@@ -134,24 +138,24 @@ npm install --save-dev ts-node dotenv
 
 ## Quick Reference
 
-### Create Platform Admin Command
+### Create Platform Operator Command
 ```bash
 npm run create:platform-admin <email> "<name>"
 ```
 
 ### Login Steps
 1. Go to app → Click "Sign In"
-2. Enter platform admin email
+2. Enter platform operator email
 3. Enter any password
 4. Click "Sign In"
-5. You'll see Platform Admin Dashboard
+5. You'll see Platform Operator Dashboard
 
-### Verify Platform Admin Status
+### Verify Platform Operator Status
 - Check Firestore: `users/{userId}` → `role` = `"PLATFORM_ADMIN"`
 - Check Firestore: `users/{userId}` → `organizationId` = `"platform"`
 - Dashboard should show "Platform Admin Dashboard" header
 
-## What You Can Do as Platform Admin
+## What You Can Do as Platform Operator
 
 Once logged in, you can:
 
@@ -161,13 +165,17 @@ Once logged in, you can:
    - Create/edit/delete platform-wide training videos
    - Create/edit/delete blog posts (visible to all organizations)
 
-2. **Manage Platform Admins:**
+2. **Manage Platform Operators:**
    - Go to Settings → Platform Admin tab
-   - Create new platform admin users
+   - Create new platform operator users
 
 3. **View Platform-Wide Content:**
    - All resources marked as "Platform" scope
    - Blog posts visible to all organizations
+
+4. **Chat Groups Access:**
+   - Platform operators do NOT automatically have access to "Mentors Circle" or "Mentees Hub"
+   - Must be explicitly invited by an organization admin to access these groups
 
 ## Need Help?
 

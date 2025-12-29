@@ -183,15 +183,15 @@ https://us-central1-{PROJECT_ID}.cloudfunctions.net
 - [ ] Chat functionality
 - [ ] Calendar/meetings
 - [ ] Resources (discussion guides, templates, videos)
-- [ ] Platform admin features (if applicable)
+- [ ] Platform operator features (if applicable)
 
 ### 4. Run Migration Scripts (If Needed)
 
 After deployment, you may need to run migration scripts:
 
 ```bash
-# Create platform admin users
-npm run create:platform-admin admin@meant2grow.com "Admin Name"
+# Create platform operator users
+npm run create:platform-admin admin@meant2grow.com "Operator Name"
 
 # Migrate platform resources
 npm run migrate:platform-resources

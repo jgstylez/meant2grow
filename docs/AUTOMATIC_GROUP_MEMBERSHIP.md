@@ -23,17 +23,23 @@ The system automatically:
 
 ### Logic Flow
 ```typescript
-1. Load existing groups from Firestore
-2. Get all current mentors from user list
-3. Get all current mentees from user list
+1. Load existing groups from Firestore (filtered by organizationId)
+2. Filter users to only include those from the current organization (u.organizationId === organizationId)
+3. Get all current mentors from organization's user list
+4. Get all current mentees from organization's user list
+5. Get all organization admins from organization's user list (exclude platform operators)
 
-4. For Mentors Circle:
-   - If doesn't exist → Create with all mentors
+6. For Mentors Circle:
+   - If doesn't exist → Create with all mentors + organization admins (from THIS organization only)
    - If exists → Compare members and update if needed
+   - Preserve platform operators who were explicitly added (don't auto-add new ones)
+   - CRITICAL: Only users from the group's organization are included
 
-5. For Mentees Hub:
-   - If doesn't exist → Create with all mentees
+7. For Mentees Hub:
+   - If doesn't exist → Create with all mentees + organization admins (from THIS organization only)
    - If exists → Compare members and update if needed
+   - Preserve platform operators who were explicitly added (don't auto-add new ones)
+   - CRITICAL: Only users from the group's organization are included
 ```
 
 ### When Sync Happens
@@ -55,10 +61,15 @@ The system automatically:
 - See Mentees Hub in chat list
 - Can chat with all other mentees
 
-### For Admins
+### For Organization Admins
 - See both groups in chat list
 - Can access both Mentors Circle and Mentees Hub
 - Can monitor conversations
+
+### For Platform Operators
+- **No automatic access** to Mentors Circle or Mentees Hub
+- Must be explicitly invited as a member to access these groups
+- If invited, will see the group in chat list and can participate
 
 ## Group Details
 
@@ -66,15 +77,17 @@ The system automatically:
 - **ID**: `g-mentors` (fixed)
 - **Name**: "Mentors Circle"
 - **Avatar**: Teal background with initials
-- **Members**: All users with `role === 'MENTOR'`
-- **Access**: Mentors and Admins only
+- **Members**: All users with `role === 'MENTOR'` + Organization Admins (auto-added) **from the same organization**
+- **Access**: Mentors and Organization Admins only (Platform Operators must be explicitly invited)
+- **Organization Scoping**: Only includes mentors and admins from the group's `organizationId`
 
 ### Mentees Hub
 - **ID**: `g-mentees` (fixed)
 - **Name**: "Mentees Hub"
 - **Avatar**: Indigo background with initials
-- **Members**: All users with `role === 'MENTEE'`
-- **Access**: Mentees and Admins only
+- **Members**: All users with `role === 'MENTEE'` + Organization Admins (auto-added) **from the same organization**
+- **Access**: Mentees and Organization Admins only (Platform Operators must be explicitly invited)
+- **Organization Scoping**: Only includes mentees and admins from the group's `organizationId`
 
 ## Database Structure
 
@@ -117,9 +130,15 @@ The system logs sync operations:
 - If mentor becomes mentee: Removed from Mentors Circle, added to Mentees Hub
 - If mentee becomes mentor: Removed from Mentees Hub, added to Mentors Circle
 
-### Organization Wide
-- Each organization has its own separate groups
-- Groups are isolated by `organizationId`
+### Organization Isolation (CRITICAL)
+- **Each organization has its own separate groups** - Groups are scoped by `organizationId`
+- **Users are automatically filtered by organization** - Only users from the same organization are added to groups
+- **Example**: If Joe signs up as a mentee under organization "123", he will:
+  - Automatically be added to "Mentees Hub" for organization "123"
+  - **NOT** have access to "Mentees Hub" for organization "321"
+  - Only see and interact with mentees from organization "123"
+- **Organization Admins**: Admins for organization "123" have access to both groups under organization "123", but **NOT** groups from organization "321"
+- **Platform Operators**: Can be explicitly added to any organization's groups, but are not automatically added
 
 ## Benefits
 
@@ -131,15 +150,27 @@ The system logs sync operations:
 
 ## Testing Checklist
 
+### Basic Functionality
 - [ ] Sign up as first mentor → Mentors Circle created
 - [ ] Sign up as second mentor → Added to existing Mentors Circle
 - [ ] Sign up as first mentee → Mentees Hub created
 - [ ] Sign up as second mentee → Added to existing Mentees Hub
 - [ ] Navigate to Mentors Circle → See all mentors
 - [ ] Navigate to Mentees Hub → See all mentees
-- [ ] Admin user → See both groups
+- [ ] Organization Admin user → See both groups
+- [ ] Platform Operator user → Don't see groups unless explicitly invited
 - [ ] Mentor user → Only see Mentors Circle
 - [ ] Mentee user → Only see Mentees Hub
+
+### Organization Isolation (CRITICAL)
+- [ ] Create mentee "Joe" in organization "123" → Joe added to org "123" Mentees Hub
+- [ ] Create mentee "Jane" in organization "321" → Jane added to org "321" Mentees Hub
+- [ ] Verify Joe cannot see/access org "321" Mentees Hub
+- [ ] Verify Jane cannot see/access org "123" Mentees Hub
+- [ ] Create org admin "Admin123" for organization "123" → Admin123 has access to both groups under org "123"
+- [ ] Verify Admin123 cannot see/access groups from organization "321"
+- [ ] Create mentor "Mentor123" in organization "123" → Mentor123 added to org "123" Mentors Circle
+- [ ] Verify Mentor123 cannot see/access org "321" Mentors Circle
 
 ## Future Enhancements
 

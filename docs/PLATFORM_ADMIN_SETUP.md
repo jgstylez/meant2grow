@@ -1,6 +1,8 @@
-# Platform Admin Setup & Testing Guide
+# Platform Operator Setup & Testing Guide
 
-This guide covers setting up platform admin users, migrating platform resources, and testing the new features.
+This guide covers setting up platform operator users, migrating platform resources, and testing the new features.
+
+**Note:** "Platform Operator" is the preferred terminology, though the role value in the database is `PLATFORM_ADMIN` for technical reasons.
 
 ## Prerequisites
 
@@ -13,7 +15,7 @@ This guide covers setting up platform admin users, migrating platform resources,
    - Ensure `.env.local` exists with Firebase credentials
    - Verify Firestore is enabled in Firebase Console
 
-## Step 1: Create Platform Admin Users
+## Step 1: Create Platform Operator Users
 
 ### Option A: Using the Script (Recommended)
 
@@ -23,12 +25,12 @@ npm run create:platform-admin <email> <name>
 
 **Example:**
 ```bash
-npm run create:platform-admin admin@meant2grow.com "Platform Admin"
+npm run create:platform-admin admin@meant2grow.com "Platform Operator"
 ```
 
-### Option B: Using the UI (After first admin is created)
+### Option B: Using the UI (After first operator is created)
 
-1. Sign in as a platform admin
+1. Sign in as a platform operator
 2. Go to Settings → Platform Admin tab
 3. Enter email and name
 4. Click "Create Platform Admin"
@@ -70,10 +72,10 @@ This creates:
 
 ## Step 3: Testing Checklist
 
-### 3.1 Platform Admin Features
+### 3.1 Platform Operator Features
 
 #### ✅ Blog Post Management
-- [ ] Sign in as Platform Admin
+- [ ] Sign in as Platform Operator
 - [ ] Navigate to Resources → Manage Library
 - [ ] Verify "Public Blog" tab is visible
 - [ ] Create a new blog post
@@ -92,12 +94,17 @@ This creates:
 - [ ] Create a new platform-wide video
 - [ ] Verify "Platform" scope option is available when creating resources
 
-#### ✅ Platform Admin Settings
+#### ✅ Platform Operator Settings
 - [ ] Go to Settings → Platform Admin tab
-- [ ] Verify tab is only visible to Platform Admins
-- [ ] Create a new platform admin user
+- [ ] Verify tab is only visible to Platform Operators
+- [ ] Create a new platform operator user
 - [ ] Verify success message appears
 - [ ] Check Firestore to confirm user was created with `PLATFORM_ADMIN` role
+
+#### ✅ Chat Groups Access
+- [ ] Verify platform operators do NOT see "Mentors Circle" or "Mentees Hub" in navigation
+- [ ] Verify platform operators can only access groups they're explicitly invited to
+- [ ] Test that organization admins can invite platform operators to groups if needed
 
 ### 3.2 Organization Admin Features
 
@@ -211,7 +218,7 @@ npm install --save-dev ts-node dotenv
    - Look for Firestore query errors
    - Check network tab for failed requests
 
-### Platform Admin Tab Not Visible
+### Platform Operator Tab Not Visible
 
 1. **Verify User Role**
    - Check Firestore: `users/{userId}` → `role` should be `"PLATFORM_ADMIN"`
@@ -220,6 +227,15 @@ npm install --save-dev ts-node dotenv
 2. **Check SettingsView Component**
    - Verify `isPlatformAdmin` check is working
    - Check browser console for errors
+
+### Chat Groups Not Accessible
+
+**Expected Behavior:** Platform operators do NOT have automatic access to "Mentors Circle" or "Mentees Hub" groups.
+
+**If access is needed:**
+1. An organization admin must explicitly add the platform operator to the group
+2. The platform operator will then see the group in their chat list
+3. This is by design - platform operators are not automatically included in organization-specific chat groups
 
 ### Filtering Not Working
 
@@ -235,17 +251,17 @@ npm install --save-dev ts-node dotenv
 
 After successful testing:
 
-1. ✅ Create production platform admin users
+1. ✅ Create production platform operator users
 2. ✅ Migrate production resources
 3. ✅ Set up proper Firestore security rules (replace `allow read, write: if true`)
-4. ✅ Document platform admin workflows for your team
-5. ✅ Set up monitoring/alerts for platform admin activities
+4. ✅ Document platform operator workflows for your team
+5. ✅ Set up monitoring/alerts for platform operator activities
 
 ## Quick Reference
 
 ### Scripts
 ```bash
-# Create platform admin
+# Create platform operator
 npm run create:platform-admin <email> <name>
 
 # Migrate platform resources
@@ -258,9 +274,10 @@ npm run migrate:platform-resources
 - `careerTemplates` - Career templates (platform + org)
 - `trainingVideos` - Training videos (platform + org)
 - `users` - All users (check `role` field)
+- `chatGroups` - Chat groups (Mentors Circle, Mentees Hub, etc.)
 
 ### Roles
-- `PLATFORM_ADMIN` - Can manage platform-wide content
-- `ADMIN` - Can manage organization-specific content
-- `MENTOR` / `MENTEE` - Can view all resources
+- `PLATFORM_ADMIN` - Platform Operator: Can manage platform-wide content, but NOT automatically included in organization chat groups
+- `ADMIN` / `ORGANIZATION_ADMIN` - Organization Admin: Can manage organization-specific content and automatically access Mentors Circle and Mentees Hub
+- `MENTOR` / `MENTEE` - Can view all resources and access their respective chat groups
 

@@ -290,17 +290,26 @@ const Chat: React.FC<ChatProps> = ({
           });
         }
 
-        const mentorUsers = users.filter((u) => u.role === Role.MENTOR);
-        const menteeUsers = users.filter((u) => u.role === Role.MENTEE);
-        // Admins and platform operators should have access to both groups
+        // Filter users by organization to ensure groups only include users from the correct organization
+        // This is critical for multi-tenant isolation - users from org 123 should not be in org 321's groups
+        const orgUsers = users.filter((u) => u.organizationId === organizationId);
+        
+        const mentorUsers = orgUsers.filter((u) => u.role === Role.MENTOR);
+        const menteeUsers = orgUsers.filter((u) => u.role === Role.MENTEE);
+        // Only organization admins (not platform operators) should have automatic access to both groups
         // Handle both "ADMIN" and "ORGANIZATION_ADMIN" role values for backward compatibility
-        const adminUsers = users.filter(
-          (u) => u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN || u.role === "ADMIN" || u.role === "PLATFORM_ADMIN"
+        // IMPORTANT: Only include admins from THIS organization
+        const adminUsers = orgUsers.filter(
+          (u) => {
+            const roleStr = String(u.role);
+            return (u.role === Role.ADMIN || roleStr === "ADMIN" || roleStr === "ORGANIZATION_ADMIN") &&
+                   !(u.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR");
+          }
         );
 
         // Create Mentors Circle if it doesn't exist with correct ID
         if (!mentorGroupById) {
-          // Include mentors + admins/platform admins
+          // Include mentors + organization admins (platform operators must be explicitly invited)
           const mentorGroupMembers = [
             ...mentorUsers.map((u) => u.id),
             ...adminUsers.map((u) => u.id),
@@ -323,11 +332,20 @@ const Chat: React.FC<ChatProps> = ({
             membersCount: mentorGroupMembers.length,
           });
         } else {
-          // Update membership to include all current mentors + admins/platform admins
+          // Update membership to include all current mentors + organization admins
+          // Keep existing platform operators if they were explicitly added, but don't auto-add new ones
           const currentMembers = mentorGroupById.members || [];
           const mentorIds = mentorUsers.map((u) => u.id);
           const adminIds = adminUsers.map((u) => u.id);
-          const expectedMembers = [...mentorIds, ...adminIds];
+          // Preserve platform operators who were explicitly added (not auto-added)
+          // Note: Platform operators can be from any organization, so check all users, not just orgUsers
+          const platformOperatorIds = currentMembers.filter((id) => {
+            const user = users.find((u) => u.id === id);
+            if (!user) return false;
+            const roleStr = String(user.role);
+            return user.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR";
+          });
+          const expectedMembers = [...mentorIds, ...adminIds, ...platformOperatorIds];
           // Check if membership needs updating (arrays differ)
           const needsUpdate =
             expectedMembers.length !== currentMembers.length ||
@@ -347,7 +365,7 @@ const Chat: React.FC<ChatProps> = ({
 
         // Create Mentees Hub if it doesn't exist with correct ID
         if (!menteeGroupById) {
-          // Include mentees + admins/platform admins
+          // Include mentees + organization admins (platform operators must be explicitly invited)
           const menteeGroupMembers = [
             ...menteeUsers.map((u) => u.id),
             ...adminUsers.map((u) => u.id),
@@ -370,11 +388,20 @@ const Chat: React.FC<ChatProps> = ({
             membersCount: menteeGroupMembers.length,
           });
         } else {
-          // Update membership to include all current mentees + admins/platform admins
+          // Update membership to include all current mentees + organization admins
+          // Keep existing platform operators if they were explicitly added, but don't auto-add new ones
           const currentMembers = menteeGroupById.members || [];
           const menteeIds = menteeUsers.map((u) => u.id);
           const adminIds = adminUsers.map((u) => u.id);
-          const expectedMembers = [...menteeIds, ...adminIds];
+          // Preserve platform operators who were explicitly added (not auto-added)
+          // Note: Platform operators can be from any organization, so check all users, not just orgUsers
+          const platformOperatorIds = currentMembers.filter((id) => {
+            const user = users.find((u) => u.id === id);
+            if (!user) return false;
+            const roleStr = String(user.role);
+            return user.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR";
+          });
+          const expectedMembers = [...menteeIds, ...adminIds, ...platformOperatorIds];
           // Check if membership needs updating (arrays differ)
           const needsUpdate =
             expectedMembers.length !== currentMembers.length ||
@@ -438,31 +465,42 @@ const Chat: React.FC<ChatProps> = ({
     // Always include fallback groups if they're requested or if no groups exist
     // Also include if groups exist but user should have access based on role
     // Handle both "ADMIN" and "ORGANIZATION_ADMIN" role values for backward compatibility
-    const isAdmin = currentUser.role === Role.ADMIN || currentUser.role === Role.PLATFORM_ADMIN || currentUser.role === "ADMIN" || currentUser.role === "PLATFORM_ADMIN";
+    // Platform operators are NOT included in automatic access
+    const userRoleStr = String(currentUser.role);
+    const isPlatformAdmin = currentUser.role === Role.PLATFORM_ADMIN || 
+                           userRoleStr === "PLATFORM_ADMIN" || 
+                           userRoleStr === "PLATFORM_OPERATOR";
+    const isAdmin = !isPlatformAdmin && (
+      currentUser.role === Role.ADMIN || 
+      userRoleStr === "ADMIN" || 
+      userRoleStr === "ORGANIZATION_ADMIN"
+    );
     const isMentor = currentUser.role === Role.MENTOR;
     const isMentee = currentUser.role === Role.MENTEE;
     
     const needsMentors =
       initialChatId === "g-mentors" ||
       (chatGroups.length === 0 && (isMentor || isAdmin)) ||
-      (isMentor || isAdmin); // Always show if user should have access
+      (isMentor || isAdmin); // Always show if user should have access (mentors or org admins only)
     const needsMentees =
       initialChatId === "g-mentees" ||
       (chatGroups.length === 0 && (isMentee || isAdmin)) ||
-      (isMentee || isAdmin); // Always show if user should have access
+      (isMentee || isAdmin); // Always show if user should have access (mentees or org admins only)
 
     // Check if groups already exist in Firestore groups
     const hasMentorsGroup = groups.some((g) => g.id === "g-mentors");
     const hasMenteesGroup = groups.some((g) => g.id === "g-mentees");
 
     if (needsMentors && !hasMentorsGroup) {
-      // Include mentors + admins/platform admins
+      // Include mentors + organization admins (platform operators must be explicitly invited)
       const mentorGroupMembers = [
         ...users.filter((u) => u.role === Role.MENTOR).map((u) => u.id),
         ...users
-          .filter(
-            (u) => u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN || u.role === "ADMIN" || u.role === "PLATFORM_ADMIN"
-          )
+          .filter((u) => {
+            const roleStr = String(u.role);
+            return (u.role === Role.ADMIN || roleStr === "ADMIN" || roleStr === "ORGANIZATION_ADMIN") &&
+                   !(u.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR");
+          })
           .map((u) => u.id),
       ];
       fallback.push({
@@ -478,13 +516,15 @@ const Chat: React.FC<ChatProps> = ({
       });
     }
     if (needsMentees && !hasMenteesGroup) {
-      // Include mentees + admins/platform admins
+      // Include mentees + organization admins (platform operators must be explicitly invited)
       const menteeGroupMembers = [
         ...users.filter((u) => u.role === Role.MENTEE).map((u) => u.id),
         ...users
-          .filter(
-            (u) => u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN
-          )
+          .filter((u) => {
+            const roleStr = String(u.role);
+            return (u.role === Role.ADMIN || roleStr === "ADMIN" || roleStr === "ORGANIZATION_ADMIN") &&
+                   !(u.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR");
+          })
           .map((u) => u.id),
       ];
       fallback.push({
@@ -512,14 +552,24 @@ const Chat: React.FC<ChatProps> = ({
     });
     
     // Ensure default groups have current user in members if they should have access
+    // Platform operators are NOT automatically added - they must be explicitly invited
     merged.forEach((g) => {
       if (g.id === "g-mentors" || g.id === "g-mentees") {
+        const userRoleStr = String(currentUser.role);
+        const isPlatformAdmin = currentUser.role === Role.PLATFORM_ADMIN || 
+                               userRoleStr === "PLATFORM_ADMIN" || 
+                               userRoleStr === "PLATFORM_OPERATOR";
+        const isOrgAdmin = !isPlatformAdmin && (
+          currentUser.role === Role.ADMIN || 
+          userRoleStr === "ADMIN" || 
+          userRoleStr === "ORGANIZATION_ADMIN"
+        );
         const shouldHaveAccess = 
-          (g.id === "g-mentors" && (currentUser.role === Role.MENTOR || currentUser.role === Role.ADMIN || currentUser.role === Role.PLATFORM_ADMIN)) ||
-          (g.id === "g-mentees" && (currentUser.role === Role.MENTEE || currentUser.role === Role.ADMIN || currentUser.role === Role.PLATFORM_ADMIN));
+          (g.id === "g-mentors" && (currentUser.role === Role.MENTOR || isOrgAdmin)) ||
+          (g.id === "g-mentees" && (currentUser.role === Role.MENTEE || isOrgAdmin));
         
         if (shouldHaveAccess && (!g.members || !g.members.includes(currentUser.id))) {
-          // Ensure user is in members array
+          // Ensure user is in members array (only for mentors/mentees/org admins, not platform operators)
           g.members = [...(g.members || []), currentUser.id];
           logger.debug("Added current user to default group members", { groupId: g.id });
         }
@@ -557,14 +607,37 @@ const Chat: React.FC<ChatProps> = ({
 
     // Special handling for default groups (g-mentors, g-mentees)
     // These groups should be visible based on role, even if membership hasn't synced yet
+    // Platform operators must be explicit members - no automatic access
     if (g.id === "g-mentors" || g.id === "g-mentees") {
-      // Check if user is a member (or should be based on role)
+      // Check if user is a member
       const isMember = g.members && g.members.includes(currentUser.id);
+      
+      // For platform operators, only show if they're explicit members
+      if (isPlatformAdmin) {
+        if (isMember) {
+          logger.debug("Including default group for platform operator (explicit member)", {
+            groupId: g.id,
+            groupName: g.name,
+            currentUserRole: currentUser.role,
+          });
+          return true;
+        }
+        logger.debug("Filtered out default group - platform operator not a member", {
+          groupId: g.id,
+          currentUserRole: currentUser.role,
+        });
+        return false;
+      }
+      
+      // For non-platform operators, check role-based access
       // Handle both "ADMIN" and "ORGANIZATION_ADMIN" role values for backward compatibility
-      const isAdminRole = currentUser.role === Role.ADMIN || currentUser.role === "ADMIN";
+      const userRoleStr = String(currentUser.role);
+      const isOrgAdmin = currentUser.role === Role.ADMIN || 
+                        userRoleStr === "ADMIN" || 
+                        userRoleStr === "ORGANIZATION_ADMIN";
       const shouldHaveAccess = 
-        (g.id === "g-mentors" && (currentUser.role === Role.MENTOR || isAdminRole || isPlatformAdmin)) ||
-        (g.id === "g-mentees" && (currentUser.role === Role.MENTEE || isAdminRole || isPlatformAdmin));
+        (g.id === "g-mentors" && (currentUser.role === Role.MENTOR || isOrgAdmin)) ||
+        (g.id === "g-mentees" && (currentUser.role === Role.MENTEE || isOrgAdmin));
       
       // Show group if user is a member OR should have access (handles race conditions)
       if (shouldHaveAccess) {

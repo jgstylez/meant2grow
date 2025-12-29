@@ -218,9 +218,10 @@ Updated the group initialization effect to only run when users list changes:
 - **Custom Groups**: Random Firestore-generated ID
 
 ### Group Membership
-- Mentors Circle: All users with `role === 'MENTOR'`
-- Mentees Hub: All users with `role === 'MENTEE'`
-- Admin: Can access both groups
+- Mentors Circle: All users with `role === 'MENTOR'` + Organization Admins (auto-added)
+- Mentees Hub: All users with `role === 'MENTEE'` + Organization Admins (auto-added)
+- Organization Admin: Can access both groups automatically
+- Platform Operator: Must be explicitly invited to access groups (no automatic access)
 
 ### Real-time Updates
 - Groups are subscribed via `subscribeToChatGroups`
