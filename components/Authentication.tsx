@@ -180,6 +180,20 @@ const Authentication: React.FC<AuthenticationProps> = ({
           },
         });
 
+        // Set trial period for new organization (14 days)
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + 14);
+        
+        // Update organization with trial information
+        const { updateOrganization } = await import("../services/database");
+        await updateOrganization(orgId, {
+          trialEnd: trialEndDate.toISOString(),
+          subscriptionStatus: "trialing",
+        }).catch((err) => {
+          console.error("Failed to set trial period:", err);
+          // Don't fail organization creation if trial setup fails
+        });
+
         // Create Admin User
         const userId = await createUser({
           name: formData.name || "Organization Admin",
@@ -562,6 +576,20 @@ const Authentication: React.FC<AuthenticationProps> = ({
           },
         });
 
+        // Set trial period for new organization (14 days)
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + 14);
+        
+        // Update organization with trial information
+        const { updateOrganization } = await import("../services/database");
+        await updateOrganization(orgId, {
+          trialEnd: trialEndDate.toISOString(),
+          subscriptionStatus: "trialing",
+        }).catch((err) => {
+          console.error("Failed to set trial period:", err);
+          // Don't fail organization creation if trial setup fails
+        });
+
         const userId = await createUser({
           name: formData.name || "Admin",
           email: formData.email,
@@ -796,20 +824,29 @@ const Authentication: React.FC<AuthenticationProps> = ({
               <div className="grid grid-cols-1 gap-4">
                 <button
                   onClick={() => setMode("org-signup")}
-                  className="p-6 border-2 border-emerald-200 hover:border-emerald-500 rounded-xl bg-emerald-50 hover:bg-emerald-100 transition-all text-left group"
+                  className="p-6 border-2 border-emerald-200 hover:border-emerald-500 rounded-xl bg-emerald-50 hover:bg-emerald-100 transition-all text-left group relative overflow-hidden"
                 >
+                  <div className="absolute top-0 right-0 bg-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+                    14-Day Free Trial
+                  </div>
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                    <div className="flex-1 pr-8">
                       <div className="flex items-center mb-2">
                         <Building className="w-5 h-5 text-emerald-600 mr-2" />
                         <h3 className="font-bold text-lg text-slate-900">
                           Launch a Program
                         </h3>
                       </div>
-                      <p className="text-sm text-slate-600 mb-3">
+                      <p className="text-sm text-slate-600 mb-2">
                         Start a mentorship program for your organization. You'll
                         be the Organization Admin.
                       </p>
+                      <div className="flex items-center gap-2 mb-3">
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                        <span className="text-xs font-medium text-emerald-700">
+                          No credit card required • Cancel anytime
+                        </span>
+                      </div>
                       <div className="flex items-center text-xs text-emerald-600 font-medium">
                         Get started{" "}
                         <ArrowLeft className="w-3 h-3 ml-1 rotate-180 group-hover:translate-x-1 transition-transform" />
@@ -1002,7 +1039,8 @@ const Authentication: React.FC<AuthenticationProps> = ({
             )}
 
           {(mode === "login" ||
-            (mode !== "choose" && participantSignupStep !== "select-role")) && (
+            mode === "org-signup" ||
+            (mode === "participant-signup" && participantSignupStep !== "select-role")) && (
             <>
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
@@ -1046,27 +1084,63 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {mode === "org-signup" && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Organization Name
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          className={INPUT_CLASS + " pl-10"}
-                          placeholder="My Company Inc."
-                          value={formData.orgName}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              orgName: e.target.value,
-                            })
-                          }
-                          required
-                        />
-                        <Building className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" />
+                    <>
+                      <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg mb-4">
+                        <div className="flex items-start">
+                          <CheckCircle className="w-5 h-5 text-emerald-600 mr-2 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100 mb-1">
+                              14-Day Free Trial Included
+                            </p>
+                            <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                              No credit card required • Full access to all features • Cancel anytime
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Your Name
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            className={INPUT_CLASS + " pl-10"}
+                            placeholder="John Doe"
+                            value={formData.name}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                name: e.target.value,
+                              })
+                            }
+                            required
+                          />
+                          <UserIcon className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Organization Name
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            className={INPUT_CLASS + " pl-10"}
+                            placeholder="My Company Inc."
+                            value={formData.orgName}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                orgName: e.target.value,
+                              })
+                            }
+                            required
+                          />
+                          <Building className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" />
+                        </div>
+                      </div>
+                    </>
                   )}
 
                   {mode === "participant-signup" && (

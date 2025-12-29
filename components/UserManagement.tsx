@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { User, Organization, Role } from '../types';
 import { getAllUsers, getAllOrganizations, updateUser, deleteUser, updateOrganization, deleteOrganization } from '../services/database';
+import { emailService } from '../services/emailService';
 import { CARD_CLASS, INPUT_CLASS, BUTTON_PRIMARY } from '../styles/common';
 import {
   Users, Search, Filter, Edit2, Trash2, Building, Mail, User as UserIcon,
   Shield, Crown, GraduationCap, UserCheck, X, Save, AlertTriangle,
-  ChevronDown, ChevronUp, Eye, EyeOff, Plus, Globe, CheckCircle
+  ChevronDown, ChevronUp, Eye, EyeOff, Plus, Globe, CheckCircle, Send
 } from 'lucide-react';
 
 interface UserManagementProps {
   currentUser: User;
   onNavigate?: (page: string) => void;
+  initialTab?: 'users' | 'organizations';
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate, initialTab = 'users' }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<'users' | 'organizations'>('organizations');
+  const [activeTab, setActiveTab] = useState<'users' | 'organizations'>(initialTab);
   const [stats, setStats] = useState({
     totalUsers: 0,
     platformAdmins: 0,
@@ -34,10 +36,30 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
     mentees: 0,
     totalOrgs: 0,
   });
+  
+  // Email functionality for platform operators
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [selectedOrgAdmins, setSelectedOrgAdmins] = useState<Set<string>>(new Set());
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+  
+  // Check if current user is platform admin
+  const userRoleString = String(currentUser.role);
+  const isPlatformAdmin = currentUser.role === Role.PLATFORM_ADMIN || 
+                         userRoleString === "PLATFORM_ADMIN" || 
+                         userRoleString === "PLATFORM_OPERATOR";
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Update activeTab when initialTab prop changes
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const loadData = async () => {
     try {
@@ -166,6 +188,81 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
     setExpandedUsers(newExpanded);
   };
 
+  // Get all organization admins
+  const orgAdmins = users.filter(u => u.role === Role.ADMIN);
+
+  // Toggle org admin selection for email
+  const toggleOrgAdminSelection = (userId: string) => {
+    const newSelected = new Set(selectedOrgAdmins);
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId);
+    } else {
+      newSelected.add(userId);
+    }
+    setSelectedOrgAdmins(newSelected);
+  };
+
+  // Select all org admins
+  const selectAllOrgAdmins = () => {
+    setSelectedOrgAdmins(new Set(orgAdmins.map(admin => admin.id)));
+  };
+
+  // Deselect all org admins
+  const deselectAllOrgAdmins = () => {
+    setSelectedOrgAdmins(new Set());
+  };
+
+  // Handle sending email to org admins
+  const handleSendEmailToAdmins = async () => {
+    if (selectedOrgAdmins.size === 0) {
+      alert('Please select at least one organization admin to email');
+      return;
+    }
+
+    if (!emailSubject.trim()) {
+      alert('Please enter an email subject');
+      return;
+    }
+
+    if (!emailBody.trim()) {
+      alert('Please enter an email message');
+      return;
+    }
+
+    try {
+      setSendingEmail(true);
+      
+      const recipients = Array.from(selectedOrgAdmins)
+        .map(userId => {
+          const admin = orgAdmins.find(a => a.id === userId);
+          return admin ? { email: admin.email, name: admin.name, userId: admin.id } : null;
+        })
+        .filter((r): r is { email: string; name?: string; userId?: string } => r !== null);
+
+      await emailService.sendCustomEmail(
+        recipients,
+        emailSubject,
+        emailBody,
+        { name: currentUser.name, email: currentUser.email },
+        currentUser.id,
+        undefined // No organizationId restriction for platform admins
+      );
+
+      alert(`Email sent successfully to ${recipients.length} organization admin(s)!`);
+      
+      // Reset form
+      setShowEmailModal(false);
+      setSelectedOrgAdmins(new Set());
+      setEmailSubject('');
+      setEmailBody('');
+    } catch (error: any) {
+      console.error('Error sending email:', error);
+      alert(`Failed to send email: ${error.message || 'Unknown error'}`);
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -187,6 +284,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
             Manage all users and organizations across the platform
           </p>
         </div>
+        {isPlatformAdmin && (
+          <button
+            onClick={() => setShowEmailModal(true)}
+            className={`${BUTTON_PRIMARY} flex items-center gap-2`}
+          >
+            <Mail className="w-4 h-4" />
+            Email Org Admins
+          </button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -632,6 +738,180 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Org Admins Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Mail className="w-6 h-6 text-emerald-600" />
+                  Email Organization Admins
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Send an email to one or more organization administrators
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEmailModal(false);
+                  setSelectedOrgAdmins(new Set());
+                  setEmailSubject('');
+                  setEmailBody('');
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Recipients Selection */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Select Recipients ({selectedOrgAdmins.size} selected)
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={selectAllOrgAdmins}
+                      className="text-xs px-2 py-1 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={deselectAllOrgAdmins}
+                      className="text-xs px-2 py-1 text-slate-600 hover:text-slate-700 dark:text-slate-400"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                </div>
+                <div className={`${CARD_CLASS} max-h-64 overflow-y-auto`}>
+                  {orgAdmins.length === 0 ? (
+                    <div className="text-center py-8 text-slate-500">
+                      <Shield className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>No organization admins found</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {orgAdmins.map(admin => {
+                        const org = organizations.find(o => o.id === admin.organizationId);
+                        return (
+                          <label
+                            key={admin.id}
+                            className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
+                              selectedOrgAdmins.has(admin.id) ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedOrgAdmins.has(admin.id)}
+                              onChange={() => toggleOrgAdminSelection(admin.id)}
+                              className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                            />
+                            <img
+                              src={admin.avatar}
+                              alt={admin.name}
+                              className="w-10 h-10 rounded-full"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-slate-900 dark:text-white">
+                                {admin.name}
+                              </div>
+                              <div className="text-sm text-slate-500 dark:text-slate-400">
+                                {admin.email}
+                              </div>
+                              {org && (
+                                <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                                  {org.name}
+                                </div>
+                              )}
+                            </div>
+                            {selectedOrgAdmins.has(admin.id) && (
+                              <CheckCircle className="w-5 h-5 text-emerald-600" />
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Email Subject */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Subject *
+                </label>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="Enter email subject..."
+                  className={INPUT_CLASS}
+                  required
+                />
+              </div>
+
+              {/* Email Body */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Message *
+                </label>
+                <textarea
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  placeholder="Enter your message... (Line breaks will be preserved)"
+                  className={INPUT_CLASS}
+                  rows={8}
+                  required
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  The message will be sent from {currentUser.name} ({currentUser.email})
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <button
+                  onClick={handleSendEmailToAdmins}
+                  disabled={sendingEmail || selectedOrgAdmins.size === 0 || !emailSubject.trim() || !emailBody.trim()}
+                  className={`${BUTTON_PRIMARY} flex-1 flex items-center justify-center gap-2 ${
+                    sendingEmail || selectedOrgAdmins.size === 0 || !emailSubject.trim() || !emailBody.trim()
+                      ? 'opacity-50 cursor-not-allowed'
+                      : ''
+                  }`}
+                >
+                  {sendingEmail ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Send Email to {selectedOrgAdmins.size} Admin{selectedOrgAdmins.size !== 1 ? 's' : ''}
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEmailModal(false);
+                    setSelectedOrgAdmins(new Set());
+                    setEmailSubject('');
+                    setEmailBody('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

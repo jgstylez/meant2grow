@@ -20,12 +20,14 @@ interface DashboardProps {
   calendarEvents?: CalendarEvent[];
   programSettings?: ProgramSettings | null;
   organizationCode?: string;
+  organization?: Organization | null;
   onApproveRating: (id: string) => void;
+  onRejectRating?: (id: string) => void;
   onAddRating: (rating: Omit<Rating, 'id'>) => void;
   onNavigate: (page: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, ratings, calendarEvents = [], programSettings, organizationCode, onApproveRating, onAddRating, onNavigate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, ratings, calendarEvents = [], programSettings, organizationCode, organization, onApproveRating, onRejectRating, onAddRating, onNavigate }) => {
   // Role checks - handle both enum and string values for robustness
   const userRoleString = String(user.role);
   
@@ -58,6 +60,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
 
   // Participants Modal State
   const [showParticipantsModal, setShowParticipantsModal] = useState<'mentors' | 'mentees' | null>(null);
+  const [orgLogoError, setOrgLogoError] = useState(false);
+
+  // Reset logo error when organization changes
+  useEffect(() => {
+    setOrgLogoError(false);
+  }, [organization?.id, organization?.logo]);
 
   // Platform Operator State
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -550,7 +558,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                   Users
                 </h2>
                 <button
-                  onClick={() => onNavigate('user-management')}
+                  onClick={() => onNavigate('user-management:users')}
                   className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
                 >
                   View All <ChevronRight className="w-4 h-4" />
@@ -580,7 +588,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                     <div
                       key={u.id}
                       className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                      onClick={() => onNavigate('user-management')}
+                      onClick={() => onNavigate('user-management:users')}
                     >
                       <img src={u.avatar} alt={u.name} className="w-10 h-10 rounded-full" />
                       <div className="flex-1 min-w-0">
@@ -859,6 +867,98 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
             )}
           </div>
 
+          {/* Pending Reviews - Platform Operator View */}
+          <div className={CARD_CLASS}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-amber-500" />
+                  Pending Reviews Approval
+                </h2>
+                <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full">
+                  Platform Operator
+                </span>
+              </div>
+              {allRatings.filter(r => !r.isApproved).length > 0 && (
+                <span className="px-3 py-1 text-sm font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-full">
+                  {allRatings.filter(r => !r.isApproved).length} Pending
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Review and approve or reject ratings from all organizations across the platform
+            </p>
+            {platformAdminLoading ? (
+              <div className="text-center py-8 text-slate-500">Loading reviews...</div>
+            ) : allRatings.filter(r => !r.isApproved).length === 0 ? (
+              <div className="text-center py-8">
+                <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3 opacity-50" />
+                <p className="text-slate-400 text-sm">No pending reviews across all organizations</p>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {allRatings.filter(r => !r.isApproved).map(rating => {
+                  const fromUser = allUsers.find(u => u.id === rating.fromUserId);
+                  const toUser = allUsers.find(u => u.id === rating.toUserId);
+                  const ratingOrg = allOrganizations.find(o => o.id === rating.organizationId);
+                  return (
+                    <div key={rating.id} className="p-4 border-2 border-amber-200 dark:border-amber-800 rounded-lg bg-amber-50/50 dark:bg-amber-900/10">
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Building className="w-4 h-4 text-blue-500" />
+                            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
+                              {ratingOrg?.name || 'Unknown Organization'}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-slate-900 dark:text-white mb-1">
+                            <span className="font-semibold">{fromUser?.name || 'Unknown User'}</span>
+                            <span className="text-slate-400 mx-1">reviewed</span>
+                            <span className="font-semibold">{toUser?.name || 'Unknown User'}</span>
+                          </p>
+                          <div className="flex items-center gap-1 mt-1 mb-2">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} className={`w-4 h-4 ${i < rating.score ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                            ))}
+                            <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">({rating.score}/5)</span>
+                          </div>
+                          {rating.comment && (
+                            <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 italic line-clamp-3 bg-white dark:bg-slate-800 p-3 rounded border border-slate-200 dark:border-slate-700">
+                              "{rating.comment}"
+                            </p>
+                          )}
+                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                            Submitted: {new Date(rating.date).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2 shrink-0">
+                          <button
+                            onClick={() => onApproveRating(rating.id)}
+                            className="p-2.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-600 transition-colors shadow-sm flex items-center justify-center gap-1"
+                            title="Approve Review"
+                          >
+                            <Check className="w-4 h-4" />
+                            <span className="text-xs font-medium">Approve</span>
+                          </button>
+                          {onRejectRating && (
+                            <button
+                              onClick={() => onRejectRating(rating.id)}
+                              className="p-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 dark:hover:bg-red-600 transition-colors shadow-sm flex items-center justify-center gap-1"
+                              title="Reject Review"
+                            >
+                              <X className="w-4 h-4" />
+                              <span className="text-xs font-medium">Reject</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Community Chats Access */}
           <div className={CARD_CLASS}>
             <div className="flex items-center justify-between mb-6">
@@ -1012,9 +1112,25 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
             <div>
+              {programSettings?.programName && (
+                <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">
+                  {programSettings.programName}
+                </div>
+              )}
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Building className="w-6 h-6 text-blue-500" />
-                Organization Dashboard
+                {organization?.logo && !orgLogoError ? (
+                  <img
+                    src={organization.logo}
+                    alt={organization.name}
+                    className="w-6 h-6 object-contain"
+                    onError={() => {
+                      setOrgLogoError(true);
+                    }}
+                  />
+                ) : (
+                  <Building className="w-6 h-6 text-blue-500" />
+                )}
+                {organization?.name || 'Organization Dashboard'}
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                 Manage your organization, users, bridges, and resources
@@ -1022,6 +1138,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
             </div>
             {programSettings && (
               <button
+                type="button"
                 onClick={() => onNavigate('setup')}
                 className="flex items-center justify-center text-xs font-medium text-slate-500 hover:text-emerald-600 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors w-full sm:w-auto shrink-0"
               >
@@ -1117,23 +1234,32 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           {/* Management Actions */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Manage Users */}
-            <button
-              onClick={() => onNavigate('user-management')}
-              className={`${CARD_CLASS} text-left hover:shadow-lg transition-all cursor-pointer group`}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
-                  <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            {(isPlatformAdmin || isAdmin) && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (isPlatformAdmin) {
+                    onNavigate('user-management:users');
+                  } else if (isAdmin) {
+                    onNavigate('participants');
+                  }
+                }}
+                className={`${CARD_CLASS} text-left hover:shadow-lg transition-all cursor-pointer group`}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
+                    <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Manage Users</h3>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Manage Users</h3>
-              </div>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                Add, edit, or remove users from your organization. Manage roles and permissions.
-              </p>
-              <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium text-sm">
-                Go to User Management <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </button>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                  Add, edit, or remove users from your organization. Manage roles and permissions.
+                </p>
+                <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium text-sm">
+                  Go to User Management <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </button>
+            )}
 
             {/* Manage Bridges & Matches */}
             <button
@@ -1232,35 +1358,72 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
 
           {/* Quick Info Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            {/* Pending Reviews */}
+            {/* Pending Reviews - Organization Admin View */}
             <div className={CARD_CLASS}>
-              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-slate-900 dark:text-white">Pending Ratings & Comments</h3>
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
+                  Pending Reviews
+                </h3>
+                <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
+                  Org Admin
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                Approve or reject reviews from your organization participants
+              </p>
               {ratings.filter(r => !r.isApproved).length === 0 ? (
-                <p className="text-slate-400 text-xs sm:text-sm">No pending ratings.</p>
+                <div className="text-center py-6">
+                  <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-50" />
+                  <p className="text-slate-400 text-xs sm:text-sm">No pending reviews</p>
+                </div>
               ) : (
-                <div className="space-y-3 sm:space-y-4 max-h-48 sm:max-h-60 overflow-y-auto">
+                <div className="space-y-3 sm:space-y-4 max-h-64 sm:max-h-80 overflow-y-auto">
                   {ratings.filter(r => !r.isApproved).map(rating => {
                     const fromUser = users.find(u => u.id === rating.fromUserId);
                     const toUser = users.find(u => u.id === rating.toUserId);
                     return (
-                      <div key={rating.id} className="p-2.5 sm:p-3 border dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800">
-                        <div className="flex justify-between items-start gap-2">
+                      <div key={rating.id} className="p-3 sm:p-4 border-2 border-amber-200 dark:border-amber-800 rounded-lg bg-amber-50/50 dark:bg-amber-900/10">
+                        <div className="flex justify-between items-start gap-3">
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white truncate">{fromUser?.name} <span className="text-slate-400">reviewed</span> {toUser?.name}</p>
-                            <div className="flex items-center mt-1">
+                            <p className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white mb-1">
+                              <span className="font-semibold">{fromUser?.name || 'Unknown'}</span>
+                              <span className="text-slate-400 mx-1">reviewed</span>
+                              <span className="font-semibold">{toUser?.name || 'Unknown'}</span>
+                            </p>
+                            <div className="flex items-center gap-1 mt-1 mb-2">
                               {[...Array(5)].map((_, i) => (
-                                <Star key={i} className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${i < rating.score ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                                <Star key={i} className={`w-3 h-3 sm:w-4 sm:h-4 ${i < rating.score ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
                               ))}
+                              <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">({rating.score}/5)</span>
                             </div>
-                            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1.5 sm:mt-2 italic line-clamp-2">"{rating.comment}"</p>
+                            {rating.comment && (
+                              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2 italic line-clamp-3 bg-white dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700">
+                                "{rating.comment}"
+                              </p>
+                            )}
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                              {new Date(rating.date).toLocaleDateString()}
+                            </p>
                           </div>
-                          <button
-                            onClick={() => onApproveRating(rating.id)}
-                            className="p-1 sm:p-1.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full hover:bg-emerald-200 dark:hover:bg-emerald-900/50 shrink-0"
-                            title="Approve Rating"
-                          >
-                            <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          </button>
+                          <div className="flex flex-col gap-2 shrink-0">
+                            <button
+                              onClick={() => onApproveRating(rating.id)}
+                              className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-600 transition-colors shadow-sm"
+                              title="Approve Review"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            {onRejectRating && (
+                              <button
+                                onClick={() => onRejectRating(rating.id)}
+                                className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 dark:hover:bg-red-600 transition-colors shadow-sm"
+                                title="Reject Review"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

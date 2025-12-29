@@ -5,11 +5,13 @@ import { Check, ChevronRight, ChevronLeft, Upload, Layout, Type, ToggleLeft, Tog
 
 interface OrganizationSetupProps {
   onComplete: (settings: ProgramSettings) => void;
+  initialSettings?: ProgramSettings | null;
 }
 
-const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete }) => {
+const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete, initialSettings }) => {
   const [step, setStep] = useState(1);
-  const [settings, setSettings] = useState<ProgramSettings>({
+  
+  const defaultSettings: ProgramSettings = {
     programName: 'Meant2Grow Mentorship',
     logo: null,
     accentColor: '#10b981', // Default Emerald
@@ -38,7 +40,11 @@ const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete }) => 
       },
       { id: 'linkedin', label: 'LinkedIn profile (optional)', included: true, required: false, previewType: 'text' },
     ]
-  });
+  };
+  
+  const [settings, setSettings] = useState<ProgramSettings>(
+    initialSettings || defaultSettings
+  );
 
   // Modal State for Adding Question
   const [showAddQuestion, setShowAddQuestion] = useState(false);

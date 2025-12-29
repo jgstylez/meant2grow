@@ -30,6 +30,7 @@ import {
   deleteGoal,
   createRating,
   updateRating,
+  deleteRating,
   createResource,
   deleteResource,
   createCalendarEvent,
@@ -693,7 +694,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (currentPage) {
       case "setup":
-        return <OrganizationSetup onComplete={handleSetupComplete} />;
+        return <OrganizationSetup onComplete={handleSetupComplete} initialSettings={programSettings} />;
       case "mentor-onboarding":
         return (
           <MentorOnboarding
@@ -727,6 +728,7 @@ const App: React.FC = () => {
                 calendarEvents={calendarEvents}
                 programSettings={programSettings}
                 organizationCode={organization?.organizationCode}
+                organization={organization}
                 onApproveRating={async (id) => {
                   try {
                     await updateRating(id, { isApproved: true });
@@ -735,6 +737,18 @@ const App: React.FC = () => {
                     console.error("Error approving rating:", error);
                     addToast(
                       getErrorMessage(error) || "Failed to approve rating",
+                      "error"
+                    );
+                  }
+                }}
+                onRejectRating={async (id) => {
+                  try {
+                    await deleteRating(id);
+                    addToast("Rating rejected and removed", "success");
+                  } catch (error: unknown) {
+                    console.error("Error rejecting rating:", error);
+                    addToast(
+                      getErrorMessage(error) || "Failed to reject rating",
                       "error"
                     );
                   }
@@ -925,6 +939,11 @@ const App: React.FC = () => {
       case "user-management":
         if (!currentUser || currentUser.role !== Role.PLATFORM_ADMIN)
           return <div className="p-8 text-center">Access denied.</div>;
+        // Parse tab from route (e.g., "user-management:users" or "user-management:organizations")
+        // Default to 'users' if no tab specified
+        const userManagementTab = currentPage.includes(':') 
+          ? (currentPage.split(':')[1] as 'users' | 'organizations')
+          : 'users';
         return (
           <Suspense
             fallback={<LoadingSpinner message="Loading user management..." />}
@@ -933,6 +952,7 @@ const App: React.FC = () => {
               <UserManagement
                 currentUser={currentUser}
                 onNavigate={setCurrentPage}
+                initialTab={userManagementTab}
               />
             </ErrorBoundary>
           </Suspense>

@@ -558,6 +558,11 @@ export const updateRating = async (ratingId: string, updates: Partial<Rating>): 
   await updateDoc(ratingRef, updates);
 };
 
+export const deleteRating = async (ratingId: string): Promise<void> => {
+  const ratingRef = doc(db, 'ratings', ratingId);
+  await deleteDoc(ratingRef);
+};
+
 // Get all ratings across all organizations (for platform admin)
 export const getAllRatings = async (): Promise<Rating[]> => {
   try {

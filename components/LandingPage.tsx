@@ -159,10 +159,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSignup, onLogin, onNavigate
       <section className="relative pt-12 sm:pt-20 pb-16 sm:pb-32 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center">
           <div className="relative z-10 animate-in slide-in-from-left duration-700">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-wider mb-4 sm:mb-6 border border-emerald-100">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Now accepting new mentors
-            </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.1] mb-4 sm:mb-6">
               <span className="text-slate-900">A Space Where Leaders</span>{" "}
               <br />

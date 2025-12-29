@@ -546,8 +546,9 @@ export const sendAdminEmail = functions.onRequest(
         return;
       }
 
-      // Verify admin permissions if adminUserId and organizationId are provided
-      if (adminUserId && organizationId) {
+      // Verify admin permissions if adminUserId is provided
+      let isPlatformAdmin = false;
+      if (adminUserId) {
         const adminDoc = await db.collection("users").doc(adminUserId).get();
         if (!adminDoc.exists) {
           res.status(403).json({ error: "Admin user not found" });
@@ -560,21 +561,21 @@ export const sendAdminEmail = functions.onRequest(
 
         // Check if user is an admin and belongs to the organization
         const isAdmin = adminRole === Role.ADMIN || adminRole === "ORGANIZATION_ADMIN" || adminRole === "ADMIN";
-        const isPlatformAdmin = adminRole === Role.PLATFORM_ADMIN || adminRole === "PLATFORM_ADMIN";
+        isPlatformAdmin = adminRole === Role.PLATFORM_ADMIN || adminRole === "PLATFORM_ADMIN";
 
         if (!isAdmin && !isPlatformAdmin) {
           res.status(403).json({ error: "Only admins can send emails" });
           return;
         }
 
-        // For organization admins, verify they belong to the same organization
-        if (!isPlatformAdmin && adminOrgId !== organizationId) {
+        // For organization admins, verify they belong to the same organization (if organizationId is provided)
+        if (!isPlatformAdmin && organizationId && adminOrgId !== organizationId) {
           res.status(403).json({ error: "Unauthorized: Admin does not belong to this organization" });
           return;
         }
 
-        // Verify all recipients belong to the same organization (for organization admins)
-        if (!isPlatformAdmin) {
+        // Verify all recipients belong to the same organization (for organization admins only)
+        if (!isPlatformAdmin && organizationId) {
           const recipientIds = recipients
             .map((r: any) => r.userId)
             .filter((id: string) => id);
@@ -597,7 +598,7 @@ export const sendAdminEmail = functions.onRequest(
       }
 
       // Send email to all recipients
-      await emailService.sendCustomEmail(recipients, subject, body, fromAdmin);
+      await emailService.sendCustomEmail(recipients, subject, body, fromAdmin, isPlatformAdmin);
 
       res.json({ success: true, message: `Email sent to ${recipients.length} recipient(s)` });
     } catch (error: any) {

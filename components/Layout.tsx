@@ -57,25 +57,8 @@ const Layout: React.FC<LayoutProps> = ({
   removeToast,
   programSettings,
 }) => {
-  // Helper function to check if logo URL is valid
-  // Rejects blob URLs (temporary) and only accepts permanent URLs (http/https) or data URLs
-  const hasValidLogo = () => {
-    const logo = programSettings?.logo;
-    if (!logo || typeof logo !== 'string') return false;
-    const trimmed = logo.trim();
-    if (trimmed.length === 0) return false;
-    // Normalize to lowercase for case-insensitive scheme comparison (RFC 3986)
-    const lowercased = trimmed.toLowerCase();
-    // Reject blob URLs - they're temporary and won't persist across page reloads
-    if (lowercased.startsWith('blob:')) return false;
-    // Accept http/https URLs or data URLs (base64 encoded images)
-    return lowercased.startsWith('http://') || lowercased.startsWith('https://') || lowercased.startsWith('data:');
-  };
-
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  // Initialize logoError - default to true (show Logo component) if no valid logo exists
-  const [logoError, setLogoError] = useState(!hasValidLogo());
 
   const formatRole = (role: Role) => {
     switch (role) {
@@ -86,15 +69,6 @@ const Layout: React.FC<LayoutProps> = ({
       default: return role;
     }
   };
-
-  // Reset logo error when logo URL changes - default to Logo component if no valid logo
-  useEffect(() => {
-    if (hasValidLogo()) {
-      setLogoError(false);
-    } else {
-      setLogoError(true); // No valid logo, show default Logo component
-    }
-  }, [programSettings?.logo]);
 
   // Role checks - handle both enum and string values for robustness
   const userRoleString = String(currentUser.role);
@@ -237,24 +211,9 @@ const Layout: React.FC<LayoutProps> = ({
       {/* Mobile Header */}
       <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 flex justify-between items-center sticky top-0 z-30">
         <div className="flex items-center space-x-2 min-w-0 flex-1">
-          {hasValidLogo() && !logoError ? (
-            <img
-              src={programSettings!.logo!}
-              alt="Logo"
-              className="w-8 h-8 object-contain flex-shrink-0"
-              onError={() => {
-                setLogoError(true);
-              }}
-              onLoad={() => {
-                setLogoError(false);
-              }}
-            />
-          ) : null}
-          {(!hasValidLogo() || logoError) && (
-            <Logo className="w-8 h-8 flex-shrink-0" />
-          )}
-          <span className="font-bold text-sm uppercase text-slate-800 dark:text-white break-words leading-tight" title={programName}>
-            {programName}
+          <Logo className="w-8 h-8 flex-shrink-0" />
+          <span className="font-bold text-sm uppercase text-slate-800 dark:text-white break-words leading-tight">
+            Meant2Grow
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -361,27 +320,9 @@ const Layout: React.FC<LayoutProps> = ({
         <div className="p-4 h-full flex flex-col">
           <div className="hidden md:flex items-center mb-4">
             <div className="flex items-center space-x-2 min-w-0 flex-1">
-              {hasValidLogo() && !logoError ? (
-                <img
-                  src={programSettings!.logo!}
-                  alt="Logo"
-                  className="w-7 h-7 object-contain flex-shrink-0"
-                  onError={() => {
-                    setLogoError(true);
-                  }}
-                  onLoad={() => {
-                    setLogoError(false);
-                  }}
-                />
-              ) : null}
-              {(!hasValidLogo() || logoError) && (
-                <Logo className="w-7 h-7 flex-shrink-0" />
-              )}
-              <span
-                className="text-sm font-bold uppercase text-slate-800 dark:text-white tracking-tight break-words leading-tight"
-                title={programName}
-              >
-                {programName}
+              <Logo className="w-7 h-7 flex-shrink-0" />
+              <span className="text-sm font-bold uppercase text-slate-800 dark:text-white tracking-tight break-words leading-tight">
+                Meant2Grow
               </span>
             </div>
           </div>
