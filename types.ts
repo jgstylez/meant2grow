@@ -51,6 +51,7 @@ export interface User {
   acceptingNewMentees?: boolean; // Whether mentor is accepting new mentees (default: true)
   maxMentees?: number; // Maximum number of mentees a mentor can have
   linkedinUrl?: string; // LinkedIn profile URL
+  phoneNumber?: string; // Phone number
   createdAt: string;
 }
 

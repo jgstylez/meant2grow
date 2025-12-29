@@ -60,14 +60,22 @@ const Layout: React.FC<LayoutProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const formatRole = (role: Role) => {
-    switch (role) {
-      case Role.ADMIN: return "Organization Admin";
-      case Role.PLATFORM_ADMIN: return "Platform Operator";
-      case Role.MENTOR: return "Mentor";
-      case Role.MENTEE: return "Mentee";
-      default: return role;
-    }
+  const formatRole = (role: Role | string) => {
+    const roleString = String(role);
+    
+    // Handle enum values
+    if (role === Role.ADMIN) return "ORG ADMIN";
+    if (role === Role.PLATFORM_ADMIN) return "Platform Operator";
+    if (role === Role.MENTOR) return "Mentor";
+    if (role === Role.MENTEE) return "Mentee";
+    
+    // Handle string values
+    if (roleString === "ORGANIZATION_ADMIN" || roleString === "ADMIN") return "ORG ADMIN";
+    if (roleString === "PLATFORM_ADMIN" || roleString === "PLATFORM_OPERATOR") return "Platform Operator";
+    if (roleString === "MENTOR") return "Mentor";
+    if (roleString === "MENTEE") return "Mentee";
+    
+    return roleString;
   };
 
   // Role checks - handle both enum and string values for robustness
@@ -336,7 +344,9 @@ const Layout: React.FC<LayoutProps> = ({
               />
               <div className="overflow-hidden min-w-0 flex-1">
                 <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                  {currentUser.name}
+                  {currentUser.name && currentUser.name.trim() && currentUser.name !== "Admin" 
+                    ? currentUser.name 
+                    : "User Admin"}
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
                   {formatRole(currentUser.role)}

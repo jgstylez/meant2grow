@@ -65,6 +65,7 @@ export const useOnboardingActions = (
                 skills: formData.skills,
                 goals: goalTitles,
                 linkedinUrl: formData.linkedinUrl,
+                phoneNumber: formData.phoneNumber,
                 maxMentees: maxMenteesValue,
                 acceptingNewMentees: true, // Default to accepting new mentees after onboarding
             };
@@ -127,6 +128,7 @@ export const useOnboardingActions = (
                 skills: formData.skillsToImprove || formData.areas,
                 goals: goalTitles,
                 linkedinUrl: formData.linkedinUrl,
+                phoneNumber: formData.phoneNumber,
             };
 
             // Filter out undefined values - Firebase doesn't allow them

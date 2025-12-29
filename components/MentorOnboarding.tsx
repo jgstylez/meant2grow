@@ -27,7 +27,8 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
     experience: '',
     availability: '',
     maxMentees: '2',
-    goals: [] as GoalInput[]
+    goals: [] as GoalInput[],
+    phoneNumber: currentUser?.phoneNumber || ''
   });
   const [currentGoal, setCurrentGoal] = useState('');
   const [currentTargetDate, setCurrentTargetDate] = useState('');
@@ -42,6 +43,7 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
         company: prev.company || currentUser.company || '',
         skills: prev.skills.length > 0 ? prev.skills : (currentUser.skills || []),
         bio: prev.bio || currentUser.bio || '',
+        phoneNumber: prev.phoneNumber || currentUser.phoneNumber || '',
       }));
     }
   }, [currentUser]);
@@ -157,6 +159,17 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
                     <option value="11-15">11-15 years</option>
                     <option value="16+">16+ years</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone Number</label>
+                  <input 
+                    type="tel" 
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})}
+                    className={INPUT_CLASS}
+                    placeholder="e.g., +1 (555) 123-4567"
+                  />
                 </div>
               </div>
             </div>

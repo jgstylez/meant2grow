@@ -39,6 +39,7 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
     bio: currentUser?.bio || "",
     experience: "",
     areas: currentUser?.goals || [] as string[],
+    phoneNumber: currentUser?.phoneNumber || "",
   });
   const [currentGoal, setCurrentGoal] = useState("");
   const [currentTargetDate, setCurrentTargetDate] = useState("");
@@ -55,6 +56,7 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
         company: prev.company || currentUser.company || "",
         bio: prev.bio || currentUser.bio || "",
         areas: prev.areas.length > 0 ? prev.areas : (currentUser.goals || []),
+        phoneNumber: prev.phoneNumber || currentUser.phoneNumber || "",
       }));
     }
   }, [currentUser]);
@@ -200,6 +202,21 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
                     <option value="4-6">4-6 years</option>
                     <option value="7-10">7-10 years</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phoneNumber}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phoneNumber: e.target.value })
+                    }
+                    className={INPUT_CLASS}
+                    placeholder="e.g., +1 (555) 123-4567"
+                  />
                 </div>
               </div>
             </div>
