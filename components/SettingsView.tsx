@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { User, Role, Mood, ProgramSettings } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { User, Role, Mood, ProgramSettings, Match, MatchStatus } from '../types';
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
 import {
     Users, Settings, Bell, Shield, Calendar, ToggleRight, ToggleLeft, Moon, CheckCircle, Save,
@@ -10,7 +10,7 @@ import {
 import { createUser, getUserByEmail, updateUser, getUsersByOrganization, getOrganization } from '../services/database';
 import { query, collection, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
-import { createCheckoutSession, getCustomerPortalUrl, createCustomer, PRICING_TIERS } from '../services/flowglad';
+import { createCheckoutSession, getBillingData, openBillingPortal, PRICING_TIERS, type BillingData } from '../services/flowglad';
 import { Organization } from '../types';
 import SkillsSelector from './SkillsSelector';
 import {
@@ -40,10 +40,28 @@ interface SettingsViewProps {
     organizationId?: string;
     programSettings?: ProgramSettings | null;
     onUpdateOrganization?: (organizationId: string, updates: Partial<any>) => Promise<void>;
+    matches?: Match[]; // Active matches for calculating mentor availability
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initialTab, organizationId, programSettings, onUpdateOrganization }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initialTab, organizationId, programSettings, onUpdateOrganization, matches = [] }) => {
     const [activeTab, setActiveTab] = useState(initialTab || 'profile');
+    
+    // Robust role checks - handle both enum values and raw string values from database
+    // Use useMemo to ensure proper initialization order
+    const { isPlatformAdmin, isOrgAdmin } = useMemo(() => {
+        const userRoleString = String(user.role);
+        const platformAdmin = user.role === Role.PLATFORM_ADMIN || 
+                            userRoleString === "PLATFORM_ADMIN" || 
+                            userRoleString === "PLATFORM_OPERATOR";
+        
+        const orgAdmin = !platformAdmin && (
+            user.role === Role.ADMIN || 
+            userRoleString === "ORGANIZATION_ADMIN" || 
+            userRoleString === "ADMIN"
+        );
+        
+        return { isPlatformAdmin: platformAdmin, isOrgAdmin: orgAdmin };
+    }, [user.role]);
     const [formData, setFormData] = useState(user);
     const [showSuccess, setShowSuccess] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
@@ -60,6 +78,30 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     useEffect(() => {
         setGoalsPublic(user.goalsPublic !== undefined ? user.goalsPublic : true);
     }, [user.goalsPublic]);
+
+    // Calculate mentor's current active matches count
+    const mentorActiveMatches = useMemo(() => {
+        return user.role === Role.MENTOR 
+            ? matches.filter(m => m.mentorId === user.id && m.status === MatchStatus.ACTIVE).length
+            : 0;
+    }, [user.role, user.id, matches]);
+    
+    const maxMenteesLimit = user.maxMentees || 2; // Default to 2 if not set
+    const hasReachedQuota = mentorActiveMatches >= maxMenteesLimit;
+    
+    // Simple: use the user prop directly, defaulting to true
+    const isAcceptingNewMentees = user.acceptingNewMentees !== false;
+
+    // Initialize maxMentees from user, defaulting to 2 if not set
+    const [maxMentees, setMaxMentees] = useState(user.maxMentees || 2);
+
+    // Sync maxMentees with user prop when it changes
+    // Only update if the value is explicitly set (not undefined) to avoid resetting during updates
+    useEffect(() => {
+        if (user.maxMentees !== undefined) {
+            setMaxMentees(user.maxMentees);
+        }
+    }, [user.maxMentees]);
 
     // Organization State for Billing
     const [organization, setOrganization] = useState<Organization | null>(null);
@@ -91,54 +133,68 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
     // Billing State
-    const currentPlan = (organization?.subscriptionTier) || 'starter';
+    const currentPlan = (organization?.subscriptionTier) || 'free';
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [isBillingLoading, setIsBillingLoading] = useState(false);
+    const [billingData, setBillingData] = useState<BillingData | null>(null);
+    const [billingError, setBillingError] = useState<string | null>(null);
 
-    const handleUpgrade = async (planSlug: string) => {
+    // Fetch billing data from Flowglad when billing tab is active
+    useEffect(() => {
+        const fetchBillingData = async () => {
+            if (activeTab === 'billing' && organizationId && isOrgAdmin) {
+                try {
+                    setIsBillingLoading(true);
+                    setBillingError(null);
+                    const data = await getBillingData(organizationId);
+                    setBillingData(data);
+                } catch (error: any) {
+                    console.error('Error fetching billing data:', error);
+                    setBillingError(error.message || 'Failed to load billing data');
+                } finally {
+                    setIsBillingLoading(false);
+                }
+            }
+        };
+        fetchBillingData();
+    }, [activeTab, organizationId, isOrgAdmin]);
+
+    /**
+     * Handle plan upgrade - redirects to Flowglad hosted checkout (PCI compliant)
+     */
+    const handleUpgrade = async (priceId: string) => {
         if (!organizationId || !organization) return;
 
         try {
             setIsBillingLoading(true);
-            let customerId = organization.flowgladCustomerId;
-
-            if (!customerId) {
-                // Lazy create customer
-                customerId = await createCustomer(organization, user.email);
-                await onUpdateOrganization?.(organizationId, { flowgladCustomerId: customerId });
-                // Update local state temporarily
-                setOrganization(prev => prev ? ({ ...prev, flowgladCustomerId: customerId }) : null);
-            }
-
-            const checkoutUrl = await createCheckoutSession(organizationId, planSlug, customerId);
+            const checkoutUrl = await createCheckoutSession(
+                organizationId, 
+                priceId,
+                organization.name,
+                user.email
+            );
+            // Redirect to Flowglad's hosted checkout page
             window.location.href = checkoutUrl;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error starting checkout:', error);
-            alert('Failed to start checkout session');
+            alert(error.message || 'Failed to start checkout session');
             setIsBillingLoading(false);
         }
     };
 
+    /**
+     * Handle subscription management - redirects to Flowglad billing portal (PCI compliant)
+     */
     const handleManageSubscription = async () => {
-        if (!organizationId || !organization) return;
+        if (!organizationId) return;
 
         try {
             setIsBillingLoading(true);
-            let customerId = organization.flowgladCustomerId;
-
-            if (!customerId) {
-                // Lazy create customer
-                customerId = await createCustomer(organization, user.email);
-                await onUpdateOrganization?.(organizationId, { flowgladCustomerId: customerId });
-                setOrganization(prev => prev ? ({ ...prev, flowgladCustomerId: customerId }) : null);
-            }
-
-            const portalUrl = await getCustomerPortalUrl(organizationId);
-            window.location.href = portalUrl;
-        } catch (error) {
-            console.error('Error getting portal URL:', error);
-            alert('Failed to open billing portal');
+            await openBillingPortal(organizationId);
+        } catch (error: any) {
+            console.error('Error opening billing portal:', error);
+            alert(error.message || 'Failed to open billing portal');
             setIsBillingLoading(false);
         }
     };
@@ -231,7 +287,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     };
 
     const handleSave = () => {
-        onUpdateUser({ ...formData, goalsPublic });
+        onUpdateUser({ ...formData, goalsPublic, maxMentees });
         setShowSuccess(true);
         setPasswordForm({ current: '', new: '', confirm: '' });
         setTimeout(() => setShowSuccess(false), 3000);
@@ -246,6 +302,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
         setTimeout(() => setShowSuccess(false), 3000);
     };
 
+    const toggleAcceptingNewMentees = () => {
+        const newValue = !isAcceptingNewMentees;
+        onUpdateUser({ ...user, acceptingNewMentees: newValue });
+    };
+
+    const handleMaxMenteesChange = (value: number) => {
+        setMaxMentees(value);
+        // Auto-save the preference - use user prop directly to ensure we have all fields
+        onUpdateUser({ ...user, maxMentees: value });
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+    };
+
     const tabs = [
         { id: 'profile', label: 'Profile', icon: Users },
         { id: 'preferences', label: 'Preferences', icon: Settings },
@@ -256,11 +325,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
         { id: 'platform-admin', label: 'Platform Operator', icon: Crown }
     ];
 
-    const isPlatformAdmin = user.role === Role.PLATFORM_ADMIN;
+    // Tab visibility by role:
+    // - Platform Operators: all except billing (they don't manage org billing)
+    // - Organization Admins: all except platform-admin (they manage their org's billing)
+    // - Mentors/Mentees: all except billing and platform-admin
     const visibleTabs = isPlatformAdmin
-        ? tabs.filter(t => t.id !== 'billing') // Platform operators see all tabs except billing
-        : user.role === Role.ADMIN
-            ? tabs.filter(t => t.id !== 'preferences' && t.id !== 'platform-admin')
+        ? tabs.filter(t => t.id !== 'billing')
+        : isOrgAdmin
+            ? tabs.filter(t => t.id !== 'platform-admin')
             : tabs.filter(t => t.id !== 'billing' && t.id !== 'platform-admin');
 
     // Redirect platform operators away from billing tab if they somehow land on it
@@ -300,7 +372,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Profile Settings</h2>
 
                             {/* Admin-only: Program Name Update */}
-                            {user.role === Role.ADMIN && programSettings && organizationId && onUpdateOrganization && (
+                            {isOrgAdmin && programSettings && organizationId && onUpdateOrganization && (
                                 <div className={CARD_CLASS + " mb-6 border-2 border-emerald-200 dark:border-emerald-800"}>
                                     <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center">
                                         <Edit2 className="w-5 h-5 mr-2 text-emerald-600" /> Program Name
@@ -397,8 +469,38 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                 <div className={CARD_CLASS}>
                                     <h3 className="font-bold text-slate-800 dark:text-white mb-4">Mentorship Capacity</h3>
                                     <div className="space-y-4">
-                                        <label className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg"><span className="text-sm font-medium">Accepting New Mentees</span><ToggleRight className="w-6 h-6 text-emerald-500 cursor-pointer" /></label>
-                                        <div><label className="block text-xs font-semibold text-slate-500 mb-1">Max Mentees</label><select className={INPUT_CLASS}><option>1</option><option>2</option><option>3</option></select></div>
+                                        <label 
+                                            onClick={toggleAcceptingNewMentees}
+                                            className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                        >
+                                            <div className="flex-1">
+                                                <span className="text-sm font-medium">Accepting New Mentees</span>
+                                                {hasReachedQuota && (
+                                                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                                        ⚠️ Quota reached ({mentorActiveMatches}/{maxMenteesLimit} mentees)
+                                                    </p>
+                                                )}
+                                            </div>
+                                            {isAcceptingNewMentees ? (
+                                                <ToggleRight className="w-6 h-6 text-emerald-500" />
+                                            ) : (
+                                                <ToggleLeft className="w-6 h-6 text-slate-400" />
+                                            )}
+                                        </label>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-500 mb-1">Max Mentees</label>
+                                            <select 
+                                                className={INPUT_CLASS}
+                                                value={maxMentees}
+                                                onChange={(e) => handleMaxMenteesChange(parseInt(e.target.value, 10))}
+                                            >
+                                                <option value={1}>1</option>
+                                                <option value={2}>2</option>
+                                                <option value={3}>3</option>
+                                                <option value={4}>4</option>
+                                                <option value={5}>5</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -620,121 +722,49 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                 </div>
 
                                 {/* Outlook Calendar */}
-                                <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl">
+                                <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl opacity-60">
                                     <div className="flex items-center">
                                         <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center text-blue-500 dark:text-blue-400 font-bold mr-4">O</div>
                                         <div>
                                             <p className="font-bold text-slate-800 dark:text-white">Outlook Calendar</p>
                                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                {outlookConnected ? 'Connected • Events will sync automatically' : 'Connect your Outlook Calendar'}
+                                                Coming soon
                                             </p>
                                         </div>
                                     </div>
-                                    {outlookConnected ? (
-                                        <button
-                                            onClick={async () => {
-                                                try {
-                                                    clearOutlookCredentials(user.id);
-                                                    setOutlookConnected(false);
-                                                    setShowSuccess(true);
-                                                    setTimeout(() => setShowSuccess(false), 3000);
-                                                } catch (error: any) {
-                                                    console.error('Error disconnecting Outlook Calendar:', error);
-                                                }
-                                            }}
-                                            className="text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
-                                        >
-                                            Disconnect
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={async () => {
-                                                try {
-                                                    setCalendarSyncing(prev => ({ ...prev, outlook: true }));
-                                                    await requestOutlookAccess();
-                                                    // The OAuth flow will handle the callback via useEffect
-                                                } catch (error: any) {
-                                                    console.error('Error connecting Outlook Calendar:', error);
-                                                    alert(error.message || 'Failed to connect Outlook Calendar');
-                                                    setCalendarSyncing(prev => ({ ...prev, outlook: false }));
-                                                }
-                                            }}
-                                            disabled={calendarSyncing.outlook}
-                                            className="text-sm font-medium text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {calendarSyncing.outlook ? 'Connecting...' : 'Connect'}
-                                        </button>
-                                    )}
+                                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg">
+                                        Coming Soon
+                                    </span>
                                 </div>
 
                                 {/* Apple Calendar */}
-                                <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl">
+                                <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl opacity-60">
                                     <div className="flex items-center">
                                         <div className="w-10 h-10 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center justify-center text-red-500 dark:text-red-400 font-bold mr-4">A</div>
                                         <div>
                                             <p className="font-bold text-slate-800 dark:text-white">Apple Calendar</p>
                                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                                {appleConnected ? 'Connected • Events will sync automatically' : 'Connect your iCloud Calendar'}
+                                                Coming soon
                                             </p>
                                         </div>
                                     </div>
-                                    {appleConnected ? (
-                                        <button
-                                            onClick={async () => {
-                                                try {
-                                                    clearAppleCredentials(user.id);
-                                                    setAppleConnected(false);
-                                                    setShowSuccess(true);
-                                                    setTimeout(() => setShowSuccess(false), 3000);
-                                                } catch (error: any) {
-                                                    console.error('Error disconnecting Apple Calendar:', error);
-                                                }
-                                            }}
-                                            className="text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
-                                        >
-                                            Disconnect
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={async () => {
-                                                try {
-                                                    setCalendarSyncing(prev => ({ ...prev, apple: true }));
-                                                    const credentials = await requestAppleCalendarAccess();
-                                                    storeAppleCredentials(user.id, credentials);
-                                                    setAppleConnected(true);
-                                                    setShowSuccess(true);
-                                                    setTimeout(() => setShowSuccess(false), 3000);
-                                                } catch (error: any) {
-                                                    console.error('Error connecting Apple Calendar:', error);
-                                                    alert(error.message || 'Failed to connect Apple Calendar. Please configure Apple Calendar service or use a third-party integration.');
-                                                } finally {
-                                                    setCalendarSyncing(prev => ({ ...prev, apple: false }));
-                                                }
-                                            }}
-                                            disabled={calendarSyncing.apple}
-                                            className="text-sm font-medium text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            {calendarSyncing.apple ? 'Connecting...' : 'Connect'}
-                                        </button>
-                                    )}
+                                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg">
+                                        Coming Soon
+                                    </span>
                                 </div>
                             </div>
-                            {(googleConnected || outlookConnected || appleConnected) && (
+                            {googleConnected && (
                                 <div className="mt-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
                                     <p className="text-sm text-emerald-800 dark:text-emerald-200">
                                         <CheckCircle className="w-4 h-4 inline mr-2" />
-                                        {[
-                                            googleConnected && 'Google Calendar',
-                                            outlookConnected && 'Outlook Calendar',
-                                            appleConnected && 'Apple Calendar'
-                                        ].filter(Boolean).join(', ')} connected. New meetings will automatically sync to all connected calendars.
+                                        Google Calendar connected. New meetings will automatically sync to your calendar.
                                     </p>
                                 </div>
                             )}
                         </div>
                     )}
 
-                    {activeTab === 'billing' && user.role === Role.ADMIN && (
+                    {activeTab === 'billing' && isOrgAdmin && (
                         <div className="space-y-6 animate-in fade-in">
                             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Billing & Subscription</h2>
 
@@ -901,62 +931,120 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                 </div>
                             </div>
 
-                            {/* Payment Method */}
+                            {/* Payment Method - PCI Compliant: Only showing last 4 digits from Flowglad */}
                             <div className={CARD_CLASS}>
                                 <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center">
                                     <CreditCard className="w-5 h-5 mr-2 text-emerald-500" /> Payment Method
                                 </h3>
-                                <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl">
-                                    <div className="flex items-center">
-                                        <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center mr-4">
-                                            <CreditCard className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-slate-800 dark:text-white text-sm">•••• •••• •••• 4242</p>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400">Expires 12/2025</p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={handleManageSubscription}
-                                        disabled={isBillingLoading}
-                                        className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50"
-                                    >
-                                        {isBillingLoading ? 'Loading...' : 'Update'}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Billing History */}
-                            <div className={CARD_CLASS}>
-                                <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center">
-                                    <History className="w-5 h-5 mr-2 text-emerald-500" /> Billing History
-                                </h3>
-                                <div className="space-y-3">
-                                    {[
-                                        { date: 'Jan 15, 2025', amount: '$99.00', status: 'Paid', period: 'Professional - Annual' },
-                                        { date: 'Dec 15, 2024', amount: '$99.00', status: 'Paid', period: 'Professional - Annual' },
-                                        { date: 'Nov 15, 2024', amount: '$199.00', status: 'Paid', period: 'Professional - Monthly' }
-                                    ].map((invoice, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg">
-                                            <div>
-                                                <p className="font-medium text-slate-800 dark:text-white text-sm">{invoice.period}</p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400">{invoice.date}</p>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-sm font-bold text-slate-800 dark:text-white">{invoice.amount}</span>
-                                                <span className="text-xs px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full font-medium">
-                                                    {invoice.status}
-                                                </span>
+                                {billingData?.paymentMethods && billingData.paymentMethods.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {billingData.paymentMethods.map((pm) => (
+                                            <div key={pm.id} className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl">
+                                                <div className="flex items-center">
+                                                    <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center mr-4">
+                                                        <CreditCard className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-slate-800 dark:text-white text-sm">
+                                                            {pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : 'Card'} •••• {pm.last4 || '****'}
+                                                        </p>
+                                                        {pm.expMonth && pm.expYear && (
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                                Expires {pm.expMonth}/{pm.expYear}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
                                                 <button
                                                     onClick={handleManageSubscription}
                                                     disabled={isBillingLoading}
-                                                    className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-50"
+                                                    className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50"
                                                 >
-                                                    <FileText className="w-4 h-4" />
+                                                    Manage
                                                 </button>
                                             </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between p-4 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl">
+                                        <div className="flex items-center">
+                                            <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center mr-4">
+                                                <CreditCard className="w-5 h-5 text-slate-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-slate-600 dark:text-slate-400 text-sm">No payment method on file</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400">Add one when you upgrade your plan</p>
+                                            </div>
                                         </div>
-                                    ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Billing History - Fetched from Flowglad */}
+                            <div className={CARD_CLASS}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="font-bold text-slate-800 dark:text-white flex items-center">
+                                        <History className="w-5 h-5 mr-2 text-emerald-500" /> Billing History
+                                    </h3>
+                                    {billingData?.portalUrl && (
+                                        <button
+                                            onClick={handleManageSubscription}
+                                            disabled={isBillingLoading}
+                                            className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-50"
+                                        >
+                                            View all in portal
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="space-y-3">
+                                    {billingData?.invoices && billingData.invoices.length > 0 ? (
+                                        billingData.invoices.slice(0, 5).map((inv) => {
+                                            const invoice = inv.invoice;
+                                            const date = new Date(invoice.invoiceDate).toLocaleDateString('en-US', {
+                                                month: 'short',
+                                                day: 'numeric',
+                                                year: 'numeric',
+                                            });
+                                            const statusColors: Record<string, string> = {
+                                                paid: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+                                                open: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+                                                draft: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300',
+                                                void: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
+                                                uncollectible: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+                                            };
+                                            return (
+                                                <div key={invoice.id} className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg">
+                                                    <div>
+                                                        <p className="font-medium text-slate-800 dark:text-white text-sm">
+                                                            {invoice.invoiceNumber || 'Invoice'}
+                                                        </p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">{date}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-4">
+                                                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[invoice.status] || statusColors.draft}`}>
+                                                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                                                        </span>
+                                                        {invoice.pdfURL && (
+                                                            <a
+                                                                href={invoice.pdfURL}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400"
+                                                            >
+                                                                <FileText className="w-4 h-4" />
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="text-center py-6 text-slate-500 dark:text-slate-400">
+                                            <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                            <p className="text-sm">No billing history yet</p>
+                                            <p className="text-xs mt-1">Invoices will appear here after your first payment</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -1004,18 +1092,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                 onClick={() => {
                                                     if (targetPlan === 'enterprise') {
                                                         window.location.href = 'mailto:sales@meant2grow.com';
+                                                        setShowUpgradeModal(false);
                                                     } else {
                                                         const tier = PRICING_TIERS[targetPlan as keyof typeof PRICING_TIERS];
-                                                        if (tier) {
-                                                            handleUpgrade(tier.monthlySlug);
+                                                        if (tier && tier.monthlyPriceId) {
+                                                            // Use the actual Flowglad price ID for checkout
+                                                            handleUpgrade(tier.monthlyPriceId);
+                                                            setShowUpgradeModal(false);
                                                         }
                                                     }
-                                                    setShowUpgradeModal(false);
                                                 }}
                                                 disabled={isBillingLoading}
                                                 className={BUTTON_PRIMARY + " flex-1" + (isBillingLoading ? " opacity-50" : "")}
                                             >
-                                                {isBillingLoading ? 'Processing...' : 'Confirm Upgrade'}
+                                                {isBillingLoading ? 'Redirecting to checkout...' : 'Continue to Checkout'}
                                             </button>
                                         </div>
                                     </div>

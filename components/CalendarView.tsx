@@ -414,42 +414,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               >
                                 📅 Google Calendar
                               </a>
-                              <a
-                                href={generateOutlookCalendarLink(
-                                  ev,
-                                  ev.googleMeetLink
-                                )}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block hover:bg-slate-800 px-1 py-0.5 rounded text-[9px]"
+                              <div
+                                className="block px-1 py-0.5 rounded text-[9px] opacity-50 cursor-not-allowed"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                📅 Outlook Calendar
-                              </a>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const ics = generateAppleCalendarICS(
-                                    ev,
-                                    ev.googleMeetLink
-                                  );
-                                  const blob = new Blob([ics], {
-                                    type: "text/calendar;charset=utf-8",
-                                  });
-                                  const url = URL.createObjectURL(blob);
-                                  const link = document.createElement("a");
-                                  link.href = url;
-                                  link.download = `${ev.title.replace(
-                                    /[^a-z0-9]/gi,
-                                    "_"
-                                  )}.ics`;
-                                  link.click();
-                                  URL.revokeObjectURL(url);
-                                }}
-                                className="block w-full text-left hover:bg-slate-800 px-1 py-0.5 rounded text-[9px]"
+                                📅 Outlook Calendar <span className="text-[8px] text-slate-500">(Coming Soon)</span>
+                              </div>
+                              <div
+                                className="block w-full text-left px-1 py-0.5 rounded text-[9px] opacity-50 cursor-not-allowed"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                📅 Apple Calendar
-                              </button>
+                                📅 Apple Calendar <span className="text-[8px] text-slate-500">(Coming Soon)</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -695,56 +671,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        const tempEvent: CalendarEvent = {
-                          id: "",
-                          organizationId: currentUser.organizationId,
-                          title: newEvent.title,
-                          date: newEvent.date,
-                          startTime: newEvent.time,
-                          duration: newEvent.duration,
-                          type: newEvent.type,
-                          createdAt: new Date().toISOString(),
-                        };
-                        window.open(
-                          generateOutlookCalendarLink(tempEvent),
-                          "_blank"
-                        );
-                      }}
-                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-xs"
-                      title="Add to Outlook Calendar"
+                      disabled
+                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs opacity-50 cursor-not-allowed"
+                      title="Outlook Calendar - Coming Soon"
                     >
                       <ExternalLink className="w-3 h-3" />
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        const tempEvent: CalendarEvent = {
-                          id: "",
-                          organizationId: currentUser.organizationId,
-                          title: newEvent.title,
-                          date: newEvent.date,
-                          startTime: newEvent.time,
-                          duration: newEvent.duration,
-                          type: newEvent.type,
-                          createdAt: new Date().toISOString(),
-                        };
-                        const ics = generateAppleCalendarICS(tempEvent);
-                        const blob = new Blob([ics], {
-                          type: "text/calendar;charset=utf-8",
-                        });
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement("a");
-                        link.href = url;
-                        link.download = `${newEvent.title.replace(
-                          /[^a-z0-9]/gi,
-                          "_"
-                        )}.ics`;
-                        link.click();
-                        URL.revokeObjectURL(url);
-                      }}
-                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-xs"
-                      title="Add to Apple Calendar"
+                      disabled
+                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs opacity-50 cursor-not-allowed"
+                      title="Apple Calendar - Coming Soon"
                     >
                       <ExternalLink className="w-3 h-3" />
                     </button>

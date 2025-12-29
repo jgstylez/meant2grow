@@ -22,7 +22,26 @@ const Matching: React.FC<MatchingProps> = ({ users, matches, onCreateMatch }) =>
   const [viewMode, setViewMode] = useState<ViewMode>('bench');
 
   const unmatchedMentees = users.filter(u => u.role === Role.MENTEE && !matches.find(m => m.menteeId === u.id && m.status === MatchStatus.ACTIVE));
-  const mentors = users.filter(u => u.role === Role.MENTOR);
+  
+  // Filter mentors: only show those who are accepting new mentees and haven't reached their quota
+  const mentors = users.filter(u => {
+    if (u.role !== Role.MENTOR) return false;
+    
+    // Check if mentor is accepting new mentees
+    if (u.acceptingNewMentees === false) return false;
+    
+    // Count active matches for this mentor
+    const mentorActiveMatches = matches.filter(m => 
+      m.mentorId === u.id && m.status === MatchStatus.ACTIVE
+    ).length;
+    
+    // Check if mentor has reached their maxMentees quota
+    const maxMentees = u.maxMentees || 2; // Default to 2 if not set
+    if (mentorActiveMatches >= maxMentees) return false;
+    
+    return true;
+  });
+  
   const activeMatches = matches.filter(m => m.status === MatchStatus.ACTIVE);
 
   const selectedMentee = users.find(u => u.id === selectedMenteeId);

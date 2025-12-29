@@ -48,6 +48,8 @@ export interface User {
   mood?: Mood; // User's current mood
   googleId?: string; // For OAuth linking
   goalsPublic?: boolean; // Whether goals are visible to others (default: true)
+  acceptingNewMentees?: boolean; // Whether mentor is accepting new mentees (default: true)
+  maxMentees?: number; // Maximum number of mentees a mentor can have
   linkedinUrl?: string; // LinkedIn profile URL
   createdAt: string;
 }

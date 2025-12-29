@@ -384,11 +384,15 @@ const App: React.FC = () => {
   const handleUpdateUser = async (updatedUser: User) => {
     try {
       if (!updatedUser.id) throw new Error("User ID is required");
+      // Optimistically update local state
       setCurrentUser(updatedUser);
-      await updateUser(updatedUser.id, updatedUser);
+      // Extract only the changed fields for the database update
+      const updates: Partial<User> = { ...updatedUser };
+      await updateUser(updatedUser.id, updates);
       addToast("Profile updated successfully", "success");
     } catch (error: unknown) {
       console.error("Error updating user:", error);
+      // On error, refresh from database to get correct state
       await refreshData();
       addToast(getErrorMessage(error) || "Failed to update profile", "error");
     }
@@ -971,6 +975,7 @@ const App: React.FC = () => {
                   initialTab={tab || "profile"}
                   organizationId={organizationId}
                   programSettings={programSettings}
+                  matches={matches}
                   onUpdateOrganization={(orgId, updates) =>
                     updateOrganization(orgId, updates)
                   }

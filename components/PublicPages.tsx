@@ -905,7 +905,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                     icon: Calendar,
                     title: "Calendar Integration",
                     description:
-                      "Sync with Google Calendar, Outlook, or Apple Calendar to schedule sessions and never miss a meeting.",
+                      "Sync with Google Calendar to schedule sessions and never miss a meeting. Outlook and Apple Calendar coming soon.",
                     bgClass: "bg-purple-100 dark:bg-purple-900/30",
                     iconClass: "text-purple-600 dark:text-purple-400",
                   },

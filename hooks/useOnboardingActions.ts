@@ -41,6 +41,20 @@ export const useOnboardingActions = (
                 }
             }
 
+            // Parse maxMentees - handle both string and number, and "4+" case
+            let maxMenteesValue: number | undefined = undefined;
+            if (formData.maxMentees) {
+                if (typeof formData.maxMentees === 'string') {
+                    if (formData.maxMentees === '4+') {
+                        maxMenteesValue = 4;
+                    } else {
+                        maxMenteesValue = parseInt(formData.maxMentees, 10);
+                    }
+                } else if (typeof formData.maxMentees === 'number') {
+                    maxMenteesValue = formData.maxMentees;
+                }
+            }
+
             const userUpdates: Partial<User> = {
                 name: formData.name || currentUser.name,
                 email: formData.email || currentUser.email,
@@ -51,6 +65,8 @@ export const useOnboardingActions = (
                 skills: formData.skills,
                 goals: goalTitles,
                 linkedinUrl: formData.linkedinUrl,
+                maxMentees: maxMenteesValue,
+                acceptingNewMentees: true, // Default to accepting new mentees after onboarding
             };
 
             // Filter out undefined values - Firebase doesn't allow them
