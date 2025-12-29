@@ -133,7 +133,35 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
     // Billing State
-    const currentPlan = (organization?.subscriptionTier) || 'free';
+    // Calculate trial status: organization is on trial if trialEnd exists and hasn't expired
+    const isOnTrial = useMemo(() => {
+        if (!organization?.trialEnd) return false;
+        const trialEndDate = new Date(organization.trialEnd);
+        const now = new Date();
+        return trialEndDate > now;
+    }, [organization?.trialEnd]);
+
+    // Calculate days remaining in trial
+    const trialDaysRemaining = useMemo(() => {
+        if (!organization?.trialEnd || !isOnTrial) return 0;
+        const trialEndDate = new Date(organization.trialEnd);
+        const now = new Date();
+        const diffTime = trialEndDate.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return Math.max(0, diffDays);
+    }, [organization?.trialEnd, isOnTrial]);
+
+    // Determine current plan: if on trial or no plan selected, show as 'trial'
+    // Otherwise use the actual subscription tier
+    const currentPlan = useMemo(() => {
+        const tier = organization?.subscriptionTier;
+        // If on trial or no tier set, treat as trial (not 'free')
+        if (isOnTrial || !tier || tier === 'free') {
+            return 'trial';
+        }
+        return tier;
+    }, [organization?.subscriptionTier, isOnTrial]);
+
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [isBillingLoading, setIsBillingLoading] = useState(false);
@@ -774,56 +802,106 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                     <div>
                                         <h3 className="font-bold text-slate-800 dark:text-white mb-1">Current Plan</h3>
                                         <p className="text-sm text-slate-500 dark:text-slate-400">
+                                            {currentPlan === 'trial' && (isOnTrial 
+                                                ? `Free Trial (${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''} remaining)`
+                                                : 'Trial Expired - Please Select a Plan'
+                                            )}
                                             {currentPlan === 'starter' && 'Starter Plan'}
                                             {currentPlan === 'professional' && 'Professional Plan'}
                                             {currentPlan === 'business' && 'Business Plan'}
                                             {currentPlan === 'enterprise' && 'Enterprise Plan'}
                                         </p>
                                     </div>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${currentPlan === 'enterprise'
-                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                                        : currentPlan === 'business'
-                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                                            : currentPlan === 'professional'
-                                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                                        }`}>
-                                        {currentPlan === 'enterprise' ? 'Enterprise' : currentPlan === 'business' ? 'Business' : currentPlan === 'professional' ? 'Professional' : 'Starter'}
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                        currentPlan === 'trial'
+                                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                                            : currentPlan === 'enterprise'
+                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                                : currentPlan === 'business'
+                                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                                                    : currentPlan === 'professional'
+                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                                        : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                    }`}>
+                                        {currentPlan === 'trial' 
+                                            ? (isOnTrial ? 'Free Trial' : 'Trial Expired')
+                                            : currentPlan === 'enterprise' 
+                                                ? 'Enterprise' 
+                                                : currentPlan === 'business' 
+                                                    ? 'Business' 
+                                                    : currentPlan === 'professional' 
+                                                        ? 'Professional' 
+                                                        : 'Starter'}
                                     </span>
                                 </div>
 
                                 <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-4">
-                                    <div className="flex items-baseline justify-between mb-2">
-                                        <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                                            {currentPlan === 'starter' && '$99'}
-                                            {currentPlan === 'professional' && '$199'}
-                                            {currentPlan === 'business' && '$299'}
-                                            {currentPlan === 'enterprise' && 'Custom'}
-                                        </span>
-                                        {currentPlan !== 'enterprise' && (
-                                            <span className="text-sm text-slate-500 dark:text-slate-400">
-                                                /month
-                                            </span>
-                                        )}
-                                    </div>
-                                    {currentPlan !== 'enterprise' && (
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                            {currentPlan === 'starter' && '1-99 participants'}
-                                            {currentPlan === 'professional' && '100-399 participants'}
-                                            {currentPlan === 'business' && '400-999 participants'}
-                                        </p>
+                                    {currentPlan === 'trial' ? (
+                                        <>
+                                            {isOnTrial ? (
+                                                <>
+                                                    <div className="flex items-baseline justify-between mb-2">
+                                                        <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                                                            Free
+                                                        </span>
+                                                        <span className="text-sm text-slate-500 dark:text-slate-400">
+                                                            for {trialDaysRemaining} more day{trialDaysRemaining !== 1 ? 's' : ''}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                                        Full access to all features during your 14-day trial
+                                                    </p>
+                                                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mt-2">
+                                                        ⚠️ Select a plan before trial ends to continue service
+                                                    </p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="flex items-baseline justify-between mb-2">
+                                                        <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                                                            Trial Expired
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
+                                                        ⚠️ Please select a paid plan to continue using Meant2Grow
+                                                    </p>
+                                                </>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-baseline justify-between mb-2">
+                                                <span className="text-2xl font-bold text-slate-900 dark:text-white">
+                                                    {currentPlan === 'starter' && '$99'}
+                                                    {currentPlan === 'professional' && '$199'}
+                                                    {currentPlan === 'business' && '$299'}
+                                                    {currentPlan === 'enterprise' && 'Custom'}
+                                                </span>
+                                                {currentPlan !== 'enterprise' && (
+                                                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                                                        /month
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {currentPlan !== 'enterprise' && (
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                                    {currentPlan === 'starter' && '1-99 participants'}
+                                                    {currentPlan === 'professional' && '100-399 participants'}
+                                                    {currentPlan === 'business' && '400-999 participants'}
+                                                </p>
+                                            )}
+                                        </>
                                     )}
-                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2">
-                                        14-day free trial included
-                                    </p>
                                 </div>
                             </div>
 
                             {/* Change Plan */}
                             <div className={CARD_CLASS}>
-                                <h3 className="font-bold text-slate-800 dark:text-white mb-4">Change Plan</h3>
+                                <h3 className="font-bold text-slate-800 dark:text-white mb-4">
+                                    {currentPlan === 'trial' ? 'Select a Plan' : 'Change Plan'}
+                                </h3>
                                 <div className="space-y-3">
-                                    {currentPlan !== 'starter' && (
+                                    {currentPlan !== 'starter' && currentPlan !== 'trial' && (
                                         <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl">
                                             <div>
                                                 <p className="font-bold text-slate-800 dark:text-white">Starter</p>
@@ -862,14 +940,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     setTargetPlan('professional');
                                                     setShowUpgradeModal(true);
                                                 }}
-                                                className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentPlan === 'starter'
-                                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                                    : currentPlan === 'business' || currentPlan === 'enterprise'
-                                                        ? 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                                                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                                    }`}
+                                                className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                                    currentPlan === 'trial' || currentPlan === 'starter'
+                                                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                                        : currentPlan === 'business' || currentPlan === 'enterprise'
+                                                            ? 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                                }`}
                                             >
-                                                {currentPlan === 'starter' ? (
+                                                {currentPlan === 'trial' ? (
+                                                    <>
+                                                        <ArrowUp className="w-4 h-4 mr-1" /> Select Plan
+                                                    </>
+                                                ) : currentPlan === 'starter' ? (
                                                     <>
                                                         <ArrowUp className="w-4 h-4 mr-1" /> Upgrade
                                                     </>
@@ -892,14 +975,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     setTargetPlan('business');
                                                     setShowUpgradeModal(true);
                                                 }}
-                                                className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${['starter', 'professional'].includes(currentPlan)
-                                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                                    : currentPlan === 'enterprise'
-                                                        ? 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                                                        : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                                    }`}
+                                                className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                                    currentPlan === 'trial' || ['starter', 'professional'].includes(currentPlan)
+                                                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                                        : currentPlan === 'enterprise'
+                                                            ? 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                                }`}
                                             >
-                                                {['starter', 'professional'].includes(currentPlan) ? (
+                                                {currentPlan === 'trial' ? (
+                                                    <>
+                                                        <ArrowUp className="w-4 h-4 mr-1" /> Select Plan
+                                                    </>
+                                                ) : ['starter', 'professional'].includes(currentPlan) ? (
                                                     <>
                                                         <ArrowUp className="w-4 h-4 mr-1" /> Upgrade
                                                     </>
@@ -924,7 +1012,24 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                 }}
                                                 className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
                                             >
-                                                <ArrowUp className="w-4 h-4 mr-1" /> Contact Sales
+                                                <ArrowUp className="w-4 h-4 mr-1" /> {currentPlan === 'trial' ? 'Contact Sales' : 'Contact Sales'}
+                                            </button>
+                                        </div>
+                                    )}
+                                    {currentPlan === 'trial' && (
+                                        <div className="flex items-center justify-between p-4 border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+                                            <div>
+                                                <p className="font-bold text-slate-800 dark:text-white">Starter</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">$99/month • 1-99 participants</p>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setTargetPlan('starter');
+                                                    setShowUpgradeModal(true);
+                                                }}
+                                                className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
+                                            >
+                                                <ArrowUp className="w-4 h-4 mr-1" /> Select Plan
                                             </button>
                                         </div>
                                     )}
@@ -1049,7 +1154,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                             </div>
 
                             {/* Cancel Subscription */}
-                            {currentPlan !== 'starter' && currentPlan !== 'professional' && currentPlan !== 'business' && currentPlan !== 'enterprise' ? null : currentPlan !== 'enterprise' && (
+                            {currentPlan !== 'trial' && currentPlan !== 'enterprise' && (
                                 <div className="border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 rounded-xl p-6">
                                     <h3 className="font-bold text-red-700 dark:text-red-400 mb-2">Cancel Subscription</h3>
                                     <p className="text-sm text-red-600/70 dark:text-red-400/70 mb-4">
