@@ -620,6 +620,25 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateEvent = async (
+    eventId: string,
+    updates: Partial<CalendarEvent>
+  ) => {
+    try {
+      if (!organizationId) throw new Error("Organization ID is required");
+      if (!currentUser) throw new Error("User must be logged in");
+
+      await updateCalendarEvent(eventId, updates);
+      addToast("Event updated successfully", "success");
+      
+      // Refresh calendar events to show updated data
+      await refreshData();
+    } catch (error: unknown) {
+      console.error("Error updating event:", error);
+      addToast(getErrorMessage(error) || "Failed to update event", "error");
+    }
+  };
+
   const handleSendInvite = async (inviteData: any) => {
     try {
       if (!organizationId || !currentUser || !organization)
@@ -901,8 +920,10 @@ const App: React.FC = () => {
                 events={calendarEvents}
                 currentUser={currentUser}
                 onAddEvent={handleAddEvent}
+                onUpdateEvent={handleUpdateEvent}
                 onNavigate={setCurrentPage}
                 users={users}
+                matches={matches}
               />
             </ErrorBoundary>
           </Suspense>

@@ -53,3 +53,5 @@ types.js.map
 
 # Vercel (contains sensitive project IDs)
 .vercel/
+env.local.example
+env.local.example

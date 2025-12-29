@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CalendarEvent, User } from "../types";
+import { CalendarEvent, User, Match, MatchStatus } from "../types";
 import { INPUT_CLASS, BUTTON_PRIMARY } from "../styles/common";
 import {
   Settings,
@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Calendar as CalendarIcon,
   ExternalLink,
+  Edit,
 } from "lucide-react";
 import {
   getCalendarCredentials,
@@ -29,18 +30,23 @@ interface CalendarViewProps {
   events: CalendarEvent[];
   currentUser: User;
   onAddEvent: (e: Omit<CalendarEvent, "id" | "createdAt">) => void;
+  onUpdateEvent?: (eventId: string, updates: Partial<CalendarEvent>) => void;
   onNavigate: (page: string, tab?: string) => void;
   users: User[];
+  matches: Match[];
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({
   events,
   currentUser,
   onAddEvent,
+  onUpdateEvent,
   onNavigate,
   users,
+  matches,
 }) => {
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [newEvent, setNewEvent] = useState({
     title: "",
     date: "",
@@ -55,6 +61,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [syncing, setSyncing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [hoveredEventId, setHoveredEventId] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if any calendar is connected
@@ -160,7 +167,85 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     }));
   };
 
-  const availableParticipants = users.filter((u) => u.id !== currentUser.id);
+  // Filter events to only show those where current user is creator or participant
+  const visibleEvents = events.filter((ev) => {
+    // User is the creator (mentorId or menteeId matches)
+    if (ev.mentorId === currentUser.id || ev.menteeId === currentUser.id) {
+      return true;
+    }
+    // User is in participants list
+    if (ev.participants && ev.participants.includes(currentUser.id)) {
+      return true;
+    }
+    return false;
+  });
+
+  // Get matched users based on role
+  const getMatchedUsers = (): User[] => {
+    if (currentUser.role === "MENTEE") {
+      // For mentees: show only their matched mentor(s)
+      const activeMatches = matches.filter(
+        (m) => m.menteeId === currentUser.id && m.status === MatchStatus.ACTIVE
+      );
+      const mentorIds = activeMatches.map((m) => m.mentorId);
+      return users.filter((u) => mentorIds.includes(u.id));
+    } else if (currentUser.role === "MENTOR") {
+      // For mentors: show only their matched mentees
+      const activeMatches = matches.filter(
+        (m) => m.mentorId === currentUser.id && m.status === MatchStatus.ACTIVE
+      );
+      const menteeIds = activeMatches.map((m) => m.menteeId);
+      return users.filter((u) => menteeIds.includes(u.id));
+    }
+    // For admins: show all users (no restriction)
+    return users.filter((u) => u.id !== currentUser.id);
+  };
+
+  const availableParticipants = getMatchedUsers();
+
+  const handleEditEvent = (event: CalendarEvent) => {
+    setEditingEvent(event);
+    setNewEvent({
+      title: event.title,
+      date: event.date,
+      time: event.startTime,
+      duration: event.duration,
+      type: event.type,
+      participants: event.participants || [],
+    });
+    setIsAddEventOpen(true);
+  };
+
+  const handleUpdateEvent = async () => {
+    if (!editingEvent || !onUpdateEvent) return;
+    if (!newEvent.title || !newEvent.date) {
+      return;
+    }
+
+    const updates: Partial<CalendarEvent> = {
+      title: newEvent.title,
+      date: newEvent.date,
+      startTime: newEvent.time,
+      duration: newEvent.duration,
+      type: newEvent.type,
+      participants: newEvent.participants.length > 0 ? newEvent.participants : undefined,
+    };
+
+    onUpdateEvent(editingEvent.id, updates);
+
+    setIsAddEventOpen(false);
+    setEditingEvent(null);
+    setNewEvent({
+      title: "",
+      date: "",
+      time: "10:00",
+      duration: "1h",
+      type: "Virtual",
+      participants: [],
+    });
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
+  };
 
   return (
     <div className="h-full flex flex-col space-y-6 animate-in fade-in">
@@ -308,8 +393,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 calendarDay.date.getMonth() === today.getMonth() &&
                 calendarDay.date.getFullYear() === today.getFullYear();
 
-              // Filter events for this specific date
-              const dayEvents = events.filter((e) => {
+              // Filter events for this specific date (using visibleEvents)
+              const dayEvents = visibleEvents.filter((e) => {
                 // Parse date string (YYYY-MM-DD) as local date to avoid timezone issues
                 // When parsing "2025-12-26", new Date() treats it as UTC midnight,
                 // which causes .getDate() to return wrong day for timezones west of UTC
@@ -369,10 +454,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           ? ev.participants.length - 2
                           : 0;
 
+                      // Check if current user can edit this event (is creator)
+                      const canEdit = ev.mentorId === currentUser.id || ev.menteeId === currentUser.id;
+                      const isHovered = hoveredEventId === ev.id;
+
                       return (
                         <div
                           key={ev.id}
                           className="text-[10px] bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 px-1.5 py-1 rounded truncate border border-indigo-200 dark:border-indigo-800 group relative cursor-pointer hover:z-10"
+                          onMouseEnter={() => setHoveredEventId(ev.id)}
+                          onMouseLeave={() => setHoveredEventId(null)}
+                          onClick={(e) => {
+                            // If user can edit, clicking the event opens edit modal
+                            if (canEdit && onUpdateEvent) {
+                              e.stopPropagation();
+                              handleEditEvent(ev);
+                            }
+                          }}
                         >
                           <div className="truncate">
                             {ev.startTime} {ev.title}
@@ -384,8 +482,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             </div>
                           )}
 
-                          {/* Tooltip on hover with calendar links */}
-                          <div className="hidden group-hover:block absolute left-0 top-full mt-1 bg-slate-900 text-white text-[10px] rounded px-2 py-1 z-20 whitespace-nowrap shadow-lg min-w-[200px]">
+                          {/* Tooltip on hover with calendar links and edit button */}
+                          <div className={`${isHovered ? 'block' : 'hidden'} absolute left-0 top-full mt-1 bg-slate-900 text-white text-[10px] rounded px-2 py-1 z-20 whitespace-nowrap shadow-lg min-w-[200px]`}
+                            onMouseEnter={() => setHoveredEventId(ev.id)}
+                            onMouseLeave={() => setHoveredEventId(null)}
+                          >
                             {ev.participants && ev.participants.length > 0 && (
                               <div className="mb-2 pb-2 border-b border-slate-700">
                                 Participants:{" "}
@@ -426,6 +527,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               >
                                 📅 Apple Calendar <span className="text-[8px] text-slate-500">(Coming Soon)</span>
                               </div>
+                              {canEdit && onUpdateEvent && (
+                                <>
+                                  <div className="border-t border-slate-700 my-1"></div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setHoveredEventId(null);
+                                      handleEditEvent(ev);
+                                    }}
+                                    className="block w-full text-left hover:bg-slate-800 px-1 py-0.5 rounded text-[9px]"
+                                  >
+                                    ✏️ Edit Event
+                                  </button>
+                                  <div className="text-[8px] text-slate-400 mt-1 pt-1 border-t border-slate-700">
+                                    Or click anywhere on event to edit
+                                  </div>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -445,12 +564,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             {/* Header - Fixed */}
             <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                Add New Event
+                {editingEvent ? "Edit Event" : "Add New Event"}
               </h3>
               <button
                 onClick={() => {
                   setIsAddEventOpen(false);
                   setShowParticipantDropdown(false);
+                  setEditingEvent(null);
+                  setNewEvent({
+                    title: "",
+                    date: "",
+                    time: "10:00",
+                    duration: "1h",
+                    type: "Virtual",
+                    participants: [],
+                  });
                 }}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
@@ -564,7 +692,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         {availableParticipants.length === 0 ? (
                           <div className="p-3 text-sm text-slate-500 text-center">
-                            No other users available
+                            {currentUser.role === "MENTEE" 
+                              ? "No matched mentor available. Please get matched with a mentor first."
+                              : currentUser.role === "MENTOR"
+                              ? "No matched mentees available. Please create matches first."
+                              : "No other users available"}
                           </div>
                         ) : (
                           availableParticipants.map((user) => (
@@ -638,11 +770,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-b-xl">
               <div className="flex gap-2">
                 <button
-                  onClick={handleSaveEvent}
+                  onClick={editingEvent ? handleUpdateEvent : handleSaveEvent}
                   disabled={!newEvent.title || !newEvent.date}
                   className={BUTTON_PRIMARY + " flex-1"}
                 >
-                  Schedule Event
+                  {editingEvent ? "Update Event" : "Schedule Event"}
                 </button>
                 {newEvent.title && newEvent.date && (
                   <div className="flex gap-1">
