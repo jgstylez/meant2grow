@@ -86,6 +86,7 @@ import { useTemplateActions } from "./hooks/useTemplateActions";
 import { useVideoActions } from "./hooks/useVideoActions";
 import { useOnboardingActions } from "./hooks/useOnboardingActions";
 import { useGoalActions } from "./hooks/useGoalActions";
+import { useFCM } from "./hooks/useFCM";
 import { getErrorMessage } from "./utils/errors";
 import { signInToFirebaseAuth, getIdToken, signOut as signOutGoogle } from "./services/googleAuth";
 
@@ -253,6 +254,16 @@ const App: React.FC = () => {
     }
   }, [currentPage, publicRoute]);
 
+  // Redirect old platform-admin route to new page (handle redirects outside render)
+  useEffect(() => {
+    if (currentPage.startsWith("settings")) {
+      const tab = currentPage.split(":")[1];
+      if (tab === 'platform-admin') {
+        setCurrentPage('platform-operator-management');
+      }
+    }
+  }, [currentPage]);
+
   // Hooks for state management and actions
   const { toasts, addToast, removeToast } = useToasts();
   const {
@@ -260,6 +271,9 @@ const App: React.FC = () => {
     setOnboardingComplete,
     markUserOnboardingComplete,
   } = useOnboarding();
+
+  // Initialize Firebase Cloud Messaging for push notifications
+  const fcm = useFCM(userId);
 
   // Handle navigation based on user state and onboarding status
   useEffect(() => {
@@ -1089,9 +1103,8 @@ const App: React.FC = () => {
         }
         if (currentPage.startsWith("settings")) {
           const tab = currentPage.split(":")[1];
-          // Redirect old platform-admin route to new page
+          // Redirect old platform-admin route to new page (handled via useEffect)
           if (tab === 'platform-admin') {
-            setCurrentPage('platform-operator-management');
             return <LoadingSpinner message="Redirecting..." />;
           }
           return (

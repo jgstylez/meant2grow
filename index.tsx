@@ -3,6 +3,20 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 
+// Register service worker for PWA and push notifications (required for iOS)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/firebase-messaging-sw.js')
+      .then((registration) => {
+        console.log('Service Worker registered successfully:', registration.scope);
+      })
+      .catch((error) => {
+        console.warn('Service Worker registration failed:', error);
+      });
+  });
+}
+
 // App initialization - no logging needed
 
 const rootElement = document.getElementById('root');

@@ -1239,6 +1239,140 @@ export const syncAppleCalendar = functions.onRequest(
   }
 );
 
+// Helper function to send FCM push notification
+async function sendFCMPushNotification(
+  userId: string,
+  notification: {
+    title: string;
+    body: string;
+    type: string;
+    chatId?: string;
+    notificationId: string;
+  }
+): Promise<void> {
+  try {
+    // Get user document to retrieve FCM token
+    const userDoc = await db.collection("users").doc(userId).get();
+    
+    if (!userDoc.exists) {
+      console.log(`User ${userId} not found, skipping FCM notification`);
+      return;
+    }
+
+    const userData = userDoc.data();
+    const fcmToken = userData?.fcmToken;
+
+    if (!fcmToken) {
+      console.log(`No FCM token for user ${userId}, skipping push notification`);
+      return;
+    }
+
+    // Prepare notification payload with platform-specific options
+    // Works for both iOS (Safari 16.4+) and Android (Chrome/Edge/Firefox)
+    const message: any = {
+      notification: {
+        title: notification.title,
+        body: notification.body,
+      },
+      data: {
+        type: notification.type,
+        notificationId: notification.notificationId,
+        ...(notification.chatId && { chatId: notification.chatId }),
+      },
+      token: fcmToken,
+      webpush: {
+        notification: {
+          title: notification.title,
+          body: notification.body,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          requireInteraction: false,
+          silent: false,
+        },
+        fcmOptions: {
+          link: notification.chatId 
+            ? `/chat:${notification.chatId}` 
+            : '/notifications',
+        },
+        headers: {
+          Urgency: 'high', // High priority for better delivery
+        },
+      },
+      // Android-specific options
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'default',
+          sound: 'default',
+          priority: 'high',
+        },
+      },
+      // iOS-specific options (APNS)
+      apns: {
+        headers: {
+          'apns-priority': '10', // High priority for iOS
+        },
+        payload: {
+          aps: {
+            alert: {
+              title: notification.title,
+              body: notification.body,
+            },
+            sound: 'default',
+            badge: 1,
+          },
+        },
+      },
+    };
+
+    // Send FCM message
+    await admin.messaging().send(message);
+    console.log(`FCM push notification sent to user ${userId}`);
+  } catch (error: any) {
+    // Log error but don't throw - FCM failures shouldn't break notification creation
+    console.error(`Error sending FCM push notification to user ${userId}:`, error);
+    
+    // If token is invalid, remove it from user document
+    if (error.code === 'messaging/invalid-registration-token' || 
+        error.code === 'messaging/registration-token-not-registered') {
+      try {
+        await db.collection("users").doc(userId).update({
+          fcmToken: admin.firestore.FieldValue.delete(),
+          fcmTokenUpdatedAt: admin.firestore.FieldValue.delete(),
+        });
+        console.log(`Removed invalid FCM token for user ${userId}`);
+      } catch (updateError) {
+        console.error(`Error removing invalid FCM token:`, updateError);
+      }
+    }
+  }
+}
+
+// Firestore trigger: Send FCM push notification when a notification is created
+export const onNotificationCreated = functionsV1.firestore
+  .document("notifications/{notificationId}")
+  .onCreate(async (snap, context) => {
+    try {
+      const notificationData = snap.data();
+      const notificationId = snap.id;
+
+      // Only send push notification if user has FCM token
+      // The sendFCMPushNotification function will check for token existence
+      await sendFCMPushNotification(
+        notificationData.userId,
+        {
+          title: notificationData.title || 'New Notification',
+          body: notificationData.body || '',
+          type: notificationData.type || 'system',
+          chatId: notificationData.chatId,
+          notificationId,
+        }
+      );
+    } catch (error: any) {
+      console.error("Error in onNotificationCreated trigger:", error);
+    }
+  });
+
 // Helper function to send reminders to all participants
 async function sendMeetingReminders(
   eventId: string,
@@ -1280,8 +1414,8 @@ async function sendMeetingReminders(
         console.error(`Failed to send meeting reminder to ${userId}:`, err);
       });
 
-      // Create in-app notification
-      await db.collection("notifications").add({
+      // Create in-app notification (FCM push will be sent automatically via onNotificationCreated trigger)
+      const notificationRef = await db.collection("notifications").add({
         organizationId: eventData.organizationId,
         userId,
         type: "meeting",
@@ -1290,6 +1424,8 @@ async function sendMeetingReminders(
         isRead: false,
         timestamp: admin.firestore.Timestamp.now(),
       });
+      
+      // Note: FCM push notification will be sent automatically by onNotificationCreated trigger
     } catch (error: any) {
       console.error(`Error sending reminder to user ${userId}:`, error);
     }

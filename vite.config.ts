@@ -1,16 +1,46 @@
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { readFileSync, writeFileSync } from 'fs';
 
 export default defineConfig(({ mode }) => {
   // Load environment variables from .env files (local) or Vercel environment (production)
   const env = loadEnv(mode, process.cwd(), '');
+  
   return {
     server: {
       port: 3000,
       host: '0.0.0.0',
     },
-    plugins: [react()],
+    plugins: [
+      react(),
+      // Plugin to inject environment variables into service worker
+      {
+        name: 'inject-service-worker-env',
+        buildStart() {
+          // This will run during build
+        },
+        writeBundle() {
+          // After build, replace placeholders in service worker with actual values
+          const swPath = path.resolve(__dirname, 'dist/firebase-messaging-sw.js');
+          try {
+            let swContent = readFileSync(swPath, 'utf-8');
+            
+            // Replace placeholders with actual environment variables
+            swContent = swContent.replace('{{VITE_FIREBASE_API_KEY}}', env.VITE_FIREBASE_API_KEY || '');
+            swContent = swContent.replace('{{VITE_FIREBASE_AUTH_DOMAIN}}', env.VITE_FIREBASE_AUTH_DOMAIN || '');
+            swContent = swContent.replace('{{VITE_FIREBASE_PROJECT_ID}}', env.VITE_FIREBASE_PROJECT_ID || '');
+            swContent = swContent.replace('{{VITE_FIREBASE_STORAGE_BUCKET}}', env.VITE_FIREBASE_STORAGE_BUCKET || '');
+            swContent = swContent.replace('{{VITE_FIREBASE_MESSAGING_SENDER_ID}}', env.VITE_FIREBASE_MESSAGING_SENDER_ID || '');
+            swContent = swContent.replace('{{VITE_FIREBASE_APP_ID}}', env.VITE_FIREBASE_APP_ID || '');
+            
+            writeFileSync(swPath, swContent, 'utf-8');
+          } catch (error) {
+            console.warn('Could not update service worker with environment variables:', error);
+          }
+        }
+      }
+    ],
     define: {
       // Note: Gemini API key is now stored securely in Firebase Functions secrets
       // No longer exposed in client bundle
@@ -51,6 +81,7 @@ export default defineConfig(({ mode }) => {
           }
         }
       }
-    }
+    },
+    publicDir: 'public'
   };
 });

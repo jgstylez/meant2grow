@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Role, User, Notification, ProgramSettings } from "../types";
 import { Logo } from "./Logo";
+import { PWAInstallBanner } from "./PWAInstallBanner";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -349,6 +350,9 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
         </div>
       )}
+      
+      {/* PWA Installation Banner - Only shows on authenticated dashboard pages */}
+      <PWAInstallBanner currentUser={currentUser} />
       
       {/* Skip to main content link for screen readers */}
       <a
@@ -693,8 +697,11 @@ const Layout: React.FC<LayoutProps> = ({
       {/* Main Content */}
       <main
         id="main-content"
-        className={`flex-1 overflow-y-auto h-screen p-3 sm:p-4 md:p-8 relative touch-action-pan-y ${isImpersonating ? 'pt-16' : ''}`}
+        className={`flex-1 overflow-y-auto h-screen p-3 sm:p-4 md:p-8 relative touch-action-pan-y ${
+          isImpersonating ? 'pt-16' : ''
+        }`}
         role="main"
+        style={{ paddingTop: 'var(--pwa-banner-offset, 0px)' }}
       >
         {children}
 

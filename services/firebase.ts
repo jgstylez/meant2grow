@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
+import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
@@ -24,5 +25,17 @@ export const storage = getStorage(app);
 // Initialize Firebase Auth
 export const auth = getAuth(app);
 
+// Initialize Firebase Cloud Messaging
+// Only initialize in browser environment and if service worker is supported
+let messaging: Messaging | null = null;
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  try {
+    messaging = getMessaging(app);
+  } catch (error) {
+    console.warn('Firebase Cloud Messaging initialization failed:', error);
+  }
+}
+
+export { messaging, getToken, onMessage };
 export default app;
 
