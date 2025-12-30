@@ -772,6 +772,16 @@ const App: React.FC = () => {
     }
   };
 
+  // Calculate userManagementTab outside of renderContent to avoid hook order issues
+  const userManagementTab = React.useMemo(() => {
+    if (currentPage.startsWith('user-management')) {
+      return currentPage.includes(':') 
+        ? (currentPage.split(':')[1] as 'users' | 'organizations')
+        : 'users';
+    }
+    return 'users'; // Default value when not on user-management page
+  }, [currentPage]);
+
   const renderContent = () => {
     switch (currentPage) {
       case "setup":
@@ -1027,17 +1037,14 @@ const App: React.FC = () => {
       case "user-management":
         if (!currentUser || currentUser.role !== Role.PLATFORM_ADMIN)
           return <div className="p-8 text-center">Access denied.</div>;
-        // Parse tab from route (e.g., "user-management:users" or "user-management:organizations")
-        // Default to 'users' if no tab specified
-        const userManagementTab = currentPage.includes(':') 
-          ? (currentPage.split(':')[1] as 'users' | 'organizations')
-          : 'users';
+        // Use the memoized userManagementTab calculated at component level
         return (
           <Suspense
             fallback={<LoadingSpinner message="Loading user management..." />}
           >
             <ErrorBoundary title="User Management Error">
               <UserManagement
+                key={`user-mgmt-${userManagementTab}`}
                 currentUser={currentUser}
                 onNavigate={setCurrentPage}
                 initialTab={userManagementTab}

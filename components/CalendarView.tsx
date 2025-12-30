@@ -231,65 +231,81 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       participants: newEvent.participants.length > 0 ? newEvent.participants : undefined,
     };
 
-    onUpdateEvent(editingEvent.id, updates);
-
-    setIsAddEventOpen(false);
-    setEditingEvent(null);
-    setNewEvent({
-      title: "",
-      date: "",
-      time: "10:00",
-      duration: "1h",
-      type: "Virtual",
-      participants: [],
-    });
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    try {
+      await onUpdateEvent(editingEvent.id, updates);
+      
+      // Only reset state after successful update
+      setIsAddEventOpen(false);
+      setEditingEvent(null);
+      setNewEvent({
+        title: "",
+        date: "",
+        time: "10:00",
+        duration: "1h",
+        type: "Virtual",
+        participants: [],
+      });
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (error) {
+      // Error handling is done in onUpdateEvent (toast shown there)
+      // Don't reset state on error so user can retry
+      console.error("Error updating event:", error);
+    }
   };
 
   return (
-    <div className="h-full flex flex-col space-y-6 animate-in fade-in">
-      <div className="flex justify-between items-center">
+    <div className="h-full flex flex-col space-y-4 sm:space-y-6 animate-in fade-in">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
             Calendar
           </h1>
-          <p className="text-slate-500 dark:text-slate-400">
+          <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400">
             Manage your mentorship sessions and events.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           {calendarConnected ? (
             <button
               onClick={handleSyncCalendar}
               disabled={syncing}
-              className="flex items-center px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={syncing ? "Syncing calendar" : "Sync calendar"}
+              className="flex items-center justify-center px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <RefreshCw
                 className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`}
+                aria-hidden="true"
               />
-              {syncing ? "Syncing..." : "Sync Now"}
+              <span className="sr-only sm:not-sr-only">{syncing ? "Syncing..." : "Sync Now"}</span>
+              {syncing && <span className="sm:hidden">Syncing...</span>}
             </button>
           ) : (
             <button
               onClick={() => onNavigate("settings", "calendar")}
-              className="flex items-center px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              aria-label="Connect calendar"
+              className="flex items-center justify-center px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
-              <Settings className="w-4 h-4 mr-2" /> Connect Calendar
+              <Settings className="w-4 h-4 mr-2" aria-hidden="true" /> 
+              <span className="hidden sm:inline">Connect Calendar</span>
+              <span className="sm:hidden">Connect</span>
             </button>
           )}
           <button
             onClick={() => setIsAddEventOpen(true)}
-            className={BUTTON_PRIMARY}
+            aria-label="Add new event"
+            className={`${BUTTON_PRIMARY} min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500`}
           >
-            <Plus className="w-4 h-4 mr-2" /> Add Event
+            <Plus className="w-4 h-4 mr-2" aria-hidden="true" /> 
+            <span className="hidden sm:inline">Add Event</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
       </div>
 
       <div className="flex-1 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
         {/* Month Navigation */}
-        <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex justify-between items-center p-3 sm:p-4 border-b border-slate-200 dark:border-slate-800">
           <button
             onClick={() => {
               if (currentMonth === 0) {
@@ -299,11 +315,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 setCurrentMonth(currentMonth - 1);
               }
             }}
-            className="px-3 py-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+            aria-label="Previous month"
+            className="px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
-            ←
+            <span aria-hidden="true">←</span>
+            <span className="sr-only">Previous month</span>
           </button>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
             {new Date(currentYear, currentMonth).toLocaleDateString("en-US", {
               month: "long",
               year: "numeric",
@@ -318,19 +336,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 setCurrentMonth(currentMonth + 1);
               }
             }}
-            className="px-3 py-1 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+            aria-label="Next month"
+            className="px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
-            →
+            <span aria-hidden="true">→</span>
+            <span className="sr-only">Next month</span>
           </button>
         </div>
-        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 text-center py-2 bg-slate-50 dark:bg-slate-950">
+        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 text-center py-2 bg-slate-50 dark:bg-slate-950" role="row">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <div key={d} className="text-xs font-bold text-slate-500 uppercase">
-              {d}
+            <div key={d} className="text-xs font-bold text-slate-500 uppercase" role="columnheader">
+              <span className="sr-only">{d}day</span>
+              <span aria-hidden="true">{d}</span>
             </div>
           ))}
         </div>
-        <div className="flex-1 grid grid-cols-7">
+        <div className="flex-1 grid grid-cols-7 touch-action-pan-y overflow-y-auto">
           {(() => {
             // Calculate calendar days for current month
             const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
@@ -417,7 +438,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               return (
                 <div
                   key={i}
-                  className={`border-r border-b border-slate-100 dark:border-slate-800 p-2 min-h-[100px] relative ${
+                  role="gridcell"
+                  aria-label={`${calendarDay.isCurrentMonth ? "" : "Previous month, "}${new Date(currentYear, currentMonth, calendarDay.day).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`}
+                  className={`border-r border-b border-slate-100 dark:border-slate-800 p-1.5 sm:p-2 min-h-[80px] sm:min-h-[100px] relative ${
                     i % 7 === 6 ? "border-r-0" : ""
                   } ${
                     !calendarDay.isCurrentMonth
@@ -426,17 +449,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   }`}
                 >
                   <span
-                    className={`text-sm font-medium block mb-2 ${
+                    className={`text-xs sm:text-sm font-medium block mb-1 sm:mb-2 ${
                       isToday
-                        ? "bg-emerald-600 text-white w-6 h-6 rounded-full flex items-center justify-center"
+                        ? "bg-emerald-600 text-white w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center"
                         : calendarDay.isCurrentMonth
                         ? "text-slate-700 dark:text-slate-300"
                         : "text-slate-400 dark:text-slate-600"
                     }`}
+                    aria-label={isToday ? "Today" : undefined}
                   >
                     {calendarDay.day}
                   </span>
-                  <div className="space-y-1">
+                  <div className="space-y-0.5 sm:space-y-1">
                     {dayEvents.map((ev) => {
                       // Get participant names
                       const participantNames = ev.participants
@@ -459,9 +483,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       const isHovered = hoveredEventId === ev.id;
 
                       return (
-                        <div
+                        <button
                           key={ev.id}
-                          className="text-[10px] bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 px-1.5 py-1 rounded truncate border border-indigo-200 dark:border-indigo-800 group relative cursor-pointer hover:z-10"
+                          type="button"
+                          aria-label={`${ev.title} at ${ev.startTime}${participantNames ? ` with ${participantNames}${extraCount > 0 ? ` and ${extraCount} more` : ""}` : ""}${canEdit ? ". Click to edit" : ""}`}
+                          className="text-[10px] sm:text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 px-1.5 py-1 rounded truncate border border-indigo-200 dark:border-indigo-800 group relative cursor-pointer hover:z-10 w-full text-left min-h-[32px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           onMouseEnter={() => setHoveredEventId(ev.id)}
                           onMouseLeave={() => setHoveredEventId(null)}
                           onClick={(e) => {
@@ -472,24 +498,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             }
                           }}
                         >
-                          <div className="truncate">
+                          <div className="truncate font-medium">
                             {ev.startTime} {ev.title}
                           </div>
                           {participantNames && (
-                            <div className="text-[9px] text-indigo-600 dark:text-indigo-300 truncate">
+                            <div className="text-[9px] sm:text-[10px] text-indigo-600 dark:text-indigo-300 truncate">
                               {participantNames}
                               {extraCount > 0 ? ` +${extraCount}` : ""}
                             </div>
                           )}
 
                           {/* Tooltip on hover with calendar links and edit button */}
-                          <div className={`${isHovered ? 'block' : 'hidden'} absolute left-0 top-full mt-1 bg-slate-900 text-white text-[10px] rounded px-2 py-1 z-20 whitespace-nowrap shadow-lg min-w-[200px]`}
+                          <div 
+                            role="tooltip"
+                            className={`${isHovered ? 'block' : 'hidden'} absolute left-0 top-full mt-1 bg-slate-900 text-white text-[10px] sm:text-xs rounded px-2 py-1.5 z-20 whitespace-nowrap shadow-lg min-w-[200px] sm:min-w-[250px]`}
                             onMouseEnter={() => setHoveredEventId(ev.id)}
                             onMouseLeave={() => setHoveredEventId(null)}
                           >
                             {ev.participants && ev.participants.length > 0 && (
                               <div className="mb-2 pb-2 border-b border-slate-700">
-                                Participants:{" "}
+                                <strong>Participants:</strong>{" "}
                                 {ev.participants
                                   .map((id) => {
                                     const user = users.find((u) => u.id === id);
@@ -500,7 +528,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               </div>
                             )}
                             <div className="space-y-1">
-                              <div className="text-[9px] text-slate-400 mb-1">
+                              <div className="text-[9px] sm:text-[10px] text-slate-400 mb-1">
                                 Add to calendar:
                               </div>
                               <a
@@ -510,22 +538,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 )}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="block hover:bg-slate-800 px-1 py-0.5 rounded text-[9px]"
+                                aria-label={`Add ${ev.title} to Google Calendar`}
+                                className="block hover:bg-slate-800 px-2 py-1.5 rounded text-[9px] sm:text-[10px] min-h-[32px] flex items-center focus:outline-none focus:ring-2 focus:ring-white"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                📅 Google Calendar
+                                <span aria-hidden="true">📅</span> Google Calendar
                               </a>
                               <div
-                                className="block px-1 py-0.5 rounded text-[9px] opacity-50 cursor-not-allowed"
+                                role="button"
+                                aria-disabled="true"
+                                aria-label="Outlook Calendar integration coming soon"
+                                className="block px-2 py-1.5 rounded text-[9px] sm:text-[10px] opacity-50 cursor-not-allowed"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                📅 Outlook Calendar <span className="text-[8px] text-slate-500">(Coming Soon)</span>
+                                <span aria-hidden="true">📅</span> Outlook Calendar <span className="text-[8px] text-slate-500">(Coming Soon)</span>
                               </div>
                               <div
-                                className="block w-full text-left px-1 py-0.5 rounded text-[9px] opacity-50 cursor-not-allowed"
+                                role="button"
+                                aria-disabled="true"
+                                aria-label="Apple Calendar integration coming soon"
+                                className="block w-full text-left px-2 py-1.5 rounded text-[9px] sm:text-[10px] opacity-50 cursor-not-allowed"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                📅 Apple Calendar <span className="text-[8px] text-slate-500">(Coming Soon)</span>
+                                <span aria-hidden="true">📅</span> Apple Calendar <span className="text-[8px] text-slate-500">(Coming Soon)</span>
                               </div>
                               {canEdit && onUpdateEvent && (
                                 <>
@@ -536,18 +571,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                       setHoveredEventId(null);
                                       handleEditEvent(ev);
                                     }}
-                                    className="block w-full text-left hover:bg-slate-800 px-1 py-0.5 rounded text-[9px]"
+                                    aria-label={`Edit event ${ev.title}`}
+                                    className="block w-full text-left hover:bg-slate-800 px-2 py-1.5 rounded text-[9px] sm:text-[10px] min-h-[32px] focus:outline-none focus:ring-2 focus:ring-white"
                                   >
-                                    ✏️ Edit Event
+                                    <span aria-hidden="true">✏️</span> Edit Event
                                   </button>
-                                  <div className="text-[8px] text-slate-400 mt-1 pt-1 border-t border-slate-700">
+                                  <div className="text-[8px] sm:text-[9px] text-slate-400 mt-1 pt-1 border-t border-slate-700">
                                     Or click anywhere on event to edit
                                   </div>
                                 </>
                               )}
                             </div>
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -559,13 +595,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       </div>
 
       {isAddEventOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 max-h-[90vh] flex flex-col">
+        <div 
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="event-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-2 sm:p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsAddEventOpen(false);
+              setShowParticipantDropdown(false);
+              setEditingEvent(null);
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 max-h-[95vh] sm:max-h-[90vh] flex flex-col touch-action-pan-y">
             {/* Header - Fixed */}
-            <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+            <div className="flex justify-between items-center p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800">
+              <h2 id="event-modal-title" className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
                 {editingEvent ? "Edit Event" : "Add New Event"}
-              </h3>
+              </h2>
               <button
                 onClick={() => {
                   setIsAddEventOpen(false);
@@ -580,103 +628,130 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     participants: [],
                   });
                 }}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label="Close event modal"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 touch-manipulation"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 touch-action-pan-y">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                  <label htmlFor="event-title" className="block text-xs font-medium text-slate-500 uppercase mb-1">
                     Event Title
                   </label>
                   <input
+                    id="event-title"
+                    type="text"
+                    required
+                    aria-required="true"
                     className={INPUT_CLASS}
                     value={newEvent.title}
                     onChange={(e) =>
                       setNewEvent({ ...newEvent, title: e.target.value })
                     }
                     placeholder="e.g. Weekly Check-in"
+                    aria-describedby="event-title-description"
                   />
+                  <span id="event-title-description" className="sr-only">Enter a descriptive title for your event</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                    <label htmlFor="event-date" className="block text-xs font-medium text-slate-500 uppercase mb-1">
                       Date
                     </label>
                     <input
+                      id="event-date"
                       type="date"
+                      required
+                      aria-required="true"
                       className={INPUT_CLASS}
                       value={newEvent.date}
                       onChange={(e) =>
                         setNewEvent({ ...newEvent, date: e.target.value })
                       }
+                      aria-describedby="event-date-description"
                     />
+                    <span id="event-date-description" className="sr-only">Select the date for your event</span>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                    <label htmlFor="event-time" className="block text-xs font-medium text-slate-500 uppercase mb-1">
                       Time
                     </label>
                     <input
+                      id="event-time"
                       type="time"
+                      required
+                      aria-required="true"
                       className={INPUT_CLASS}
                       value={newEvent.time}
                       onChange={(e) =>
                         setNewEvent({ ...newEvent, time: e.target.value })
                       }
+                      aria-describedby="event-time-description"
                     />
+                    <span id="event-time-description" className="sr-only">Select the start time for your event</span>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                    <label htmlFor="event-duration" className="block text-xs font-medium text-slate-500 uppercase mb-1">
                       Duration
                     </label>
                     <select
+                      id="event-duration"
                       className={INPUT_CLASS}
                       value={newEvent.duration}
                       onChange={(e) =>
                         setNewEvent({ ...newEvent, duration: e.target.value })
                       }
+                      aria-describedby="event-duration-description"
                     >
-                      <option>30 min</option>
-                      <option>1h</option>
-                      <option>1.5h</option>
+                      <option value="30 min">30 min</option>
+                      <option value="1h">1h</option>
+                      <option value="1.5h">1.5h</option>
                     </select>
+                    <span id="event-duration-description" className="sr-only">Select how long the event will last</span>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                    <label htmlFor="event-type" className="block text-xs font-medium text-slate-500 uppercase mb-1">
                       Type
                     </label>
                     <select
+                      id="event-type"
                       className={INPUT_CLASS}
                       value={newEvent.type}
                       onChange={(e) =>
                         setNewEvent({ ...newEvent, type: e.target.value })
                       }
+                      aria-describedby="event-type-description"
                     >
-                      <option>Virtual</option>
-                      <option>In-Person</option>
-                      <option>Phone</option>
+                      <option value="Virtual">Virtual</option>
+                      <option value="In-Person">In-Person</option>
+                      <option value="Phone">Phone</option>
                     </select>
+                    <span id="event-type-description" className="sr-only">Select the type of meeting</span>
                   </div>
                 </div>
 
                 {/* Participants Multi-Select */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                  <label htmlFor="event-participants" className="block text-xs font-medium text-slate-500 uppercase mb-1">
                     Participants
                   </label>
                   <div className="relative">
                     <button
+                      id="event-participants"
                       type="button"
                       onClick={() =>
                         setShowParticipantDropdown(!showParticipantDropdown)
                       }
-                      className={`${INPUT_CLASS} w-full text-left flex items-center justify-between`}
+                      aria-label={`Select participants. ${newEvent.participants.length === 0 ? "None selected" : `${newEvent.participants.length} selected`}`}
+                      aria-expanded={showParticipantDropdown}
+                      aria-haspopup="listbox"
+                      className={`${INPUT_CLASS} w-full text-left flex items-center justify-between min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500`}
                     >
                       <span className="text-sm">
                         {newEvent.participants.length === 0
@@ -685,7 +760,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               newEvent.participants.length > 1 ? "s" : ""
                             } selected`}
                       </span>
-                      <UserPlus className="w-4 h-4 text-slate-400" />
+                      <UserPlus className="w-4 h-4 text-slate-400 flex-shrink-0" aria-hidden="true" />
                     </button>
 
                     {showParticipantDropdown && (
@@ -702,7 +777,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           availableParticipants.map((user) => (
                             <label
                               key={user.id}
-                              className="flex items-center p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-800 last:border-0"
+                              className="flex items-center p-3 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer border-b border-slate-100 dark:border-slate-800 last:border-0 min-h-[44px] touch-manipulation"
                             >
                               <input
                                 type="checkbox"
@@ -710,13 +785,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                   user.id
                                 )}
                                 onChange={() => toggleParticipant(user.id)}
-                                className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
+                                aria-label={`Select ${user.name} as participant`}
+                                className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 min-h-[20px] min-w-[20px]"
                               />
                               <div className="ml-3 flex items-center flex-1">
                                 <img
                                   src={user.avatar}
-                                  alt={user.name}
-                                  className="w-8 h-8 rounded-full mr-2"
+                                  alt={`${user.name}'s avatar`}
+                                  className="w-8 h-8 rounded-full mr-2 flex-shrink-0"
                                 />
                                 <div>
                                   <div className="text-sm font-medium text-slate-900 dark:text-white">
@@ -753,9 +829,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             <button
                               type="button"
                               onClick={() => toggleParticipant(userId)}
-                              className="ml-1 hover:text-emerald-900 dark:hover:text-emerald-100"
+                              aria-label={`Remove ${user.name} from participants`}
+                              className="ml-1 hover:text-emerald-900 dark:hover:text-emerald-100 min-h-[24px] min-w-[24px] flex items-center justify-center rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 touch-manipulation"
                             >
-                              <X className="w-3 h-3" />
+                              <X className="w-3 h-3" aria-hidden="true" />
                             </button>
                           </span>
                         ) : null;
@@ -770,7 +847,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-b-xl">
               <div className="flex gap-2">
                 <button
-                  onClick={editingEvent ? handleUpdateEvent : handleSaveEvent}
+                  onClick={async () => {
+                    if (editingEvent) {
+                      await handleUpdateEvent();
+                    } else {
+                      await handleSaveEvent();
+                    }
+                  }}
                   disabled={!newEvent.title || !newEvent.date}
                   className={BUTTON_PRIMARY + " flex-1"}
                 >

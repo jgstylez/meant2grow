@@ -2,3 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile and Accessibility Optimizations */
+
+/* Ensure touch targets meet minimum 44x44px requirement */
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .touch-action-pan-y {
+    touch-action: pan-y;
+  }
+  
+  /* Screen reader only content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  
+  .focus\:not-sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+  
+  /* Improved focus styles for better visibility */
+  *:focus-visible {
+    outline: 2px solid theme('colors.emerald.500');
+    outline-offset: 2px;
+  }
+  
+  /* Smooth scrolling for better mobile experience */
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  
+  /* Prevent text size adjustment on iOS */
+  @supports (-webkit-touch-callout: none) {
+    body {
+      -webkit-text-size-adjust: 100%;
+    }
+  }
+  
+  /* Better button tap targets on mobile */
+  button, a[role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improve form input accessibility */
+  input, textarea, select {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  @media (min-width: 640px) {
+    input, textarea, select {
+      font-size: inherit;
+    }
+  }
+}
+

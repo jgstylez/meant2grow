@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Organization, Role } from '../types';
 import { getAllUsers, getAllOrganizations, updateUser, deleteUser, updateOrganization, deleteOrganization } from '../services/database';
 import { emailService } from '../services/emailService';
@@ -50,24 +50,58 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                          userRoleString === "PLATFORM_ADMIN" || 
                          userRoleString === "PLATFORM_OPERATOR";
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Use ref to track if data is currently loading to prevent concurrent loads
+  const isLoadingRef = useRef(false);
 
-  // Update activeTab when initialTab prop changes
-  useEffect(() => {
-    if (initialTab) {
-      setActiveTab(initialTab);
+  // Memoize loadData to prevent unnecessary re-creations
+  const loadData = useCallback(async () => {
+    // Prevent concurrent loads
+    if (isLoadingRef.current) {
+      console.log('[UserManagement] Already loading, skipping...');
+      return;
     }
-  }, [initialTab]);
 
-  const loadData = async () => {
     try {
+      isLoadingRef.current = true;
       setLoading(true);
-      const [allUsers, allOrgs] = await Promise.all([
-        getAllUsers(),
-        getAllOrganizations()
-      ]);
+      console.log('[UserManagement] Loading data...');
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Data loading timeout')), 30000)
+      );
+      
+      // Load data with individual error handling
+      let allUsers: User[] = [];
+      let allOrgs: Organization[] = [];
+      
+      try {
+        allUsers = await Promise.race([
+          getAllUsers(),
+          new Promise<User[]>((_, reject) => 
+            setTimeout(() => reject(new Error('getAllUsers timeout')), 15000)
+          )
+        ]);
+      } catch (error: any) {
+        console.error('[UserManagement] Error loading users:', error);
+        // Continue with empty array if users fail
+        allUsers = [];
+      }
+      
+      try {
+        allOrgs = await Promise.race([
+          getAllOrganizations(),
+          new Promise<Organization[]>((_, reject) => 
+            setTimeout(() => reject(new Error('getAllOrganizations timeout')), 15000)
+          )
+        ]);
+      } catch (error: any) {
+        console.error('[UserManagement] Error loading organizations:', error);
+        // Continue with empty array if orgs fail
+        allOrgs = [];
+      }
+
+      console.log('[UserManagement] Data loaded:', { users: allUsers.length, orgs: allOrgs.length });
 
       setUsers(allUsers);
       setOrganizations(allOrgs);
@@ -87,11 +121,65 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
         totalOrgs: allOrgs.length,
       });
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('[UserManagement] Error loading data:', error);
+      // Set empty arrays on error to prevent undefined state
+      setUsers([]);
+      setOrganizations([]);
+      setStats({
+        totalUsers: 0,
+        platformAdmins: 0,
+        orgAdmins: 0,
+        mentors: 0,
+        mentees: 0,
+        totalOrgs: 0,
+      });
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
-  };
+  }, []);
+
+  // Load data on mount
+  useEffect(() => {
+    // Reset loading ref when component mounts
+    isLoadingRef.current = false;
+    
+    // Set a safety timeout to ensure loading doesn't hang forever
+    const safetyTimeout = setTimeout(() => {
+      if (isLoadingRef.current) {
+        console.warn('[UserManagement] Loading timeout after 10s - forcing loading to stop');
+        setLoading(false);
+        isLoadingRef.current = false;
+        // Set empty data to prevent undefined state
+        setUsers([]);
+        setOrganizations([]);
+        setStats({
+          totalUsers: 0,
+          platformAdmins: 0,
+          orgAdmins: 0,
+          mentors: 0,
+          mentees: 0,
+          totalOrgs: 0,
+        });
+      }
+    }, 10000); // 10 second timeout
+    
+    loadData();
+    
+    // Cleanup: clear timeout and reset loading state when component unmounts
+    return () => {
+      clearTimeout(safetyTimeout);
+      isLoadingRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run on mount
+
+  // Update activeTab when initialTab prop changes (but only if it's actually different)
+  useEffect(() => {
+    if (initialTab && initialTab !== activeTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, activeTab]);
 
   const getRoleIcon = (role: Role) => {
     switch (role) {
@@ -145,10 +233,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
     return matchesSearch && matchesRole && matchesParticipantType && matchesOrg;
   });
 
+  // Refresh data function that can be called after mutations
+  const refreshData = useCallback(async () => {
+    isLoadingRef.current = false;
+    await loadData();
+  }, [loadData]);
+
   const handleEditUser = async (user: User, updates: Partial<User>) => {
     try {
       await updateUser(user.id, updates);
-      await loadData();
+      await refreshData();
       setEditingUser(null);
     } catch (error: any) {
       console.error('Error updating user:', error);
@@ -159,7 +253,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
   const handleDeleteUser = async (userId: string) => {
     try {
       await deleteUser(userId);
-      await loadData();
+      await refreshData();
       setShowDeleteConfirm(null);
     } catch (error: any) {
       console.error('Error deleting user:', error);
@@ -170,7 +264,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
   const handleDeleteOrg = async (orgId: string) => {
     try {
       await deleteOrganization(orgId);
-      await loadData();
+      await refreshData();
       setShowDeleteConfirm(null);
     } catch (error: any) {
       console.error('Error deleting organization:', error);

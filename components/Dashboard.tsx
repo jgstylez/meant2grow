@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, Match, Goal, Rating, Role, MatchStatus, ProgramSettings, CalendarEvent, Organization } from '../types';
 import { INPUT_CLASS, CARD_CLASS } from '../styles/common';
 import { getAllUsers, getAllOrganizations, getAllCalendarEvents, getAllMatches, getAllGoals, getAllRatings } from '../services/database';
@@ -76,6 +76,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
   const [allRatings, setAllRatings] = useState<Rating[]>([]);
   const [platformAdminLoading, setPlatformAdminLoading] = useState(true);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const handleSubmitRating = () => {
     if (ratingTarget && ratingScore > 0) {
@@ -365,8 +366,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
 
   // --- PLATFORM OPERATOR VIEW ---
   // Load platform operator data
+  // Memoize isPlatformAdmin to prevent unnecessary re-renders
+  const isPlatformAdminMemo = useMemo(() => isPlatformAdmin, [
+    user.role,
+    userRoleString
+  ]);
+
   useEffect(() => {
-    if (isPlatformAdmin) {
+    if (isPlatformAdminMemo) {
+      let cancelled = false;
       const loadPlatformData = async () => {
         try {
           setPlatformAdminLoading(true);
@@ -380,6 +388,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
             getAllGoals(),
             getAllRatings()
           ]);
+          
+          // Check if component was unmounted or effect was cancelled
+          if (cancelled) return;
           
           logger.debug('Platform operator data loaded', {
             users: usersData.length,
@@ -397,6 +408,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           setAllGoals(goalsData);
           setAllRatings(ratingsData);
         } catch (error) {
+          if (cancelled) return;
           console.error('Error loading platform operator data:', error);
           // Log more details about the error
           if (error instanceof Error) {
@@ -411,12 +423,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           setAllGoals([]);
           setAllRatings([]);
         } finally {
-          setPlatformAdminLoading(false);
+          if (!cancelled) {
+            setPlatformAdminLoading(false);
+          }
         }
       };
       loadPlatformData();
+      
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [isPlatformAdmin]);
+  }, [isPlatformAdminMemo]);
 
   // Check both the role enum and string comparison for safety - Platform Operator should see platform dashboard
   // This check MUST come first before admin/mentor/mentee checks
@@ -494,8 +512,37 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
       const org = allOrganizations.find(o => o.id === orgId);
       return org?.name || 'Unknown';
     };
+
+    // Get active matches for a user
+    const getUserMatches = (userId: string): Match[] => {
+      return allMatches.filter(m => 
+        m.status === MatchStatus.ACTIVE && 
+        (m.mentorId === userId || m.menteeId === userId)
+      );
+    };
+
+    // Get matched partner for a user
+    const getMatchedPartner = (userId: string): User | null => {
+      const userMatch = getUserMatches(userId)[0];
+      if (!userMatch) return null;
+      const partnerId = userMatch.mentorId === userId ? userMatch.menteeId : userMatch.mentorId;
+      return allUsers.find(u => u.id === partnerId) || null;
+    };
+
+    // Format role for display
+    const formatRole = (role: Role) => {
+      switch (role) {
+        case Role.ADMIN: return "Organization Admin";
+        case Role.PLATFORM_ADMIN: return "Platform Operator";
+        case Role.MENTOR: return "Mentor";
+        case Role.MENTEE: return "Mentee";
+        default: return role;
+      }
+    };
+
     return (
-      <div className="space-y-6 animate-in fade-in duration-500">
+      <>
+        <div className="space-y-6 animate-in fade-in duration-500">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
           <div>
@@ -588,7 +635,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                     <div
                       key={u.id}
                       className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                      onClick={() => onNavigate('user-management:users')}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedUser(u);
+                      }}
                     >
                       <img src={u.avatar} alt={u.name} className="w-10 h-10 rounded-full" />
                       <div className="flex-1 min-w-0">
@@ -1084,6 +1135,156 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           )}
         </div>
       </div>
+      {/* User Details Modal */}
+      {selectedUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">User Details</h3>
+              <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              {/* User Profile Section */}
+              <div className="flex items-start gap-4">
+                <img src={selectedUser.avatar} alt={selectedUser.name} className="w-20 h-20 rounded-full object-cover border-2 border-slate-200 dark:border-slate-700" />
+                <div className="flex-1">
+                  <h4 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{selectedUser.name}</h4>
+                  <p className="text-slate-600 dark:text-slate-400 mb-2">{selectedUser.email}</p>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    selectedUser.role === Role.MENTOR
+                      ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300'
+                      : selectedUser.role === Role.MENTEE
+                      ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300'
+                      : selectedUser.role === Role.ADMIN
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                  }`}>
+                    {formatRole(selectedUser.role)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Company & Title */}
+              <div className={CARD_CLASS}>
+                <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase mb-3">Company & Title</h5>
+                <p className="text-lg font-medium text-slate-900 dark:text-white">{selectedUser.company}</p>
+                <p className="text-slate-600 dark:text-slate-400">{selectedUser.title}</p>
+              </div>
+
+              {/* Organization */}
+              <div className={CARD_CLASS}>
+                <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase mb-3">Organization</h5>
+                <p className="text-slate-900 dark:text-white">{getOrganizationName(selectedUser.organizationId)}</p>
+              </div>
+
+              {/* Bio */}
+              {selectedUser.bio && (
+                <div className={CARD_CLASS}>
+                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase mb-3">Bio</h5>
+                  <p className="text-slate-700 dark:text-slate-300">{selectedUser.bio}</p>
+                </div>
+              )}
+
+              {/* Skills or Goals */}
+              {selectedUser.role === Role.MENTOR ? (
+                <div className={CARD_CLASS}>
+                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase mb-3">Skills</h5>
+                  {selectedUser.skills && selectedUser.skills.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedUser.skills.map((skill, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-slate-400 dark:text-slate-500 italic">No skills listed</p>
+                  )}
+                </div>
+              ) : (
+                <div className={CARD_CLASS}>
+                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase mb-3">Goals</h5>
+                  {selectedUser.goalsPublic === false ? (
+                    <p className="text-slate-400 dark:text-slate-500 italic">Goals are private</p>
+                  ) : selectedUser.goals && selectedUser.goals.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedUser.goals.map((goal, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-sm"
+                        >
+                          {goal}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-slate-400 dark:text-slate-500 italic">No goals listed</p>
+                  )}
+                </div>
+              )}
+
+              {/* Bridge Status */}
+              <div className={CARD_CLASS}>
+                <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase mb-3 flex items-center gap-2">
+                  <Repeat className="w-4 h-4" /> Bridge Status
+                </h5>
+                {getUserMatches(selectedUser.id).length > 0 ? (
+                  <div className="space-y-3">
+                    {getUserMatches(selectedUser.id).map(match => {
+                      const partnerId = match.mentorId === selectedUser.id ? match.menteeId : match.mentorId;
+                      const partner = allUsers.find(u => u.id === partnerId);
+                      return (
+                        <div key={match.id} className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                          <div className="flex items-center gap-3 mb-2">
+                            <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            <span className="font-semibold text-slate-900 dark:text-white">Active Bridge</span>
+                          </div>
+                          {partner && (
+                            <div className="mt-2">
+                              <p className="text-sm text-slate-600 dark:text-slate-400">
+                                {selectedUser.role === Role.MENTOR ? 'Mentee' : 'Mentor'}: <span className="font-medium text-slate-900 dark:text-white">{partner.name}</span>
+                              </p>
+                              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                                Started: {new Date(match.startDate).toLocaleDateString()}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-3">
+                      <X className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                      <span className="text-slate-600 dark:text-slate-400">Not currently matched</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  onClick={() => {
+                    setSelectedUser(null);
+                    onNavigate('user-management:users');
+                  }}
+                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Edit className="w-4 h-4" /> Manage User
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
