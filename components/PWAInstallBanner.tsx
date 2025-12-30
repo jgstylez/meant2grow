@@ -11,6 +11,21 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
   const [isDismissed, setIsDismissed] = useState(false);
   const bannerRef = useRef<HTMLDivElement>(null);
 
+  // Debug logging (remove in production)
+  useEffect(() => {
+    if (currentUser) {
+      console.log('[PWA Banner Debug]', {
+        hasUser: !!currentUser,
+        isInstalled,
+        isMobile,
+        platform,
+        canShowPrompt,
+        isDismissed,
+        shouldShow: currentUser && !isInstalled && isMobile && !isDismissed
+      });
+    }
+  }, [currentUser, isInstalled, isMobile, platform, canShowPrompt, isDismissed]);
+
   // Update CSS variable for banner height to adjust main content padding
   useEffect(() => {
     if (!currentUser || isInstalled || !isMobile || isDismissed) {
@@ -57,7 +72,56 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
   // - Already installed
   // - Not mobile
   // - User dismissed (though we want it persistent, so this might not be used)
-  if (!currentUser || isInstalled || !isMobile || isDismissed) {
+  
+  // Debug: Log why banner might not be showing (only log once per condition change)
+  useEffect(() => {
+    if (currentUser && !isInstalled && isMobile && !isDismissed) {
+      console.log('[PWA Banner] ✅ Showing banner', { 
+        platform, 
+        isMobile, 
+        canShowPrompt,
+        screenWidth: window.innerWidth,
+        screenHeight: window.innerHeight,
+        hasTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+        userAgent: navigator.userAgent.substring(0, 50)
+      });
+    } else {
+      if (!currentUser) {
+        console.log('[PWA Banner] ❌ Not showing: No current user');
+      } else if (isInstalled) {
+        console.log('[PWA Banner] ❌ Not showing: App already installed (standalone mode)');
+      } else if (!isMobile) {
+        console.log('[PWA Banner] ❌ Not showing: Not detected as mobile device', { 
+          platform, 
+          isMobile,
+          screenWidth: window.innerWidth,
+          screenHeight: window.innerHeight,
+          hasTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+          userAgent: navigator.userAgent.substring(0, 50)
+        });
+      } else if (isDismissed) {
+        console.log('[PWA Banner] ❌ Not showing: User dismissed');
+      }
+    }
+  }, [currentUser, isInstalled, isMobile, isDismissed, platform, canShowPrompt]);
+  
+  // Fallback: If we're uncertain but have touch + small screen, show banner anyway
+  // This handles edge cases where UA detection fails
+  const hasTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const isSmallScreen = window.innerWidth <= 768;
+  const shouldShowFallback = hasTouchScreen && isSmallScreen && !isInstalled;
+  
+  // Don't show if:
+  // - User not signed up
+  // - Already installed
+  // - Not mobile AND not fallback case
+  // - User dismissed (though we want it persistent, so this might not be used)
+  if (!currentUser || isInstalled || isDismissed) {
+    return null;
+  }
+  
+  // Show if mobile detected OR fallback conditions met
+  if (!isMobile && !shouldShowFallback) {
     return null;
   }
 
@@ -71,10 +135,14 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
     // For iOS, we just show instructions (can't programmatically trigger)
   };
 
+  // Calculate top offset to account for mobile header (if visible)
+  const topOffset = typeof window !== 'undefined' && window.innerWidth < 768 ? '64px' : '0px';
+
   return (
     <div 
       ref={bannerRef}
-      className="fixed top-0 left-0 right-0 z-50 bg-emerald-600 text-white shadow-lg"
+      className="fixed left-0 right-0 z-[60] bg-emerald-600 text-white shadow-lg"
+      style={{ top: topOffset }}
     >
       <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4">
         <div className="flex items-start gap-3">

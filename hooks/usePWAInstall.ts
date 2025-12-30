@@ -17,6 +17,67 @@ interface PWAInstallState {
 /**
  * Hook to detect PWA installation state and handle installation prompts
  */
+/**
+ * Comprehensive mobile device detection
+ */
+function detectMobileDevice(): { isMobile: boolean; platform: 'ios' | 'android' | 'desktop' | 'unknown' } {
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  const ua = userAgent.toLowerCase();
+  
+  // Check for iOS - multiple patterns to catch all variations
+  const isIOS = 
+    /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream ||
+    (window.navigator as any).standalone === true ||
+    /iphone|ipad|ipod/.test(ua) ||
+    (ua.includes('mac') && 'ontouchend' in document);
+  
+  // Check for Android
+  const isAndroid = /Android/.test(userAgent) || /android/.test(ua);
+  
+  // Additional mobile indicators
+  const hasTouchScreen = 
+    'ontouchstart' in window || 
+    navigator.maxTouchPoints > 0 || 
+    (navigator as any).msMaxTouchPoints > 0;
+  
+  const screenWidth = window.innerWidth || screen.width;
+  const screenHeight = window.innerHeight || screen.height;
+  const isSmallScreen = screenWidth <= 768 || screenHeight <= 768;
+  const isPortrait = screenHeight > screenWidth;
+  
+  // Mobile detection: be more aggressive
+  // Consider mobile if:
+  // 1. User agent indicates iOS/Android
+  // 2. Touch screen + small screen (most reliable)
+  // 3. Touch screen + portrait orientation
+  const isMobileUA = isIOS || isAndroid;
+  const isMobileByTouch = hasTouchScreen && (isSmallScreen || isPortrait);
+  
+  // If we have touch + small screen, it's almost certainly mobile
+  // Even if UA doesn't match (some browsers hide their mobile UA)
+  const isMobile = isMobileUA || isMobileByTouch || (hasTouchScreen && screenWidth < 1024);
+  
+  // Determine platform
+  let platform: 'ios' | 'android' | 'desktop' | 'unknown' = 'unknown';
+  if (isIOS) {
+    platform = 'ios';
+  } else if (isAndroid) {
+    platform = 'android';
+  } else if (isMobile) {
+    // If detected as mobile but platform unclear, try to infer
+    if (hasTouchScreen && isSmallScreen) {
+      // Could be iOS or Android, default to unknown but still show banner
+      platform = 'unknown';
+    } else {
+      platform = 'desktop';
+    }
+  } else {
+    platform = 'desktop';
+  }
+  
+  return { isMobile, platform };
+}
+
 export function usePWAInstall(): PWAInstallState & {
   install: () => Promise<void>;
 } {
@@ -27,16 +88,7 @@ export function usePWAInstall(): PWAInstallState & {
       (window.navigator as any).standalone === true ||
       document.referrer.includes('android-app://');
 
-    // Detect platform
-    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-    const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
-    const isAndroid = /Android/.test(userAgent);
-    const isMobile = isIOS || isAndroid;
-
-    let platform: 'ios' | 'android' | 'desktop' | 'unknown' = 'unknown';
-    if (isIOS) platform = 'ios';
-    else if (isAndroid) platform = 'android';
-    else platform = 'desktop';
+    const { isMobile, platform } = detectMobileDevice();
 
     return {
       isInstalled: isStandalone,
@@ -47,6 +99,31 @@ export function usePWAInstall(): PWAInstallState & {
       promptEvent: null,
     };
   });
+
+  // Update mobile detection on window resize/orientation change
+  useEffect(() => {
+    const updateMobileDetection = () => {
+      const { isMobile, platform } = detectMobileDevice();
+      setState(prev => ({
+        ...prev,
+        isMobile,
+        platform: prev.platform === 'unknown' && platform !== 'unknown' ? platform : prev.platform,
+      }));
+    };
+
+    // Update on resize
+    window.addEventListener('resize', updateMobileDetection);
+    window.addEventListener('orientationchange', updateMobileDetection);
+    
+    // Also check after a short delay (in case initial detection missed something)
+    const timeoutId = setTimeout(updateMobileDetection, 500);
+
+    return () => {
+      window.removeEventListener('resize', updateMobileDetection);
+      window.removeEventListener('orientationchange', updateMobileDetection);
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   // Handle beforeinstallprompt event (Android Chrome/Edge)
   useEffect(() => {

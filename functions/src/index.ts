@@ -1415,7 +1415,7 @@ async function sendMeetingReminders(
       });
 
       // Create in-app notification (FCM push will be sent automatically via onNotificationCreated trigger)
-      const notificationRef = await db.collection("notifications").add({
+      await db.collection("notifications").add({
         organizationId: eventData.organizationId,
         userId,
         type: "meeting",
