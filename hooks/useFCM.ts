@@ -35,8 +35,12 @@ export function useFCM(userId: string | null) {
       return;
     }
 
+    // Check permission status directly (don't include in dependencies)
+    // Permission changes are a result of initialization, not a trigger for it
+    const currentPermission = getNotificationPermission();
+    
     // Only initialize if permission is not denied
-    if (state.permission === 'denied') {
+    if (currentPermission === 'denied') {
       setState(prev => ({ ...prev, error: 'Notification permission denied' }));
       return;
     }
@@ -47,24 +51,29 @@ export function useFCM(userId: string | null) {
       
       try {
         const token = await initializeFCM(userId);
+        // Update permission after initialization (it may have changed)
+        const updatedPermission = getNotificationPermission();
         setState(prev => ({
           ...prev,
           token,
           isInitializing: false,
-          permission: getNotificationPermission(),
+          permission: updatedPermission,
         }));
       } catch (error: any) {
         console.error('Error initializing FCM:', error);
+        // Update permission even on error (user may have granted/denied during the process)
+        const updatedPermission = getNotificationPermission();
         setState(prev => ({
           ...prev,
           isInitializing: false,
           error: error.message || 'Failed to initialize notifications',
+          permission: updatedPermission,
         }));
       }
     };
 
     init();
-  }, [userId, state.isSupported, state.permission]);
+  }, [userId, state.isSupported]); // Removed state.permission - it's updated during init, not a trigger
 
   // Set up token refresh handler
   useEffect(() => {

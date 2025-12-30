@@ -74,5 +74,29 @@
       font-size: inherit;
     }
   }
+  
+  /* Main content area spacing with PWA banner support */
+  /* Responsive top padding that accounts for PWA banner offset */
+  main#main-content {
+    --main-base-pt: 0.75rem; /* Mobile: 12px (matches p-3) */
+    padding-top: calc(var(--pwa-banner-offset, 0px) + var(--main-base-pt));
+  }
+  
+  @media (min-width: 640px) {
+    main#main-content {
+      --main-base-pt: 1rem; /* Tablet: 16px (matches p-4) */
+    }
+  }
+  
+  @media (min-width: 768px) {
+    main#main-content {
+      --main-base-pt: 2rem; /* Desktop: 32px (matches p-8) */
+    }
+  }
+  
+  /* Handle impersonation banner - add extra 4rem on top */
+  main#main-content[data-impersonating="true"] {
+    padding-top: calc(var(--pwa-banner-offset, 0px) + 4rem + var(--main-base-pt));
+  }
 }
 

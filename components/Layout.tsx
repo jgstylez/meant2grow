@@ -697,11 +697,9 @@ const Layout: React.FC<LayoutProps> = ({
       {/* Main Content */}
       <main
         id="main-content"
-        className={`flex-1 overflow-y-auto h-screen p-3 sm:p-4 md:p-8 relative touch-action-pan-y ${
-          isImpersonating ? 'pt-16' : ''
-        }`}
+        className="flex-1 overflow-y-auto h-screen px-3 pb-3 sm:px-4 sm:pb-4 md:px-8 md:pb-8 relative touch-action-pan-y"
         role="main"
-        style={{ paddingTop: 'var(--pwa-banner-offset, 0px)' }}
+        data-impersonating={isImpersonating ? "true" : undefined}
       >
         {children}
 

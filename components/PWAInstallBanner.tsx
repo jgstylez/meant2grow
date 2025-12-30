@@ -24,19 +24,9 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
         const height = bannerRef.current?.offsetHeight || 0;
         const root = document.documentElement;
         
-        // Calculate padding: banner height + existing padding
-        const mobilePadding = height + 12; // 0.75rem = 12px
-        const tabletPadding = height + 16; // 1rem = 16px
-        const desktopPadding = height + 32; // 2rem = 32px
-        
-        // Use media queries via CSS custom properties
-        if (window.matchMedia('(min-width: 768px)').matches) {
-          root.style.setProperty('--pwa-banner-offset', `${desktopPadding}px`);
-        } else if (window.matchMedia('(min-width: 640px)').matches) {
-          root.style.setProperty('--pwa-banner-offset', `${tabletPadding}px`);
-        } else {
-          root.style.setProperty('--pwa-banner-offset', `${mobilePadding}px`);
-        }
+        // Set banner height only (padding will be added via CSS calc in Layout)
+        // This ensures proper spacing even when banner is not visible
+        root.style.setProperty('--pwa-banner-offset', `${height}px`);
       };
 
       // Update immediately
