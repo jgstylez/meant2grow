@@ -684,16 +684,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
               </button>
-              <button
-                onClick={() => onNavigate('settings:platform-admin')}
-                className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
-              >
-                <div className="flex items-center gap-2">
-                  <Crown className="w-4 h-4 text-amber-600" />
-                  <span className="text-sm font-medium text-slate-900 dark:text-white">Create Platform Operator</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-              </button>
+                <button
+                  onClick={() => onNavigate('platform-operator-management')}
+                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm font-medium text-slate-900 dark:text-white">Create Platform Operator</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
               <button
                 onClick={() => onNavigate('resources')}
                 className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
@@ -1739,6 +1739,66 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
 
           <div className="space-y-6">
             <div className={CARD_CLASS}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-white mb-1">Upcoming Events</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Don't miss out on scheduled sessions.</p>
+                </div>
+                <Calendar className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {calendarEvents
+                  .filter(e => {
+                    // Show events where user is a participant (mentor or mentee)
+                    const isParticipant = e.mentorId === user.id || e.menteeId === user.id || 
+                                         (e.participants && e.participants.includes(user.id));
+                    if (!isParticipant) return false;
+                    
+                    const eventDate = new Date(e.date);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return eventDate >= today;
+                  })
+                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                  .slice(0, 3)
+                  .map(event => {
+                    const eventDate = new Date(event.date);
+                    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                    return (
+                      <div key={event.id} className="flex gap-3 items-center p-2 rounded-lg bg-slate-50 dark:bg-slate-800">
+                        <div className="bg-white dark:bg-slate-700 rounded p-2 text-center min-w-[50px] shadow-sm">
+                          <div className="text-xs text-slate-500 dark:text-slate-300 font-bold">{monthNames[eventDate.getMonth()]}</div>
+                          <div className="text-lg font-bold text-slate-900 dark:text-white">{eventDate.getDate()}</div>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{event.title}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{event.startTime} • {event.type}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                {calendarEvents.filter(e => {
+                  const isParticipant = e.mentorId === user.id || e.menteeId === user.id || 
+                                       (e.participants && e.participants.includes(user.id));
+                  if (!isParticipant) return false;
+                  
+                  const eventDate = new Date(e.date);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return eventDate >= today;
+                }).length === 0 && (
+                  <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4 italic">No upcoming events</p>
+                )}
+              </div>
+              <button
+                onClick={() => onNavigate('calendar')}
+                className="w-full mt-4 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+              >
+                View Calendar <ArrowRight className="w-4 h-4 inline ml-1" />
+              </button>
+            </div>
+
+            <div className={CARD_CLASS}>
               <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center">
                 <Globe className="w-5 h-5 text-indigo-500 mr-2" /> Mentors Circle
               </h3>
@@ -1867,6 +1927,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
             <div className="mt-4 space-y-3">
               {calendarEvents
                 .filter(e => {
+                  // Show events where user is a participant (mentor or mentee)
+                  const isParticipant = e.mentorId === user.id || e.menteeId === user.id || 
+                                       (e.participants && e.participants.includes(user.id));
+                  if (!isParticipant) return false;
+                  
                   const eventDate = new Date(e.date);
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
@@ -1883,7 +1948,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                         <div className="text-xs text-slate-500 dark:text-slate-300 font-bold">{monthNames[eventDate.getMonth()]}</div>
                         <div className="text-lg font-bold text-slate-900 dark:text-white">{eventDate.getDate()}</div>
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{event.title}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">{event.startTime} • {event.type}</p>
                       </div>
@@ -1891,6 +1956,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                   );
                 })}
               {calendarEvents.filter(e => {
+                const isParticipant = e.mentorId === user.id || e.menteeId === user.id || 
+                                     (e.participants && e.participants.includes(user.id));
+                if (!isParticipant) return false;
+                
                 const eventDate = new Date(e.date);
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -1899,6 +1968,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                   <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4 italic">No upcoming events</p>
                 )}
             </div>
+            <button
+              onClick={() => onNavigate('calendar')}
+              className="w-full mt-4 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+            >
+              View Calendar <ArrowRight className="w-4 h-4 inline ml-1" />
+            </button>
           </div>
 
           <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white relative overflow-hidden shadow-sm">

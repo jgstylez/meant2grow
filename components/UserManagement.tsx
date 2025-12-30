@@ -1,33 +1,80 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Organization, Role } from '../types';
-import { getAllUsers, getAllOrganizations, updateUser, deleteUser, updateOrganization, deleteOrganization } from '../services/database';
-import { emailService } from '../services/emailService';
-import { CARD_CLASS, INPUT_CLASS, BUTTON_PRIMARY } from '../styles/common';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { User, Organization, Role } from "../types";
 import {
-  Users, Search, Filter, Edit2, Trash2, Building, Mail, User as UserIcon,
-  Shield, Crown, GraduationCap, UserCheck, X, Save, AlertTriangle,
-  ChevronDown, ChevronUp, Eye, EyeOff, Plus, Globe, CheckCircle, Send, LogIn
-} from 'lucide-react';
+  getAllUsers,
+  getAllOrganizations,
+  updateUser,
+  deleteUser,
+  updateOrganization,
+  deleteOrganization,
+} from "../services/database";
+import { emailService } from "../services/emailService";
+import { CARD_CLASS, INPUT_CLASS, BUTTON_PRIMARY } from "../styles/common";
+import {
+  Users,
+  Search,
+  Filter,
+  Edit2,
+  Trash2,
+  Building,
+  Mail,
+  User as UserIcon,
+  Shield,
+  Crown,
+  GraduationCap,
+  UserCheck,
+  X,
+  Save,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Plus,
+  Globe,
+  CheckCircle,
+  Send,
+  LogIn,
+} from "lucide-react";
 
 interface UserManagementProps {
   currentUser: User;
   onNavigate?: (page: string) => void;
-  initialTab?: 'users' | 'organizations';
+  initialTab?: "users" | "organizations";
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate, initialTab = 'users' }) => {
+const UserManagement: React.FC<UserManagementProps> = ({
+  currentUser,
+  onNavigate,
+  initialTab = "users",
+}) => {
   const [users, setUsers] = useState<User[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL');
-  const [participantTypeFilter, setParticipantTypeFilter] = useState<'MENTOR' | 'MENTEE' | 'ALL'>('ALL');
-  const [orgFilter, setOrgFilter] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<Role | "ALL">("ALL");
+  const [participantTypeFilter, setParticipantTypeFilter] = useState<
+    "MENTOR" | "MENTEE" | "ALL"
+  >("ALL");
+  const [orgFilter, setOrgFilter] = useState<string>("ALL");
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(
+    null
+  );
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<'users' | 'organizations'>(initialTab);
+  const [activeTab, setActiveTab] = useState<"users" | "organizations">(
+    initialTab
+  );
+
+  // Pagination state
+  const [usersPage, setUsersPage] = useState(1);
+  const [orgsPage, setOrgsPage] = useState(1);
+  const [usersPerPage, setUsersPerPage] = useState(10);
+  const [orgsPerPage, setOrgsPerPage] = useState(10);
+
   const [stats, setStats] = useState({
     totalUsers: 0,
     platformAdmins: 0,
@@ -39,9 +86,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
   
   // Email functionality for platform operators
   const [showEmailModal, setShowEmailModal] = useState(false);
-  const [selectedOrgAdmins, setSelectedOrgAdmins] = useState<Set<string>>(new Set());
-  const [emailSubject, setEmailSubject] = useState('');
-  const [emailBody, setEmailBody] = useState('');
+  const [selectedOrgAdmins, setSelectedOrgAdmins] = useState<Set<string>>(
+    new Set()
+  );
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
   
   // Impersonation functionality
@@ -49,7 +98,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
   
   // Check if current user is platform admin
   const userRoleString = String(currentUser.role);
-  const isPlatformAdmin = currentUser.role === Role.PLATFORM_ADMIN || 
+  const isPlatformAdmin =
+    currentUser.role === Role.PLATFORM_ADMIN ||
                          userRoleString === "PLATFORM_ADMIN" || 
                          userRoleString === "PLATFORM_OPERATOR";
 
@@ -60,18 +110,18 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
   const loadData = useCallback(async () => {
     // Prevent concurrent loads
     if (isLoadingRef.current) {
-      console.log('[UserManagement] Already loading, skipping...');
+      console.log("[UserManagement] Already loading, skipping...");
       return;
     }
 
     try {
       isLoadingRef.current = true;
       setLoading(true);
-      console.log('[UserManagement] Loading data...');
+      console.log("[UserManagement] Loading data...");
       
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Data loading timeout')), 30000)
+        setTimeout(() => reject(new Error("Data loading timeout")), 30000)
       );
       
       // Load data with individual error handling
@@ -82,11 +132,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
         allUsers = await Promise.race([
           getAllUsers(),
           new Promise<User[]>((_, reject) => 
-            setTimeout(() => reject(new Error('getAllUsers timeout')), 15000)
-          )
+            setTimeout(() => reject(new Error("getAllUsers timeout")), 15000)
+          ),
         ]);
       } catch (error: any) {
-        console.error('[UserManagement] Error loading users:', error);
+        console.error("[UserManagement] Error loading users:", error);
         // Continue with empty array if users fail
         allUsers = [];
       }
@@ -95,36 +145,49 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
         allOrgs = await Promise.race([
           getAllOrganizations(),
           new Promise<Organization[]>((_, reject) => 
-            setTimeout(() => reject(new Error('getAllOrganizations timeout')), 15000)
+            setTimeout(
+              () => reject(new Error("getAllOrganizations timeout")),
+              15000
           )
+          ),
         ]);
       } catch (error: any) {
-        console.error('[UserManagement] Error loading organizations:', error);
+        console.error("[UserManagement] Error loading organizations:", error);
         // Continue with empty array if orgs fail
         allOrgs = [];
       }
 
-      console.log('[UserManagement] Data loaded:', { users: allUsers.length, orgs: allOrgs.length });
+      console.log("[UserManagement] Data loaded:", {
+        users: allUsers.length,
+        orgs: allOrgs.length,
+      });
 
-      setUsers(allUsers);
+      // Filter out platform operators from users list
+      const nonPlatformAdminUsers = allUsers.filter((u) => {
+        const userRoleString = String(u.role);
+        return u.role !== Role.PLATFORM_ADMIN && 
+               userRoleString !== "PLATFORM_ADMIN" && 
+               userRoleString !== "PLATFORM_OPERATOR";
+      });
+
+      setUsers(nonPlatformAdminUsers);
       setOrganizations(allOrgs);
 
-      // Calculate stats
-      const platformAdmins = allUsers.filter(u => u.role === Role.PLATFORM_ADMIN).length;
-      const orgAdmins = allUsers.filter(u => u.role === Role.ADMIN).length;
-      const mentors = allUsers.filter(u => u.role === Role.MENTOR).length;
-      const mentees = allUsers.filter(u => u.role === Role.MENTEE).length;
+      // Calculate stats (excluding platform operators)
+      const orgAdmins = nonPlatformAdminUsers.filter((u) => u.role === Role.ADMIN).length;
+      const mentors = nonPlatformAdminUsers.filter((u) => u.role === Role.MENTOR).length;
+      const mentees = nonPlatformAdminUsers.filter((u) => u.role === Role.MENTEE).length;
 
       setStats({
-        totalUsers: allUsers.length,
-        platformAdmins,
+        totalUsers: nonPlatformAdminUsers.length,
+        platformAdmins: 0, // Not shown in this page
         orgAdmins,
         mentors,
         mentees,
         totalOrgs: allOrgs.length,
       });
     } catch (error) {
-      console.error('[UserManagement] Error loading data:', error);
+      console.error("[UserManagement] Error loading data:", error);
       // Set empty arrays on error to prevent undefined state
       setUsers([]);
       setOrganizations([]);
@@ -150,7 +213,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
     // Set a safety timeout to ensure loading doesn't hang forever
     const safetyTimeout = setTimeout(() => {
       if (isLoadingRef.current) {
-        console.warn('[UserManagement] Loading timeout after 10s - forcing loading to stop');
+        console.warn(
+          "[UserManagement] Loading timeout after 10s - forcing loading to stop"
+        );
         setLoading(false);
         isLoadingRef.current = false;
         // Set empty data to prevent undefined state
@@ -203,39 +268,62 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
   const getRoleBadgeColor = (role: Role) => {
     switch (role) {
       case Role.PLATFORM_ADMIN:
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200';
+        return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
       case Role.ADMIN:
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
       case Role.MENTOR:
-        return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200';
+        return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200";
       case Role.MENTEE:
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
       default:
-        return 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200';
+        return "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200";
     }
   };
 
   const getOrganizationName = (orgId: string) => {
-    if (orgId === 'platform') return 'Platform';
-    const org = organizations.find(o => o.id === orgId);
-    return org?.name || 'Unknown Organization';
+    if (orgId === "platform") return "Platform";
+    const org = organizations.find((o) => o.id === orgId);
+    return org?.name || "Unknown Organization";
   };
 
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.company.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesRole = roleFilter === 'ALL' || user.role === roleFilter;
+    const matchesRole = roleFilter === "ALL" || user.role === roleFilter;
     const matchesParticipantType =
-      participantTypeFilter === 'ALL' ||
-      (participantTypeFilter === 'MENTOR' && user.role === Role.MENTOR) ||
-      (participantTypeFilter === 'MENTEE' && user.role === Role.MENTEE);
-    const matchesOrg = orgFilter === 'ALL' || user.organizationId === orgFilter;
+      participantTypeFilter === "ALL" ||
+      (participantTypeFilter === "MENTOR" && user.role === Role.MENTOR) ||
+      (participantTypeFilter === "MENTEE" && user.role === Role.MENTEE);
+    const matchesOrg = orgFilter === "ALL" || user.organizationId === orgFilter;
 
     return matchesSearch && matchesRole && matchesParticipantType && matchesOrg;
   });
+
+  // Pagination calculations
+  const totalUsersPages = Math.ceil(filteredUsers.length / usersPerPage);
+  const totalOrgsPages = Math.ceil(organizations.length / orgsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (usersPage - 1) * usersPerPage,
+    usersPage * usersPerPage
+  );
+  const paginatedOrgs = organizations.slice(
+    (orgsPage - 1) * orgsPerPage,
+    orgsPage * orgsPerPage
+  );
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setUsersPage(1);
+  }, [searchQuery, roleFilter, participantTypeFilter, orgFilter]);
+
+  // Reset to page 1 when switching tabs
+  useEffect(() => {
+    setUsersPage(1);
+    setOrgsPage(1);
+  }, [activeTab]);
 
   // Refresh data function that can be called after mutations
   const refreshData = useCallback(async () => {
@@ -249,8 +337,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
       await refreshData();
       setEditingUser(null);
     } catch (error: any) {
-      console.error('Error updating user:', error);
-      alert('Failed to update user: ' + error.message);
+      console.error("Error updating user:", error);
+      alert("Failed to update user: " + error.message);
     }
   };
 
@@ -260,8 +348,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
       await refreshData();
       setShowDeleteConfirm(null);
     } catch (error: any) {
-      console.error('Error deleting user:', error);
-      alert('Failed to delete user: ' + error.message);
+      console.error("Error deleting user:", error);
+      alert("Failed to delete user: " + error.message);
     }
   };
 
@@ -271,32 +359,32 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
       await refreshData();
       setShowDeleteConfirm(null);
     } catch (error: any) {
-      console.error('Error deleting organization:', error);
-      alert('Failed to delete organization: ' + error.message);
+      console.error("Error deleting organization:", error);
+      alert("Failed to delete organization: " + error.message);
     }
   };
 
   const handleImpersonateUser = (user: User) => {
     // Security check: Only platform operators can impersonate
     if (!isPlatformAdmin) {
-      alert('Only platform operators can impersonate users.');
+      alert("Only platform operators can impersonate users.");
       return;
     }
     
     // Prevent impersonating yourself
     if (user.id === currentUser.id) {
-      alert('You cannot impersonate yourself.');
+      alert("You cannot impersonate yourself.");
       return;
     }
     
     // Store original operator context
-    localStorage.setItem('originalOperatorId', currentUser.id);
-    localStorage.setItem('originalOrganizationId', currentUser.organizationId);
-    localStorage.setItem('isImpersonating', 'true');
+    localStorage.setItem("originalOperatorId", currentUser.id);
+    localStorage.setItem("originalOrganizationId", currentUser.organizationId);
+    localStorage.setItem("isImpersonating", "true");
     
     // Switch to target user
-    localStorage.setItem('userId', user.id);
-    localStorage.setItem('organizationId', user.organizationId);
+    localStorage.setItem("userId", user.id);
+    localStorage.setItem("organizationId", user.organizationId);
     
     // Reload the app to trigger re-initialization with new user context
     window.location.reload();
@@ -313,7 +401,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
   };
 
   // Get all organization admins
-  const orgAdmins = users.filter(u => u.role === Role.ADMIN);
+  const orgAdmins = users.filter((u) => u.role === Role.ADMIN);
 
   // Toggle org admin selection for email
   const toggleOrgAdminSelection = (userId: string) => {
@@ -328,7 +416,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
 
   // Select all org admins
   const selectAllOrgAdmins = () => {
-    setSelectedOrgAdmins(new Set(orgAdmins.map(admin => admin.id)));
+    setSelectedOrgAdmins(new Set(orgAdmins.map((admin) => admin.id)));
   };
 
   // Deselect all org admins
@@ -339,17 +427,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
   // Handle sending email to org admins
   const handleSendEmailToAdmins = async () => {
     if (selectedOrgAdmins.size === 0) {
-      alert('Please select at least one organization admin to email');
+      alert("Please select at least one organization admin to email");
       return;
     }
 
     if (!emailSubject.trim()) {
-      alert('Please enter an email subject');
+      alert("Please enter an email subject");
       return;
     }
 
     if (!emailBody.trim()) {
-      alert('Please enter an email message');
+      alert("Please enter an email message");
       return;
     }
 
@@ -357,11 +445,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
       setSendingEmail(true);
       
       const recipients = Array.from(selectedOrgAdmins)
-        .map(userId => {
-          const admin = orgAdmins.find(a => a.id === userId);
-          return admin ? { email: admin.email, name: admin.name, userId: admin.id } : null;
+        .map((userId) => {
+          const admin = orgAdmins.find((a) => a.id === userId);
+          return admin
+            ? { email: admin.email, name: admin.name, userId: admin.id }
+            : null;
         })
-        .filter((r): r is { email: string; name?: string; userId?: string } => r !== null);
+        .filter(
+          (r): r is { email: string; name?: string; userId?: string } =>
+            r !== null
+        );
 
       await emailService.sendCustomEmail(
         recipients,
@@ -372,16 +465,18 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
         undefined // No organizationId restriction for platform admins
       );
 
-      alert(`Email sent successfully to ${recipients.length} organization admin(s)!`);
+      alert(
+        `Email sent successfully to ${recipients.length} organization admin(s)!`
+      );
       
       // Reset form
       setShowEmailModal(false);
       setSelectedOrgAdmins(new Set());
-      setEmailSubject('');
-      setEmailBody('');
+      setEmailSubject("");
+      setEmailBody("");
     } catch (error: any) {
-      console.error('Error sending email:', error);
-      alert(`Failed to send email: ${error.message || 'Unknown error'}`);
+      console.error("Error sending email:", error);
+      alert(`Failed to send email: ${error.message || "Unknown error"}`);
     } finally {
       setSendingEmail(false);
     }
@@ -420,40 +515,46 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className={CARD_CLASS}>
-          <div className="text-sm text-slate-500 dark:text-slate-400">Total Users</div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white">{stats.totalUsers}</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            Total Users
+          </div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-white">
+            {stats.totalUsers}
+          </div>
         </div>
         <div className={CARD_CLASS}>
           <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
             <UserCheck className="w-3 h-3" /> Mentees
           </div>
-          <div className="text-2xl font-bold text-purple-600">{stats.mentees}</div>
+          <div className="text-2xl font-bold text-purple-600">
+            {stats.mentees}
+          </div>
         </div>
         <div className={CARD_CLASS}>
           <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
             <GraduationCap className="w-3 h-3" /> Mentors
           </div>
-          <div className="text-2xl font-bold text-emerald-600">{stats.mentors}</div>
+          <div className="text-2xl font-bold text-emerald-600">
+            {stats.mentors}
+          </div>
         </div>
         <div className={CARD_CLASS}>
           <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
             <Building className="w-3 h-3" /> Organizations
           </div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white">{stats.totalOrgs}</div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-white">
+            {stats.totalOrgs}
+          </div>
         </div>
         <div className={CARD_CLASS}>
           <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
             <Shield className="w-3 h-3" /> Org Admins
           </div>
-          <div className="text-2xl font-bold text-blue-600">{stats.orgAdmins}</div>
+          <div className="text-2xl font-bold text-blue-600">
+            {stats.orgAdmins}
         </div>
-        <div className={CARD_CLASS}>
-          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-            <Crown className="w-3 h-3" /> Operators
-          </div>
-          <div className="text-2xl font-bold text-amber-600">{stats.platformAdmins}</div>
         </div>
       </div>
 
@@ -461,10 +562,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
       <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700">
         <button
           type="button"
-          onClick={() => setActiveTab('users')}
-          className={`px-4 py-2 font-medium transition-colors cursor-pointer ${activeTab === 'users'
-              ? 'text-emerald-600 border-b-2 border-emerald-600'
-              : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+          onClick={() => setActiveTab("users")}
+          className={`px-4 py-2 font-medium transition-colors cursor-pointer ${
+            activeTab === "users"
+              ? "text-emerald-600 border-b-2 border-emerald-600"
+              : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
             }`}
         >
           <Users className="w-4 h-4 inline mr-2" />
@@ -475,11 +577,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setActiveTab('organizations');
+            setActiveTab("organizations");
           }}
-          className={`px-4 py-2 font-medium transition-colors cursor-pointer ${activeTab === 'organizations'
-              ? 'text-emerald-600 border-b-2 border-emerald-600'
-              : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+          className={`px-4 py-2 font-medium transition-colors cursor-pointer ${
+            activeTab === "organizations"
+              ? "text-emerald-600 border-b-2 border-emerald-600"
+              : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
             }`}
         >
           <Building className="w-4 h-4 inline mr-2" />
@@ -488,7 +591,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
       </div>
 
       {/* Users Tab */}
-      {activeTab === 'users' && (
+      {activeTab === "users" && (
         <>
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4">
@@ -504,7 +607,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
             </div>
             <select
               value={participantTypeFilter}
-              onChange={(e) => setParticipantTypeFilter(e.target.value as 'MENTOR' | 'MENTEE' | 'ALL')}
+              onChange={(e) =>
+                setParticipantTypeFilter(
+                  e.target.value as "MENTOR" | "MENTEE" | "ALL"
+                )
+              }
               className={INPUT_CLASS + " w-full sm:w-40"}
             >
               <option value="ALL">All Participants</option>
@@ -513,11 +620,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
             </select>
             <select
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as Role | 'ALL')}
+              onChange={(e) => setRoleFilter(e.target.value as Role | "ALL")}
               className={INPUT_CLASS + " w-full sm:w-48"}
             >
               <option value="ALL">All Roles</option>
-              <option value={Role.PLATFORM_ADMIN}>Platform Operator</option>
               <option value={Role.ADMIN}>Organization Admin</option>
               <option value={Role.MENTOR}>Mentor</option>
               <option value={Role.MENTEE}>Mentee</option>
@@ -528,8 +634,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
               className={INPUT_CLASS + " w-full sm:w-64"}
             >
               <option value="ALL">All Organizations</option>
-              {organizations.map(org => (
-                <option key={org.id} value={org.id}>{org.name}</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
               ))}
               <option value="platform">Platform</option>
             </select>
@@ -543,10 +651,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                 <p className="text-slate-500">No users found</p>
               </div>
             ) : (
-              filteredUsers.map(user => (
+              <>
+                {paginatedUsers.map((user) => (
                 <div
                   key={user.id}
-                  className={CARD_CLASS + " cursor-pointer hover:shadow-md transition-shadow"}
+                    className={
+                      CARD_CLASS +
+                      " cursor-pointer hover:shadow-md transition-shadow"
+                    }
                   onClick={() => setSelectedUser(user)}
                 >
                   <div className="flex items-start justify-between">
@@ -561,7 +673,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                           <h3 className="font-semibold text-slate-900 dark:text-white">
                             {user.name}
                           </h3>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${getRoleBadgeColor(user.role)}`}>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${getRoleBadgeColor(
+                                user.role
+                              )}`}
+                            >
                             {getRoleIcon(user.role)}
                             {user.role}
                           </span>
@@ -575,29 +691,48 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                             <Building className="w-3 h-3" />
                             {getOrganizationName(user.organizationId)}
                           </span>
-                          {user.company && (
-                            <span>{user.company}</span>
-                          )}
+                            {user.company && <span>{user.company}</span>}
                         </div>
                         {expandedUsers.has(user.id) && (
                           <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 space-y-2 text-sm">
-                            <div><strong>Title:</strong> {user.title || 'N/A'}</div>
-                            {user.bio && <div><strong>Bio:</strong> {user.bio}</div>}
+                              <div>
+                                <strong>Title:</strong> {user.title || "N/A"}
+                              </div>
+                              {user.bio && (
+                                <div>
+                                  <strong>Bio:</strong> {user.bio}
+                                </div>
+                              )}
                             {user.skills.length > 0 && (
-                              <div><strong>Skills:</strong> {user.skills.join(', ')}</div>
+                                <div>
+                                  <strong>Skills:</strong>{" "}
+                                  {user.skills.join(", ")}
+                                </div>
                             )}
-                            <div><strong>Created:</strong> {new Date(user.createdAt).toLocaleDateString()}</div>
+                              <div>
+                                <strong>Created:</strong>{" "}
+                                {new Date(user.createdAt).toLocaleDateString()}
+                              </div>
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <div
+                        className="flex items-center gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                       <button
                         onClick={() => toggleUserExpanded(user.id)}
                         className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                        title={expandedUsers.has(user.id) ? "Collapse" : "Expand"}
-                      >
-                        {expandedUsers.has(user.id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          title={
+                            expandedUsers.has(user.id) ? "Collapse" : "Expand"
+                          }
+                        >
+                          {expandedUsers.has(user.id) ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
                       </button>
                       <button
                         onClick={() => setEditingUser(user)}
@@ -630,14 +765,103 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                     </div>
                   </div>
                 </div>
-              ))
+                ))}
+
+                {/* Users Pagination */}
+                {filteredUsers.length > usersPerPage && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                        Items per page:
+                      </span>
+                      <select
+                        value={usersPerPage}
+                        onChange={(e) => {
+                          setUsersPerPage(Number(e.target.value));
+                          setUsersPage(1);
+                        }}
+                        className={INPUT_CLASS + " w-20 text-sm"}
+                      >
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                        Showing {(usersPage - 1) * usersPerPage + 1} to{" "}
+                        {Math.min(
+                          usersPage * usersPerPage,
+                          filteredUsers.length
+                        )}{" "}
+                        of {filteredUsers.length}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() =>
+                            setUsersPage((p) => Math.max(1, p - 1))
+                          }
+                          disabled={usersPage === 1}
+                          className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Previous page"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <div className="flex items-center gap-1">
+                          {Array.from(
+                            { length: Math.min(5, totalUsersPages) },
+                            (_, i) => {
+                              let pageNum;
+                              if (totalUsersPages <= 5) {
+                                pageNum = i + 1;
+                              } else if (usersPage <= 3) {
+                                pageNum = i + 1;
+                              } else if (usersPage >= totalUsersPages - 2) {
+                                pageNum = totalUsersPages - 4 + i;
+                              } else {
+                                pageNum = usersPage - 2 + i;
+                              }
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setUsersPage(pageNum)}
+                                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                                    usersPage === pageNum
+                                      ? "bg-emerald-600 text-white"
+                                      : "border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
+                        <button
+                          onClick={() =>
+                            setUsersPage((p) =>
+                              Math.min(totalUsersPages, p + 1)
+                            )
+                          }
+                          disabled={usersPage === totalUsersPages}
+                          className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          title="Next page"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </>
       )}
 
       {/* Organizations Tab */}
-      {activeTab === 'organizations' && (
+      {activeTab === "organizations" && (
         <div className="space-y-3">
           {organizations.length === 0 ? (
             <div className={CARD_CLASS + " text-center py-8"}>
@@ -645,8 +869,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
               <p className="text-slate-500">No organizations found</p>
             </div>
           ) : (
-            organizations.map(org => {
-              const orgUsers = users.filter(u => u.organizationId === org.id);
+            <>
+              {paginatedOrgs.map((org) => {
+                const orgUsers = users.filter(
+                  (u) => u.organizationId === org.id
+                );
               return (
                 <div key={org.id} className={CARD_CLASS}>
                   <div className="flex items-start justify-between">
@@ -655,19 +882,33 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
                           {org.name}
                         </h3>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${org.subscriptionTier === 'enterprise' ? 'bg-purple-100 text-purple-800' :
-                            org.subscriptionTier === 'business' ? 'bg-purple-100 text-purple-800' :
-                              org.subscriptionTier === 'professional' ? 'bg-blue-100 text-blue-800' :
-                                org.subscriptionTier === 'starter' ? 'bg-emerald-100 text-emerald-800' :
-                                  'bg-slate-100 text-slate-800'
-                          }`}>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              org.subscriptionTier === "enterprise"
+                                ? "bg-purple-100 text-purple-800"
+                                : org.subscriptionTier === "business"
+                                ? "bg-purple-100 text-purple-800"
+                                : org.subscriptionTier === "professional"
+                                ? "bg-blue-100 text-blue-800"
+                                : org.subscriptionTier === "starter"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-slate-100 text-slate-800"
+                            }`}
+                          >
                           {org.subscriptionTier.toUpperCase()}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 dark:text-slate-400 mb-2">
-                        <span><strong>Code:</strong> {org.organizationCode}</span>
-                        <span><strong>Users:</strong> {orgUsers.length}</span>
-                        <span><strong>Created:</strong> {new Date(org.createdAt).toLocaleDateString()}</span>
+                          <span>
+                            <strong>Code:</strong> {org.organizationCode}
+                          </span>
+                          <span>
+                            <strong>Users:</strong> {orgUsers.length}
+                          </span>
+                          <span>
+                            <strong>Created:</strong>{" "}
+                            {new Date(org.createdAt).toLocaleDateString()}
+                          </span>
                       </div>
                       {org.domain && (
                         <div className="text-sm text-slate-600 dark:text-slate-400">
@@ -685,7 +926,89 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                   </div>
                 </div>
               );
-            })
+              })}
+
+              {/* Organizations Pagination */}
+              {organizations.length > orgsPerPage && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                      Items per page:
+                    </span>
+                    <select
+                      value={orgsPerPage}
+                      onChange={(e) => {
+                        setOrgsPerPage(Number(e.target.value));
+                        setOrgsPage(1);
+                      }}
+                      className={INPUT_CLASS + " w-20 text-sm"}
+                    >
+                      <option value="10">10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                      Showing {(orgsPage - 1) * orgsPerPage + 1} to{" "}
+                      {Math.min(orgsPage * orgsPerPage, organizations.length)}{" "}
+                      of {organizations.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setOrgsPage((p) => Math.max(1, p - 1))}
+                        disabled={orgsPage === 1}
+                        className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Previous page"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <div className="flex items-center gap-1">
+                        {Array.from(
+                          { length: Math.min(5, totalOrgsPages) },
+                          (_, i) => {
+                            let pageNum;
+                            if (totalOrgsPages <= 5) {
+                              pageNum = i + 1;
+                            } else if (orgsPage <= 3) {
+                              pageNum = i + 1;
+                            } else if (orgsPage >= totalOrgsPages - 2) {
+                              pageNum = totalOrgsPages - 4 + i;
+                            } else {
+                              pageNum = orgsPage - 2 + i;
+                            }
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => setOrgsPage(pageNum)}
+                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                                  orgsPage === pageNum
+                                    ? "bg-emerald-600 text-white"
+                                    : "border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          }
+                        )}
+                      </div>
+                      <button
+                        onClick={() =>
+                          setOrgsPage((p) => Math.min(totalOrgsPages, p + 1))
+                        }
+                        disabled={orgsPage === totalOrgsPages}
+                        className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Next page"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -695,8 +1018,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Edit User</h3>
-              <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-slate-600">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Edit User
+              </h3>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -712,11 +1040,22 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
 
       {/* User Profile Modal */}
       {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setSelectedUser(null)}>
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setSelectedUser(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-start mb-6">
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">User Profile</h3>
-              <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                User Profile
+              </h3>
+              <button
+                onClick={() => setSelectedUser(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -731,20 +1070,32 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h4 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedUser.name}</h4>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${getRoleBadgeColor(selectedUser.role)}`}>
+                    <h4 className="text-2xl font-bold text-slate-900 dark:text-white">
+                      {selectedUser.name}
+                    </h4>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${getRoleBadgeColor(
+                        selectedUser.role
+                      )}`}
+                    >
                       {getRoleIcon(selectedUser.role)}
                       {selectedUser.role}
                     </span>
                   </div>
-                  <p className="text-lg text-slate-600 dark:text-slate-400 mb-1">{selectedUser.title}</p>
-                  <p className="text-slate-500 dark:text-slate-500">{selectedUser.company}</p>
+                  <p className="text-lg text-slate-600 dark:text-slate-400 mb-1">
+                    {selectedUser.title}
+                  </p>
+                  <p className="text-slate-500 dark:text-slate-500">
+                    {selectedUser.company}
+                  </p>
                 </div>
               </div>
 
               {/* Contact Information */}
               <div>
-                <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Contact Information</h5>
+                <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                  Contact Information
+                </h5>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                     <Mail className="w-4 h-4 text-slate-400" />
@@ -752,7 +1103,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                   </div>
                   <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                     <Building className="w-4 h-4 text-slate-400" />
-                    <span>{getOrganizationName(selectedUser.organizationId)}</span>
+                    <span>
+                      {getOrganizationName(selectedUser.organizationId)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -760,15 +1113,21 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
               {/* Bio */}
               {selectedUser.bio && (
                 <div>
-                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Bio</h5>
-                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{selectedUser.bio}</p>
+                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                    Bio
+                  </h5>
+                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                    {selectedUser.bio}
+                  </p>
                 </div>
               )}
 
               {/* Skills */}
               {selectedUser.skills && selectedUser.skills.length > 0 && (
                 <div>
-                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Skills</h5>
+                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                    Skills
+                  </h5>
                   <div className="flex flex-wrap gap-2">
                     {selectedUser.skills.map((skill, idx) => (
                       <span
@@ -785,7 +1144,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
               {/* Goals (for mentees) */}
               {selectedUser.goals && selectedUser.goals.length > 0 && (
                 <div>
-                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Goals</h5>
+                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                    Goals
+                  </h5>
                   <div className="flex flex-wrap gap-2">
                     {selectedUser.goals.map((goal, idx) => (
                       <span
@@ -801,15 +1162,25 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
 
               {/* Account Information */}
               <div>
-                <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Account Information</h5>
+                <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                  Account Information
+                </h5>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400">User ID:</span>
-                    <p className="text-slate-700 dark:text-slate-300 font-mono text-xs mt-1">{selectedUser.id}</p>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      User ID:
+                    </span>
+                    <p className="text-slate-700 dark:text-slate-300 font-mono text-xs mt-1">
+                      {selectedUser.id}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400">Created:</span>
-                    <p className="text-slate-700 dark:text-slate-300 mt-1">{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Created:
+                    </span>
+                    <p className="text-slate-700 dark:text-slate-300 mt-1">
+                      {new Date(selectedUser.createdAt).toLocaleDateString()}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -867,17 +1238,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                   Confirm Deletion
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                  {showDeleteConfirm.startsWith('org-')
-                    ? 'Are you sure you want to delete this organization? This action cannot be undone.'
-                    : 'Are you sure you want to delete this user? This action cannot be undone.'}
+                  {showDeleteConfirm.startsWith("org-")
+                    ? "Are you sure you want to delete this organization? This action cannot be undone."
+                    : "Are you sure you want to delete this user? This action cannot be undone."}
                 </p>
               </div>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => {
-                  if (showDeleteConfirm.startsWith('org-')) {
-                    handleDeleteOrg(showDeleteConfirm.replace('org-', ''));
+                  if (showDeleteConfirm.startsWith("org-")) {
+                    handleDeleteOrg(showDeleteConfirm.replace("org-", ""));
                   } else {
                     handleDeleteUser(showDeleteConfirm);
                   }
@@ -908,10 +1279,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                   Impersonate User
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-                  You are about to login as <strong>{impersonateUser.name}</strong> ({impersonateUser.role}).
+                  You are about to login as{" "}
+                  <strong>{impersonateUser.name}</strong> (
+                  {impersonateUser.role}).
                 </p>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                  You will see the dashboard exactly as this user sees it. You can exit impersonation at any time using the banner at the top.
+                  You will see the dashboard exactly as this user sees it. You
+                  can exit impersonation at any time using the banner at the
+                  top.
                 </p>
               </div>
             </div>
@@ -952,8 +1327,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                 onClick={() => {
                   setShowEmailModal(false);
                   setSelectedOrgAdmins(new Set());
-                  setEmailSubject('');
-                  setEmailBody('');
+                  setEmailSubject("");
+                  setEmailBody("");
                 }}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
               >
@@ -991,13 +1366,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {orgAdmins.map(admin => {
-                        const org = organizations.find(o => o.id === admin.organizationId);
+                      {orgAdmins.map((admin) => {
+                        const org = organizations.find(
+                          (o) => o.id === admin.organizationId
+                        );
                         return (
                           <label
                             key={admin.id}
                             className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
-                              selectedOrgAdmins.has(admin.id) ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''
+                              selectedOrgAdmins.has(admin.id)
+                                ? "bg-emerald-50 dark:bg-emerald-900/20"
+                                : ""
                             }`}
                           >
                             <input
@@ -1064,7 +1443,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                   required
                 />
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  The message will be sent from {currentUser.name} ({currentUser.email})
+                  The message will be sent from {currentUser.name} (
+                  {currentUser.email})
                 </p>
               </div>
 
@@ -1072,11 +1452,19 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
               <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
                 <button
                   onClick={handleSendEmailToAdmins}
-                  disabled={sendingEmail || selectedOrgAdmins.size === 0 || !emailSubject.trim() || !emailBody.trim()}
+                  disabled={
+                    sendingEmail ||
+                    selectedOrgAdmins.size === 0 ||
+                    !emailSubject.trim() ||
+                    !emailBody.trim()
+                  }
                   className={`${BUTTON_PRIMARY} flex-1 flex items-center justify-center gap-2 ${
-                    sendingEmail || selectedOrgAdmins.size === 0 || !emailSubject.trim() || !emailBody.trim()
-                      ? 'opacity-50 cursor-not-allowed'
-                      : ''
+                    sendingEmail ||
+                    selectedOrgAdmins.size === 0 ||
+                    !emailSubject.trim() ||
+                    !emailBody.trim()
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
                   }`}
                 >
                   {sendingEmail ? (
@@ -1087,7 +1475,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                   ) : (
                     <>
                       <Send className="w-4 h-4" />
-                      Send Email to {selectedOrgAdmins.size} Admin{selectedOrgAdmins.size !== 1 ? 's' : ''}
+                      Send Email to {selectedOrgAdmins.size} Admin
+                      {selectedOrgAdmins.size !== 1 ? "s" : ""}
                     </>
                   )}
                 </button>
@@ -1095,8 +1484,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                   onClick={() => {
                     setShowEmailModal(false);
                     setSelectedOrgAdmins(new Set());
-                    setEmailSubject('');
-                    setEmailBody('');
+                    setEmailSubject("");
+                    setEmailBody("");
                   }}
                   className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
                 >
@@ -1118,7 +1507,12 @@ interface EditUserFormProps {
   onCancel: () => void;
 }
 
-const EditUserForm: React.FC<EditUserFormProps> = ({ user, organizations, onSave, onCancel }) => {
+const EditUserForm: React.FC<EditUserFormProps> = ({
+  user,
+  organizations,
+  onSave,
+  onCancel,
+}) => {
   const [formData, setFormData] = useState({
     name: user.name,
     email: user.email,
@@ -1156,7 +1550,9 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ user, organizations, onSave
           <input
             type="email"
             value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, email: e.target.value })
+            }
             className={INPUT_CLASS}
             required
           />
@@ -1167,7 +1563,9 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ user, organizations, onSave
           </label>
           <select
             value={formData.role}
-            onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
+            onChange={(e) =>
+              setFormData({ ...formData, role: e.target.value as Role })
+            }
             className={INPUT_CLASS}
           >
             <option value={Role.PLATFORM_ADMIN}>Platform Admin</option>
@@ -1182,12 +1580,16 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ user, organizations, onSave
           </label>
           <select
             value={formData.organizationId}
-            onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, organizationId: e.target.value })
+            }
             className={INPUT_CLASS}
           >
             <option value="platform">Platform</option>
-            {organizations.map(org => (
-              <option key={org.id} value={org.id}>{org.name}</option>
+            {organizations.map((org) => (
+              <option key={org.id} value={org.id}>
+                {org.name}
+              </option>
             ))}
           </select>
         </div>
@@ -1198,7 +1600,9 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ user, organizations, onSave
           <input
             type="text"
             value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, title: e.target.value })
+            }
             className={INPUT_CLASS}
           />
         </div>
@@ -1209,7 +1613,9 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ user, organizations, onSave
           <input
             type="text"
             value={formData.company}
-            onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, company: e.target.value })
+            }
             className={INPUT_CLASS}
           />
         </div>
@@ -1226,10 +1632,7 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ user, organizations, onSave
         />
       </div>
       <div className="flex gap-3 pt-4">
-        <button
-          type="submit"
-          className={BUTTON_PRIMARY + " flex-1"}
-        >
+        <button type="submit" className={BUTTON_PRIMARY + " flex-1"}>
           <Save className="w-4 h-4 inline mr-2" />
           Save Changes
         </button>
@@ -1246,4 +1649,3 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ user, organizations, onSave
 };
 
 export default UserManagement;
-

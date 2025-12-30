@@ -70,6 +70,7 @@ const SettingsView = lazy(() => import("./components/SettingsView"));
 const Referrals = lazy(() => import("./components/Referrals"));
 const NotificationsView = lazy(() => import("./components/NotificationsView"));
 const UserManagement = lazy(() => import("./components/UserManagement"));
+const PlatformOperatorManagement = lazy(() => import("./components/PlatformOperatorManagement"));
 
 // Keep these as regular imports (smaller, needed for initial render)
 import OrganizationSetup from "./components/OrganizationSetup";
@@ -1036,6 +1037,18 @@ const App: React.FC = () => {
             </ErrorBoundary>
           </Suspense>
         );
+      case "platform-operator-management":
+        if (!currentUser || currentUser.role !== Role.PLATFORM_ADMIN)
+          return <div className="p-8 text-center">Access denied.</div>;
+        return (
+          <Suspense
+            fallback={<LoadingSpinner message="Loading platform operator management..." />}
+          >
+            <ErrorBoundary title="Platform Operator Management Error">
+              <PlatformOperatorManagement currentUser={currentUser} />
+            </ErrorBoundary>
+          </Suspense>
+        );
       default:
         if (currentPage.startsWith("user-management")) {
           if (!currentUser || currentUser.role !== Role.PLATFORM_ADMIN)
@@ -1058,6 +1071,11 @@ const App: React.FC = () => {
         }
         if (currentPage.startsWith("settings")) {
           const tab = currentPage.split(":")[1];
+          // Redirect old platform-admin route to new page
+          if (tab === 'platform-admin') {
+            setCurrentPage('platform-operator-management');
+            return <LoadingSpinner message="Redirecting..." />;
+          }
           return (
             <Suspense
               fallback={<LoadingSpinner message="Loading settings..." />}
@@ -1227,6 +1245,7 @@ const App: React.FC = () => {
     <>
       <Layout
         currentUser={currentUser}
+        users={users}
         currentPage={currentPage.split(":")[0]}
         onNavigate={handleNavigate}
         onLogout={handleLogout}

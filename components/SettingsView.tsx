@@ -274,12 +274,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     }, [user.id]);
     const [targetPlan, setTargetPlan] = useState<'starter' | 'professional' | 'business' | 'enterprise' | null>(null);
 
-    // Platform Admin State
-    const [newAdminEmail, setNewAdminEmail] = useState('');
-    const [newAdminName, setNewAdminName] = useState('');
-    const [creatingAdmin, setCreatingAdmin] = useState(false);
-    const [adminMessage, setAdminMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-
     // Notification Preferences State
     const [notificationPrefs, setNotificationPrefs] = useState<Record<string, { email: boolean; push: boolean }>>({
         'New Messages': { email: true, push: true },
@@ -349,23 +343,26 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'security', label: 'Security', icon: Shield },
         { id: 'calendar', label: 'Sync Calendar', icon: Calendar },
-        { id: 'billing', label: 'Billing', icon: CreditCard },
-        { id: 'platform-admin', label: 'Platform Operator', icon: Crown }
+        { id: 'billing', label: 'Billing', icon: CreditCard }
     ];
 
     // Tab visibility by role:
     // - Platform Operators: all except billing (they don't manage org billing)
-    // - Organization Admins: all except platform-admin (they manage their org's billing)
-    // - Mentors/Mentees: all except billing and platform-admin
+    // - Organization Admins: all tabs (they manage their org's billing)
+    // - Mentors/Mentees: all except billing
     const visibleTabs = isPlatformAdmin
         ? tabs.filter(t => t.id !== 'billing')
         : isOrgAdmin
-            ? tabs.filter(t => t.id !== 'platform-admin')
-            : tabs.filter(t => t.id !== 'billing' && t.id !== 'platform-admin');
+            ? tabs
+            : tabs.filter(t => t.id !== 'billing');
 
     // Redirect platform operators away from billing tab if they somehow land on it
     useEffect(() => {
         if (isPlatformAdmin && activeTab === 'billing') {
+            setActiveTab('profile');
+        }
+        // Redirect away from platform-admin tab (now a separate page)
+        if (activeTab === 'platform-admin') {
             setActiveTab('profile');
         }
     }, [isPlatformAdmin, activeTab]);
@@ -1430,143 +1427,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                         </div>
                     )}
 
-                    {activeTab === 'platform-admin' && isPlatformAdmin && (
-                        <div className="space-y-6">
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 flex items-center">
-                                    <Crown className="w-5 h-5 mr-2 text-amber-500" /> Platform Operator Management
-                                </h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                                    Create new platform operator users who can manage platform-wide content and resources.
-                                </p>
-                            </div>
-
-                            <div className={CARD_CLASS}>
-                                <h4 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center">
-                                    <UserPlus className="w-4 h-4 mr-2" /> Create Platform Operator
-                                </h4>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                            Email Address
-                                        </label>
-                                        <input
-                                            type="email"
-                                            className={INPUT_CLASS}
-                                            placeholder="admin@meant2grow.com"
-                                            value={newAdminEmail}
-                                            onChange={(e) => setNewAdminEmail(e.target.value)}
-                                            disabled={creatingAdmin}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                            Full Name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            className={INPUT_CLASS}
-                                            placeholder="Platform Operator"
-                                            value={newAdminName}
-                                            onChange={(e) => setNewAdminName(e.target.value)}
-                                            disabled={creatingAdmin}
-                                        />
-                                    </div>
-                                    {adminMessage && (
-                                        <div className={`p-3 rounded-lg text-sm ${adminMessage.type === 'success'
-                                            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
-                                            : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
-                                            }`}>
-                                            {adminMessage.text}
-                                        </div>
-                                    )}
-                                    <button
-                                        onClick={async () => {
-                                            if (!newAdminEmail || !newAdminName) {
-                                                setAdminMessage({ type: 'error', text: 'Please fill in both email and name' });
-                                                return;
-                                            }
-
-                                            setCreatingAdmin(true);
-                                            setAdminMessage(null);
-
-                                            try {
-                                                // Check if user exists by querying users collection
-                                                const usersQuery = query(
-                                                    collection(db, 'users'),
-                                                    where('email', '==', newAdminEmail)
-                                                );
-                                                const existingUsersSnapshot = await getDocs(usersQuery);
-
-                                                if (!existingUsersSnapshot.empty) {
-                                                    // Update existing user
-                                                    const existingUserDoc = existingUsersSnapshot.docs[0];
-                                                    await updateUser(existingUserDoc.id, {
-                                                        role: Role.PLATFORM_ADMIN,
-                                                        organizationId: 'platform',
-                                                    });
-                                                    setAdminMessage({
-                                                        type: 'success',
-                                                        text: `Updated ${newAdminEmail} to Platform Operator role`
-                                                    });
-                                                } else {
-                                                    // Create new platform admin
-                                                    await createUser({
-                                                        email: newAdminEmail,
-                                                        name: newAdminName,
-                                                        role: Role.PLATFORM_ADMIN,
-                                                        organizationId: 'platform',
-                                                        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(newAdminName)}&background=10b981&color=fff`,
-                                                        title: 'Platform Operator',
-                                                        company: 'Meant2Grow',
-                                                        skills: [],
-                                                        bio: 'Platform administrator for Meant2Grow',
-                                                    });
-                                                    setAdminMessage({
-                                                        type: 'success',
-                                                        text: `Created Platform Operator: ${newAdminName} (${newAdminEmail})`
-                                                    });
-                                                }
-
-                                                setNewAdminEmail('');
-                                                setNewAdminName('');
-                                            } catch (error: any) {
-                                                console.error('Error creating platform admin:', error);
-                                                setAdminMessage({
-                                                    type: 'error',
-                                                    text: error.message || 'Failed to create platform operator'
-                                                });
-                                            } finally {
-                                                setCreatingAdmin(false);
-                                            }
-                                        }}
-                                        disabled={creatingAdmin || !newAdminEmail || !newAdminName}
-                                        className={BUTTON_PRIMARY + (creatingAdmin ? ' opacity-50 cursor-not-allowed' : '')}
-                                    >
-                                        {creatingAdmin ? (
-                                            <>Creating...</>
-                                        ) : (
-                                            <>
-                                                <UserPlus className="w-4 h-4 mr-2" /> Create Platform Operator
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className={CARD_CLASS}>
-                                <h4 className="font-bold text-slate-900 dark:text-white mb-4">Important Notes</h4>
-                                <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-2 list-disc list-inside">
-                                    <li>Platform operators can manage blog posts and platform-wide resources</li>
-                                    <li>They can see all organizations but manage platform content only</li>
-                                    <li>New platform operators will need to sign in through the app</li>
-                                    <li>If a user already exists, their role will be updated to Platform Operator</li>
-                                </ul>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab !== 'platform-admin' && (
+                    {(
                         <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0">
                             {showSuccess && (
                                 <span className="text-emerald-600 text-sm font-medium flex items-center" role="status" aria-live="polite">

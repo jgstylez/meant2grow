@@ -19,6 +19,7 @@ import {
   Info,
   Crown,
   LogIn,
+  HelpCircle,
 } from "lucide-react";
 import { Role, User, Notification, ProgramSettings } from "../types";
 import { Logo } from "./Logo";
@@ -26,6 +27,7 @@ import { Logo } from "./Logo";
 interface LayoutProps {
   children: React.ReactNode;
   currentUser: User;
+  users?: User[];
   onNavigate: (page: string) => void;
   currentPage: string;
   onLogout: () => void;
@@ -46,6 +48,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({
   children,
   currentUser,
+  users = [],
   onNavigate,
   currentPage,
   onLogout,
@@ -166,6 +169,30 @@ const Layout: React.FC<LayoutProps> = ({
       
       // Reload app to trigger re-initialization
       window.location.reload();
+    }
+  };
+
+  // Handle support navigation - find org admin and navigate to their chat
+  const handleSupportClick = () => {
+    setIsMobileMenuOpen(false);
+    
+    // Find the first organization admin in the user's organization
+    const orgAdmins = users.filter((u) => {
+      const roleStr = String(u.role);
+      return (
+        u.organizationId === currentUser.organizationId &&
+        (u.role === Role.ADMIN || roleStr === "ADMIN" || roleStr === "ORGANIZATION_ADMIN") &&
+        !(u.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR") &&
+        u.id !== currentUser.id // Don't select self if user is an admin
+      );
+    });
+
+    if (orgAdmins.length > 0) {
+      // Navigate to chat with the first org admin
+      onNavigate(`chat:${orgAdmins[0].id}`);
+    } else {
+      // If no admin found, just navigate to chat page
+      onNavigate("chat");
     }
   };
 
@@ -572,7 +599,7 @@ const Layout: React.FC<LayoutProps> = ({
                   className="text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30"
                 />
                 <NavItem
-                  page="settings:platform-admin"
+                  page="platform-operator-management"
                   icon={Crown}
                   label="Operators"
                   className="text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30"
@@ -630,6 +657,17 @@ const Layout: React.FC<LayoutProps> = ({
                   label="Mentees Hub"
                   className="text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-700 dark:hover:text-indigo-300"
                 />
+              )}
+              {/* Support: visible to all users except platform admins */}
+              {!isPlatformAdmin && (
+                <button
+                  onClick={handleSupportClick}
+                  aria-label="Contact support"
+                  className="flex items-center w-full px-3 py-2.5 mb-0.5 rounded-md transition-colors text-sm min-h-[44px] touch-manipulation text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-700 dark:hover:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                >
+                  <HelpCircle className="w-4 h-4 mr-2 flex-shrink-0" aria-hidden="true" />
+                  <span className="truncate">Support</span>
+                </button>
               )}
             </div>
           </nav>

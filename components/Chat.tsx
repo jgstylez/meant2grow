@@ -804,27 +804,81 @@ const Chat: React.FC<ChatProps> = ({
     }
   }, [initialChatId]);
 
-  // Auto-select the chat once it's loaded (for group chats)
+  // Auto-select the chat once it's loaded (for group chats and user chats)
   useEffect(() => {
-    if (initialChatId && allChats.length > 0) {
-      // If we're waiting for a specific group chat, check if it's now available
+    if (initialChatId) {
+      // Check if chat is in allChats (groups or available DMs)
       const foundChat = allChats.find((c) => c.id === initialChatId);
       if (foundChat) {
-        // Group chat is now available, select it if not already selected
+        // Chat is available, select it if not already selected
         if (activeChatId !== initialChatId) {
           logger.debug("Auto-selecting chat", { chatId: initialChatId });
           setActiveChatId(initialChatId);
         }
-      } else {
-        // Chat not found - log for debugging
-        logger.debug("Chat not found in allChats", {
-          initialChatId,
-          allChatIds: allChats.map(c => c.id),
-          chatGroupsCount: chatGroups.length,
-        });
+      } else if (users.length > 0) {
+        // Chat not in allChats yet, but check if it's a valid user ID
+        // This handles cases where we want to open a chat with a user (e.g., admin)
+        // before they're filtered into availableDMs
+        const targetUser = users.find((u) => u.id === initialChatId);
+        if (targetUser && targetUser.organizationId === currentUser.organizationId) {
+          // Check if user is an admin (admins can always be messaged)
+          const targetUserRoleStr = String(targetUser.role);
+          const isTargetUserAdmin = targetUser.role === Role.ADMIN || 
+                                    targetUserRoleStr === "ADMIN" || 
+                                    targetUserRoleStr === "ORGANIZATION_ADMIN";
+          const isTargetUserPlatformAdmin = targetUser.role === Role.PLATFORM_ADMIN || 
+                                           targetUserRoleStr === "PLATFORM_ADMIN" || 
+                                           targetUserRoleStr === "PLATFORM_OPERATOR";
+          
+          // Also check if current user is admin (admins can message anyone in their org)
+          const currentUserRoleStr = String(currentUser.role);
+          const isCurrentUserAdmin = currentUser.role === Role.ADMIN || 
+                                    currentUserRoleStr === "ADMIN" || 
+                                    currentUserRoleStr === "ORGANIZATION_ADMIN";
+          
+          // Allow selecting if: target is admin, or current user is admin, or they're matched/approved
+          if (isTargetUserAdmin || isTargetUserPlatformAdmin || isCurrentUserAdmin) {
+            if (activeChatId !== initialChatId) {
+              logger.debug("Auto-selecting user chat (admin or valid user)", { 
+                chatId: initialChatId,
+                isTargetAdmin: isTargetUserAdmin || isTargetUserPlatformAdmin,
+                isCurrentAdmin: isCurrentUserAdmin
+              });
+              setActiveChatId(initialChatId);
+            }
+          } else {
+            // Check if they're matched partners
+            const isMatchedPartner = activeMatches.some(m => 
+              m.status === MatchStatus.ACTIVE &&
+              ((m.mentorId === currentUser.id && m.menteeId === initialChatId) ||
+               (m.menteeId === currentUser.id && m.mentorId === initialChatId))
+            );
+            const isApprovedPartner = approvedPrivateMessagePartners.has(initialChatId);
+            
+            if (isMatchedPartner || isApprovedPartner) {
+              if (activeChatId !== initialChatId) {
+                logger.debug("Auto-selecting user chat (matched/approved)", { chatId: initialChatId });
+                setActiveChatId(initialChatId);
+              }
+            } else {
+              logger.debug("Chat not found and user not available for messaging", {
+                initialChatId,
+                allChatIds: allChats.map(c => c.id),
+                chatGroupsCount: chatGroups.length,
+              });
+            }
+          }
+        } else {
+          // Not a valid user or wrong organization
+          logger.debug("Chat not found - invalid user ID or wrong organization", {
+            initialChatId,
+            allChatIds: allChats.map(c => c.id),
+            chatGroupsCount: chatGroups.length,
+          });
+        }
       }
     }
-  }, [initialChatId, allChats, activeChatId]);
+  }, [initialChatId, allChats, activeChatId, users, currentUser, activeMatches, approvedPrivateMessagePartners]);
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const previousMessagesHashRef = useRef<string>("");
@@ -1192,7 +1246,43 @@ const Chat: React.FC<ChatProps> = ({
 
   // Messages are now loaded via Firestore subscriptions
 
-  const activeChat = allChats.find((c) => c.id === activeChatId);
+  // Find active chat - check allChats first, then check users array for user chats
+  let activeChat = allChats.find((c) => c.id === activeChatId);
+  
+  // If not found in allChats but activeChatId is a user ID, check if it's a valid user
+  // This handles cases where we want to open a chat with a user (e.g., admin) 
+  // before they're filtered into availableDMs
+  if (!activeChat && activeChatId && !activeChatId.startsWith("g-")) {
+    const targetUser = users.find((u) => u.id === activeChatId);
+    if (targetUser && targetUser.organizationId === currentUser.organizationId) {
+      // Check if user has permission to message this user
+      const targetUserRoleStr = String(targetUser.role);
+      const isTargetUserAdmin = targetUser.role === Role.ADMIN || 
+                                targetUserRoleStr === "ADMIN" || 
+                                targetUserRoleStr === "ORGANIZATION_ADMIN";
+      const isTargetUserPlatformAdmin = targetUser.role === Role.PLATFORM_ADMIN || 
+                                       targetUserRoleStr === "PLATFORM_ADMIN" || 
+                                       targetUserRoleStr === "PLATFORM_OPERATOR";
+      
+      const currentUserRoleStr = String(currentUser.role);
+      const isCurrentUserAdmin = currentUser.role === Role.ADMIN || 
+                                currentUserRoleStr === "ADMIN" || 
+                                currentUserRoleStr === "ORGANIZATION_ADMIN";
+      
+      const isMatchedPartner = activeMatches.some(m => 
+        m.status === MatchStatus.ACTIVE &&
+        ((m.mentorId === currentUser.id && m.menteeId === activeChatId) ||
+         (m.menteeId === currentUser.id && m.mentorId === activeChatId))
+      );
+      const isApprovedPartner = approvedPrivateMessagePartners.has(activeChatId);
+      
+      // Allow if: target is admin, current user is admin, or they're matched/approved
+      if (isTargetUserAdmin || isTargetUserPlatformAdmin || isCurrentUserAdmin || isMatchedPartner || isApprovedPartner) {
+        // Use the user object as the activeChat (for DMs, the chat ID is the user ID)
+        activeChat = targetUser as any;
+      }
+    }
+  }
 
   // Sentiment Analysis Logic - respects manual overrides
   useEffect(() => {
