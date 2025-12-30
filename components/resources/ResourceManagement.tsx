@@ -80,11 +80,11 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
+            <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
                 {canManageOrg && (
                     <button
                         onClick={() => setManageTab('resources')}
-                        className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap ${manageTab === 'resources'
+                        className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${manageTab === 'resources'
                             ? 'border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400'
                             : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
@@ -95,7 +95,7 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
                 {canManagePlatform && (
                     <button
                         onClick={() => setManageTab('blog')}
-                        className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap ${manageTab === 'blog'
+                        className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${manageTab === 'blog'
                             ? 'border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400'
                             : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
@@ -107,7 +107,7 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
                     <>
                         <button
                             onClick={() => setManageTab('guides')}
-                            className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap ${manageTab === 'guides'
+                            className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${manageTab === 'guides'
                                 ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400'
                                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                                 }`}
@@ -116,7 +116,7 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
                         </button>
                         <button
                             onClick={() => setManageTab('templates')}
-                            className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap ${manageTab === 'templates'
+                            className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${manageTab === 'templates'
                                 ? 'border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400'
                                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                                 }`}
@@ -125,7 +125,7 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
                         </button>
                         <button
                             onClick={() => setManageTab('videos')}
-                            className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap ${manageTab === 'videos'
+                            className={`px-4 py-2 font-medium text-sm transition-colors whitespace-nowrap flex-shrink-0 ${manageTab === 'videos'
                                 ? 'border-b-2 border-amber-600 text-amber-600 dark:text-amber-400'
                                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                                 }`}

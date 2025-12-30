@@ -66,11 +66,11 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             <div className={CARD_CLASS + " p-0 overflow-hidden"}>
                 {/* Toolbar */}
                 <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row gap-4 justify-between bg-slate-50 dark:bg-slate-950">
-                    <div className="flex items-center gap-2 overflow-x-auto">
-                        <button onClick={() => setFilter('all')} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${filter === 'all' ? 'bg-white dark:bg-slate-800 text-emerald-600 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-white/50'}`}>All</button>
-                        <button onClick={() => setFilter('unread')} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${filter === 'unread' ? 'bg-white dark:bg-slate-800 text-emerald-600 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-white/50'}`}>Unread</button>
-                        <button onClick={() => setFilter('activity')} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${filter === 'activity' ? 'bg-white dark:bg-slate-800 text-emerald-600 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-white/50'}`}>Activity</button>
-                        <button onClick={() => setFilter('system')} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${filter === 'system' ? 'bg-white dark:bg-slate-800 text-emerald-600 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-white/50'}`}>System</button>
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
+                        <button onClick={() => setFilter('all')} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${filter === 'all' ? 'bg-white dark:bg-slate-800 text-emerald-600 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-white/50'}`}>All</button>
+                        <button onClick={() => setFilter('unread')} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${filter === 'unread' ? 'bg-white dark:bg-slate-800 text-emerald-600 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-white/50'}`}>Unread</button>
+                        <button onClick={() => setFilter('activity')} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${filter === 'activity' ? 'bg-white dark:bg-slate-800 text-emerald-600 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-white/50'}`}>Activity</button>
+                        <button onClick={() => setFilter('system')} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 ${filter === 'system' ? 'bg-white dark:bg-slate-800 text-emerald-600 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:bg-white/50'}`}>System</button>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="relative">

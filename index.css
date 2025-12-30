@@ -98,5 +98,32 @@
   main#main-content[data-impersonating="true"] {
     padding-top: calc(var(--pwa-banner-offset, 0px) + 4rem + var(--main-base-pt));
   }
+  
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
+  
+  /* Prevent horizontal overflow globally */
+  * {
+    max-width: 100%;
+  }
+  
+  /* Ensure images don't overflow */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  /* Prevent text overflow */
+  p, span, div, h1, h2, h3, h4, h5, h6 {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
 }
 

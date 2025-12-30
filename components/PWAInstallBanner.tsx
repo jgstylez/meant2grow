@@ -137,11 +137,25 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
   const isIOS = platform === 'ios';
   const isAndroid = platform === 'android';
 
-  const handleInstall = async () => {
-    if (isAndroid && canShowPrompt) {
-      await install();
+  const handleInstall = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    try {
+      console.log('Install button clicked', { platform, canShowPrompt, isAndroid });
+      
+      if (isAndroid) {
+        // Always try to trigger install - the hook will handle if prompt is available
+        await install();
+      } else if (isIOS) {
+        // iOS: Can't programmatically trigger, but we can show a helpful message
+        console.log('iOS installation requires using the Share menu');
+      }
+    } catch (error) {
+      console.error('Install error:', error);
+      // If install fails, it might mean the prompt isn't available
+      // User can still use browser menu as fallback
     }
-    // For iOS, we just show instructions (can't programmatically trigger)
   };
 
   // Calculate top offset to account for mobile header (if visible)
@@ -174,13 +188,16 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
                 <p className="text-xs sm:text-sm text-emerald-50 leading-relaxed">
                   {isIOS ? (
                     <>
-                      Tap the <IOSShareIcon className="w-3 h-3 inline mx-0.5" /> Share button, then select{' '}
-                      <strong>"Add to Home Screen"</strong> for push notifications and faster access.
+                      <strong>Step 1:</strong> In Safari, tap <IOSShareIcon className="w-3 h-3 inline mx-0.5" /> Share button (bottom toolbar)<br/>
+                      <strong>Step 2:</strong> Scroll down and tap <strong>"Add to Home Screen"</strong><br/>
+                      <strong>Step 3:</strong> Tap <strong>"Add"</strong> to install<br/>
+                      <strong>Step 4:</strong> Open app from home screen and allow notifications when prompted
                     </>
                   ) : (
                     <>
-                      Install the app to get push notifications and quick access. Tap{' '}
-                      <strong>"Install"</strong> when prompted, or use the browser menu.
+                      <strong>Step 1:</strong> Tap <button type="button" onClick={handleInstall} className="text-white font-semibold underline decoration-2 underline-offset-2 hover:text-emerald-100 transition-colors cursor-pointer active:opacity-80">Install Now</button><br/>
+                      <strong>Step 2:</strong> Confirm installation when prompted<br/>
+                      <strong>Step 3:</strong> Open the installed app and allow push notifications when asked
                     </>
                   )}
                 </p>
@@ -210,15 +227,20 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
             {/* Platform-specific visual guide */}
             {isIOS && (
               <div className="mt-2 pt-2 border-t border-emerald-500/30">
-                <div className="flex items-center gap-2 text-xs text-emerald-100">
-                  <Smartphone className="w-4 h-4 flex-shrink-0" />
-                  <span>
-                    <strong>Step 1:</strong> Tap Share{' '}
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-white/20 mx-0.5">
-                      <IOSShareIcon className="w-3 h-3" />
-                    </span>
-                    {' '}
-                    <strong>Step 2:</strong> Scroll down → Tap "Add to Home Screen"
+                <div className="flex items-start gap-2 text-xs text-emerald-100">
+                  <Smartphone className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">
+                    <strong>Note:</strong> Requires iOS 16.4+ and Safari. After installation, open the app from your home screen to enable push notifications.
+                  </span>
+                </div>
+              </div>
+            )}
+            {isAndroid && !canShowPrompt && (
+              <div className="mt-2 pt-2 border-t border-emerald-500/30">
+                <div className="flex items-start gap-2 text-xs text-emerald-100">
+                  <Smartphone className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">
+                    <strong>Tip:</strong> If no install prompt appears, use Chrome menu (⋮) → "Install app" or "Add to Home screen". Then open the installed app to enable notifications.
                   </span>
                 </div>
               </div>

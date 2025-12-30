@@ -317,7 +317,7 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
             <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
               <tr>

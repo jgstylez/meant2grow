@@ -1316,14 +1316,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                     role="dialog"
                                     aria-modal="true"
                                     aria-labelledby="upgrade-modal-title"
-                                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4"
                                     onClick={(e) => {
                                         if (e.target === e.currentTarget) {
                                             setShowUpgradeModal(false);
                                         }
                                     }}
                                 >
-                                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-4 sm:p-6 border border-slate-200 dark:border-slate-800 touch-action-pan-y max-h-[90vh] overflow-y-auto">
+                                    <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-xl max-w-md w-full h-full sm:h-auto p-4 sm:p-6 border-0 sm:border border-slate-200 dark:border-slate-800 touch-action-pan-y max-h-[100vh] sm:max-h-[90vh] overflow-y-auto flex flex-col">
                                         <div className="flex items-center justify-between mb-4">
                                             <h3 id="upgrade-modal-title" className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Confirm Plan Change</h3>
                                             <button 
@@ -1380,14 +1380,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                     role="dialog"
                                     aria-modal="true"
                                     aria-labelledby="cancel-modal-title"
-                                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4"
                                     onClick={(e) => {
                                         if (e.target === e.currentTarget) {
                                             setShowCancelConfirm(false);
                                         }
                                     }}
                                 >
-                                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-4 sm:p-6 border border-slate-200 dark:border-slate-800 touch-action-pan-y max-h-[90vh] overflow-y-auto">
+                                    <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-xl max-w-md w-full h-full sm:h-auto p-4 sm:p-6 border-0 sm:border border-slate-200 dark:border-slate-800 touch-action-pan-y max-h-[100vh] sm:max-h-[90vh] overflow-y-auto flex flex-col">
                                         <div className="flex items-center justify-between mb-4">
                                             <h3 id="cancel-modal-title" className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Cancel Subscription</h3>
                                             <button 

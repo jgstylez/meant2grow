@@ -697,7 +697,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
     : null;
 
   return (
-    <div className="min-h-screen flex bg-white">
+    <div className="min-h-screen flex bg-white overflow-x-hidden w-full">
       {/* Left Side - Visual */}
       <div
         className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center text-white p-12"

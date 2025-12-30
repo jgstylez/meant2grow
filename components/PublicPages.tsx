@@ -133,7 +133,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({
             <input
               type="email"
               placeholder="Enter email for updates"
-              className="bg-slate-900 border border-slate-800 rounded px-3 py-2 text-xs w-full max-w-[200px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-white placeholder-slate-400 transition-colors"
+              className="bg-slate-900 border border-slate-800 rounded px-3 py-2 text-xs w-full sm:max-w-[200px] focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-white placeholder-slate-400 transition-colors"
             />
             <button className="bg-emerald-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-emerald-700 transition-colors">
               Subscribe
@@ -1332,7 +1332,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="min-h-screen bg-slate-50 font-sans overflow-x-hidden w-full">
       <Header />
       {/* Mobile Menu */}
       {isMobileMenuOpen && (

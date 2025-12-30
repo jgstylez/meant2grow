@@ -109,11 +109,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
   const renderRatingModal = () => (
     <>
       {ratingTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200 dark:border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-sm w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Rate Experience</h3>
-              <button onClick={() => setRatingTarget(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><X className="w-5 h-5" /></button>
+              <button onClick={() => setRatingTarget(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"><X className="w-5 h-5" /></button>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
               How is your mentorship going with <span className="font-semibold text-slate-800 dark:text-white">{ratingTarget.name}</span>?
@@ -148,7 +148,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
             <button
               onClick={handleSubmitRating}
               disabled={ratingScore === 0}
-              className="w-full py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 sm:py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
             >
               Submit Review
             </button>
@@ -182,21 +182,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
       : 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300';
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-800">
-          <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+        <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl max-w-4xl w-full h-full sm:h-auto mx-0 sm:mx-4 max-h-[100vh] sm:max-h-[90vh] flex flex-col border-0 sm:border border-slate-200 dark:border-slate-800">
+          <div className="flex justify-between items-center p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800">
+            <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
               {title} ({participants.length})
             </h3>
             <button
               onClick={() => setShowParticipantsModal(null)}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {participants.length === 0 ? (
               <div className="text-center py-12">
                 <Users className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
@@ -283,13 +283,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
             )}
           </div>
 
-          <div className="p-6 border-t border-slate-200 dark:border-slate-800">
+          <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800">
             <button
               onClick={() => {
                 setShowParticipantsModal(null);
                 onNavigate('participants');
               }}
-              className="w-full py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-medium transition-colors"
+              className="w-full py-3 sm:py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-medium transition-colors min-h-[44px] touch-manipulation"
             >
               View All Participants
             </button>
@@ -628,40 +628,40 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className={CARD_CLASS}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+          <div className={CARD_CLASS + " p-3 sm:p-4"}>
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total Users</div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">{platformAdminLoading ? '...' : platformStats.totalUsers}</div>
+            <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{platformAdminLoading ? '...' : platformStats.totalUsers}</div>
           </div>
-          <div className={CARD_CLASS}>
+          <div className={CARD_CLASS + " p-3 sm:p-4"}>
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
               <UserCheck className="w-3 h-3" /> Mentees
             </div>
-            <div className="text-2xl font-bold text-purple-600">{platformAdminLoading ? '...' : platformStats.mentees}</div>
+            <div className="text-xl sm:text-2xl font-bold text-purple-600">{platformAdminLoading ? '...' : platformStats.mentees}</div>
           </div>
-          <div className={CARD_CLASS}>
+          <div className={CARD_CLASS + " p-3 sm:p-4"}>
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
               <GraduationCap className="w-3 h-3" /> Mentors
             </div>
-            <div className="text-2xl font-bold text-emerald-600">{platformAdminLoading ? '...' : platformStats.mentors}</div>
+            <div className="text-xl sm:text-2xl font-bold text-emerald-600">{platformAdminLoading ? '...' : platformStats.mentors}</div>
           </div>
-          <div className={CARD_CLASS}>
+          <div className={CARD_CLASS + " p-3 sm:p-4"}>
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
               <Building className="w-3 h-3" /> Organizations
             </div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">{platformAdminLoading ? '...' : platformStats.totalOrgs}</div>
+            <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{platformAdminLoading ? '...' : platformStats.totalOrgs}</div>
           </div>
-          <div className={CARD_CLASS}>
+          <div className={CARD_CLASS + " p-3 sm:p-4"}>
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
               <Shield className="w-3 h-3" /> Org Admins
             </div>
-            <div className="text-2xl font-bold text-blue-600">{platformAdminLoading ? '...' : platformStats.orgAdmins}</div>
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">{platformAdminLoading ? '...' : platformStats.orgAdmins}</div>
           </div>
-          <div className={CARD_CLASS}>
+          <div className={CARD_CLASS + " p-3 sm:p-4"}>
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
               <Crown className="w-3 h-3" /> Operators
             </div>
-            <div className="text-2xl font-bold text-amber-600">{platformAdminLoading ? '...' : platformStats.platformAdmins}</div>
+            <div className="text-xl sm:text-2xl font-bold text-amber-600">{platformAdminLoading ? '...' : platformStats.platformAdmins}</div>
           </div>
         </div>
 
@@ -847,17 +847,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
               <div className="text-center py-8 text-slate-500">Loading...</div>
             ) : (
               <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{platformStats.activeMatches}</div>
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                  <div className="text-center p-3 sm:p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                    <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{platformStats.activeMatches}</div>
                     <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Active</div>
                   </div>
-                  <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{platformStats.completedMatches}</div>
+                  <div className="text-center p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">{platformStats.completedMatches}</div>
                     <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Completed</div>
                   </div>
-                  <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <div className="text-2xl font-bold text-slate-900 dark:text-white">{platformStats.totalMatches}</div>
+                  <div className="text-center p-3 sm:p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{platformStats.totalMatches}</div>
                     <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Total</div>
                   </div>
                 </div>
@@ -909,17 +909,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
               <div className="text-center py-8 text-slate-500">Loading...</div>
             ) : (
               <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{platformStats.completedGoals}</div>
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                  <div className="text-center p-3 sm:p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                    <div className="text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400">{platformStats.completedGoals}</div>
                     <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Completed</div>
                   </div>
-                  <div className="text-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{platformStats.inProgressGoals}</div>
+                  <div className="text-center p-3 sm:p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">{platformStats.inProgressGoals}</div>
                     <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">In Progress</div>
                   </div>
-                  <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <div className="text-2xl font-bold text-slate-900 dark:text-white">{platformStats.totalGoals}</div>
+                  <div className="text-center p-3 sm:p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{platformStats.totalGoals}</div>
                     <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Total</div>
                   </div>
                 </div>
@@ -974,13 +974,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
               <div className="space-y-6">
                 {/* Metrics Section */}
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                      <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{platformStats.approvedRatings}</div>
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                    <div className="text-center p-3 sm:p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <div className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">{platformStats.approvedRatings}</div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Approved</div>
                     </div>
-                    <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{platformStats.totalRatings}</div>
+                    <div className="text-center p-3 sm:p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{platformStats.totalRatings}</div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Total</div>
                     </div>
                   </div>
@@ -1080,21 +1080,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
         </div>
       {/* User Details Modal */}
       {selectedUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">User Details</h3>
-              <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-xl max-w-2xl w-full h-full sm:h-auto sm:max-h-[90vh] overflow-y-auto border-0 sm:border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">User Details</h3>
+              <button onClick={() => setSelectedUser(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               {/* User Profile Section */}
-              <div className="flex items-start gap-4">
-                <img src={selectedUser.avatar} alt={selectedUser.name} className="w-20 h-20 rounded-full object-cover border-2 border-slate-200 dark:border-slate-700" />
-                <div className="flex-1">
-                  <h4 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{selectedUser.name}</h4>
-                  <p className="text-slate-600 dark:text-slate-400 mb-2">{selectedUser.email}</p>
+              <div className="flex items-start gap-3 sm:gap-4">
+                <img src={selectedUser.avatar} alt={selectedUser.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-slate-200 dark:border-slate-700 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-1 truncate">{selectedUser.name}</h4>
+                  <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 mb-2 break-all">{selectedUser.email}</p>
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                     selectedUser.role === Role.MENTOR
                       ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300'
@@ -1212,13 +1212,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
                   onClick={() => {
                     setSelectedUser(null);
                     onNavigate('user-management:users');
                   }}
-                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-3 sm:py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 min-h-[44px] touch-manipulation"
                 >
                   <Edit className="w-4 h-4" /> Manage User
                 </button>
@@ -1586,7 +1586,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                   Share this code to add participants
                 </p>
                 <div className="flex items-center gap-2">
-                  <div className="bg-white/20 backdrop-blur-sm rounded px-2 sm:px-3 py-1.5 sm:py-2 font-mono text-sm sm:text-lg font-bold tracking-wider flex-1 overflow-x-auto">
+                  <div className="bg-white/20 backdrop-blur-sm rounded px-2 sm:px-3 py-1.5 sm:py-2 font-mono text-sm sm:text-lg font-bold tracking-wider flex-1 overflow-x-auto overflow-y-hidden break-all">
                     {organizationCode}
                   </div>
                   <button
@@ -1665,7 +1665,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
               return (
                 <div key={mentee.id} className={CARD_CLASS}>
                   <div className="flex flex-col md:flex-row gap-6">
-                    <div className="flex items-center md:items-start gap-4 min-w-[200px]">
+                    <div className="flex items-center md:items-start gap-4 min-w-0 md:min-w-[200px]">
                       <img src={mentee.avatar} className="w-16 h-16 rounded-full object-cover" alt="" />
                       <div>
                         <h3 className="font-bold text-slate-800 dark:text-white text-lg">{mentee.name}</h3>

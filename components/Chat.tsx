@@ -1952,21 +1952,21 @@ const Chat: React.FC<ChatProps> = ({
 
   // UI Components for Modals
   const UserProfileModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200 dark:border-slate-800">
-        <div className="text-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-sm w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
+        <div className="text-center flex-1 overflow-y-auto">
           <img
             src={chatPartner?.avatar}
-            className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-slate-100 dark:border-slate-800"
+            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full mx-auto mb-4 border-4 border-slate-100 dark:border-slate-800"
             alt=""
           />
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
             {chatPartner?.name}
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {chatPartner?.title}
           </p>
-          <div className="mt-4 text-left bg-slate-50 dark:bg-slate-800 p-4 rounded-lg">
+          <div className="mt-4 text-left bg-slate-50 dark:bg-slate-800 p-3 sm:p-4 rounded-lg">
             <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">
               Bio
             </h4>
@@ -1989,7 +1989,7 @@ const Chat: React.FC<ChatProps> = ({
           </div>
           <button
             onClick={() => setActiveModal(null)}
-            className="mt-6 w-full py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-700"
+            className="mt-6 w-full py-3 sm:py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-700 min-h-[44px] touch-manipulation"
           >
             Close
           </button>
@@ -1999,28 +1999,30 @@ const Chat: React.FC<ChatProps> = ({
   );
 
   const BlockUserModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200 dark:border-slate-800">
-        <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
-          <Ban className="w-6 h-6 text-red-600 dark:text-red-400" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-sm w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
+        <div className="flex-1 flex flex-col justify-center">
+          <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
+            <Ban className="w-6 h-6 text-red-600 dark:text-red-400" />
+          </div>
+          <h3 className="text-lg font-bold text-center mb-2 text-slate-900 dark:text-white">
+            Block {chatPartner?.name}?
+          </h3>
+          <p className="text-center text-slate-500 dark:text-slate-400 text-sm mb-6">
+            They will not be able to message you or see your profile. This action
+            cannot be easily undone.
+          </p>
         </div>
-        <h3 className="text-lg font-bold text-center mb-2 text-slate-900 dark:text-white">
-          Block {chatPartner?.name}?
-        </h3>
-        <p className="text-center text-slate-500 dark:text-slate-400 text-sm mb-6">
-          They will not be able to message you or see your profile. This action
-          cannot be easily undone.
-        </p>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 mt-auto">
           <button
             onClick={() => setActiveModal(null)}
-            className="flex-1 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium"
+            className="flex-1 py-3 sm:py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation"
           >
             Cancel
           </button>
           <button
             onClick={blockUser}
-            className="flex-1 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg text-sm font-medium"
+            className="flex-1 py-3 sm:py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation"
           >
             Block User
           </button>
@@ -2030,25 +2032,27 @@ const Chat: React.FC<ChatProps> = ({
   );
 
   const ClearHistoryModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200 dark:border-slate-800">
-        <h3 className="text-lg font-bold text-center mb-2 text-slate-900 dark:text-white">
-          Clear Chat History?
-        </h3>
-        <p className="text-center text-slate-500 dark:text-slate-400 text-sm mb-6">
-          This will remove all messages from your view. This action cannot be
-          undone.
-        </p>
-        <div className="flex gap-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-sm w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
+        <div className="flex-1 flex flex-col justify-center">
+          <h3 className="text-lg font-bold text-center mb-2 text-slate-900 dark:text-white">
+            Clear Chat History?
+          </h3>
+          <p className="text-center text-slate-500 dark:text-slate-400 text-sm mb-6">
+            This will remove all messages from your view. This action cannot be
+            undone.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 mt-auto">
           <button
             onClick={() => setActiveModal(null)}
-            className="flex-1 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium"
+            className="flex-1 py-3 sm:py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation"
           >
             Cancel
           </button>
           <button
             onClick={clearHistory}
-            className="flex-1 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg text-sm font-medium"
+            className="flex-1 py-3 sm:py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation"
           >
             Clear History
           </button>
@@ -2061,12 +2065,12 @@ const Chat: React.FC<ChatProps> = ({
     const [reason, setReason] = useState("Harassment");
     const [desc, setDesc] = useState("");
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 border border-slate-200 dark:border-slate-800">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+        <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-md w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
           <h3 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">
             Report User
           </h3>
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 overflow-y-auto">
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">
                 Reason
@@ -2095,20 +2099,20 @@ const Chat: React.FC<ChatProps> = ({
                 placeholder="Please provide details..."
               />
             </div>
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => setActiveModal(null)}
-                className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => reportUser(reason, desc)}
-                className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg text-sm font-medium"
-              >
-                Submit Report
-              </button>
-            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <button
+              onClick={() => setActiveModal(null)}
+              className="px-4 py-3 sm:py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => reportUser(reason, desc)}
+              className="px-4 py-3 sm:py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation"
+            >
+              Submit Report
+            </button>
           </div>
         </div>
       </div>
@@ -2122,8 +2126,8 @@ const Chat: React.FC<ChatProps> = ({
       )[0]?.id
     );
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200 dark:border-slate-800">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+        <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-sm w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
           <h3 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">
             Share Contact
           </h3>
@@ -2145,16 +2149,16 @@ const Chat: React.FC<ChatProps> = ({
                 </option>
               ))}
           </select>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 mt-auto">
             <button
               onClick={() => setActiveModal(null)}
-              className="flex-1 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium"
+              className="flex-1 py-3 sm:py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation"
             >
               Cancel
             </button>
             <button
               onClick={() => shareContact(selectedId)}
-              className="flex-1 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-medium"
+              className="flex-1 py-3 sm:py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation"
             >
               Share
             </button>
@@ -2237,8 +2241,8 @@ const Chat: React.FC<ChatProps> = ({
     };
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 border border-slate-200 dark:border-slate-800 max-h-[80vh] flex flex-col">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+        <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-md w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 max-h-[100vh] sm:max-h-[80vh] flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">
               New Message
@@ -2248,7 +2252,7 @@ const Chat: React.FC<ChatProps> = ({
                 setActiveModal(null);
                 setNewMessageSearchQuery("");
               }}
-              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
               aria-label="Close"
             >
               <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
@@ -2259,7 +2263,7 @@ const Chat: React.FC<ChatProps> = ({
             placeholder="Search users..."
             value={newMessageSearchQuery}
             onChange={(e) => setNewMessageSearchQuery(e.target.value)}
-            className="w-full text-sm bg-slate-100 dark:bg-slate-800 border-none rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white mb-4"
+            className="w-full text-base sm:text-sm bg-slate-100 dark:bg-slate-800 border-none rounded-lg px-3 py-3 sm:py-2 focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white mb-4 min-h-[44px]"
             autoFocus
           />
           <div className="overflow-y-auto flex-1">
@@ -2279,9 +2283,9 @@ const Chat: React.FC<ChatProps> = ({
                     <button
                       key={user.id}
                       onClick={() => handleSelectUser(user.id)}
-                      className="w-full p-3 flex items-center space-x-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-left"
+                      className="w-full p-3 flex items-center space-x-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-left min-h-[60px] touch-manipulation"
                     >
-                      <div className="relative">
+                      <div className="relative flex-shrink-0">
                         <img
                           src={user.avatar || "https://via.placeholder.com/40"}
                           alt={user.name}
@@ -2295,7 +2299,7 @@ const Chat: React.FC<ChatProps> = ({
                             {user.name}
                           </h4>
                           {isAlreadyInChats && (
-                            <span className="text-xs text-emerald-600 dark:text-emerald-400 ml-2">
+                            <span className="text-xs text-emerald-600 dark:text-emerald-400 ml-2 flex-shrink-0">
                               Active
                             </span>
                           )}
@@ -2819,7 +2823,7 @@ const Chat: React.FC<ChatProps> = ({
                         />
                         {isGroup && sender && (
                           <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover/avatar:opacity-100 transition-opacity z-20">
-                            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-2 min-w-[150px]">
+                            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-2 min-w-0 sm:min-w-[150px]">
                               <div className="text-xs font-semibold text-slate-900 dark:text-white mb-2">
                                 {sender.name}
                               </div>
@@ -2865,7 +2869,7 @@ const Chat: React.FC<ChatProps> = ({
                         {msg.type === "file" && (
                           <div className="flex items-center space-x-2 bg-black/10 dark:bg-white/10 p-2 rounded-lg">
                             <FileText className="w-5 h-5" />
-                            <span className="underline truncate max-w-[150px]">
+                            <span className="underline truncate max-w-[120px] sm:max-w-[150px]">
                               {msg.fileName}
                             </span>
                             <Download className="w-4 h-4 opacity-70 cursor-pointer" />
@@ -3469,12 +3473,12 @@ const Chat: React.FC<ChatProps> = ({
       )}
 
       {activeModal === "mute" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200 dark:border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-sm w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
               Mute Notifications
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-2 flex-1 overflow-y-auto">
               {[
                 "15 Minutes",
                 "1 Hour",
@@ -3485,7 +3489,7 @@ const Chat: React.FC<ChatProps> = ({
                 <button
                   key={opt}
                   onClick={toggleMute}
-                  className="w-full text-left px-4 py-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-sm text-slate-700 dark:text-slate-300"
+                  className="w-full text-left px-4 py-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-sm text-slate-700 dark:text-slate-300 min-h-[44px] touch-manipulation"
                 >
                   {opt}
                 </button>
@@ -3493,7 +3497,7 @@ const Chat: React.FC<ChatProps> = ({
             </div>
             <button
               onClick={() => setActiveModal(null)}
-              className="w-full mt-4 text-sm text-slate-500 hover:underline"
+              className="w-full mt-4 py-3 sm:py-2 text-sm text-slate-500 hover:underline min-h-[44px] touch-manipulation"
             >
               Cancel
             </button>

@@ -669,31 +669,33 @@ const Goals: React.FC<GoalsProps> = ({
       </div>
 
       {goalToConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200 dark:border-slate-800">
-            <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
-              <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-sm w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
+            <div className="flex-1 flex flex-col justify-center">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
+                <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h3 className="text-lg font-bold text-center mb-2 text-slate-900 dark:text-white">
+                Mark Goal as Completed?
+              </h3>
+              <p className="text-center text-slate-500 dark:text-slate-400 text-sm mb-6">
+                Are you sure you want to mark "
+                <strong>
+                  {goals.find((g) => g.id === goalToConfirm)?.title}
+                </strong>
+                " as completed? This is a great milestone!
+              </p>
             </div>
-            <h3 className="text-lg font-bold text-center mb-2 text-slate-900 dark:text-white">
-              Mark Goal as Completed?
-            </h3>
-            <p className="text-center text-slate-500 dark:text-slate-400 text-sm mb-6">
-              Are you sure you want to mark "
-              <strong>
-                {goals.find((g) => g.id === goalToConfirm)?.title}
-              </strong>
-              " as completed? This is a great milestone!
-            </p>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 mt-auto">
               <button
                 onClick={() => setGoalToConfirm(null)}
-                className="flex-1 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium"
+                className="flex-1 py-3 sm:py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmComplete}
-                className="flex-1 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-medium"
+                className="flex-1 py-3 sm:py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation"
               >
                 Confirm
               </button>

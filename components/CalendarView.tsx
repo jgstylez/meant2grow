@@ -599,7 +599,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="event-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-2 sm:p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsAddEventOpen(false);
@@ -608,7 +608,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             }
           }}
         >
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 max-h-[95vh] sm:max-h-[90vh] flex flex-col touch-action-pan-y">
+          <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl max-w-2xl w-full h-full sm:h-auto border-0 sm:border border-slate-200 dark:border-slate-800 max-h-[100vh] sm:max-h-[90vh] flex flex-col touch-action-pan-y">
             {/* Header - Fixed */}
             <div className="flex justify-between items-center p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800">
               <h2 id="event-modal-title" className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
@@ -844,8 +844,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
 
             {/* Footer with Button - Fixed */}
-            <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-b-xl">
-              <div className="flex gap-2">
+            <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-b-none sm:rounded-b-xl">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   onClick={async () => {
                     if (editingEvent) {
@@ -855,12 +855,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     }
                   }}
                   disabled={!newEvent.title || !newEvent.date}
-                  className={BUTTON_PRIMARY + " flex-1"}
+                  className={BUTTON_PRIMARY + " flex-1 min-h-[44px] touch-manipulation"}
                 >
                   {editingEvent ? "Update Event" : "Schedule Event"}
                 </button>
                 {newEvent.title && newEvent.date && (
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 justify-center sm:justify-start">
                     <button
                       type="button"
                       onClick={() => {
@@ -879,26 +879,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           "_blank"
                         );
                       }}
-                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-xs"
+                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-xs min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
                       title="Add to Google Calendar"
                     >
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
                       disabled
-                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs opacity-50 cursor-not-allowed"
+                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs opacity-50 cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center"
                       title="Outlook Calendar - Coming Soon"
                     >
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
                       disabled
-                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs opacity-50 cursor-not-allowed"
+                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs opacity-50 cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center"
                       title="Apple Calendar - Coming Soon"
                     >
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-4 h-4" />
                     </button>
                   </div>
                 )}

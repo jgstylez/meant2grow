@@ -697,7 +697,7 @@ const Layout: React.FC<LayoutProps> = ({
       {/* Main Content */}
       <main
         id="main-content"
-        className="flex-1 overflow-y-auto h-screen px-3 pb-3 sm:px-4 sm:pb-4 md:px-8 md:pb-8 relative touch-action-pan-y"
+        className="flex-1 overflow-y-auto overflow-x-hidden h-screen px-3 pb-3 sm:px-4 sm:pb-4 md:px-8 md:pb-8 relative touch-action-pan-y w-full max-w-full"
         role="main"
         data-impersonating={isImpersonating ? "true" : undefined}
       >

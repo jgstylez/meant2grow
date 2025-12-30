@@ -1015,15 +1015,15 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
       {/* Edit User Modal */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-2xl w-full h-full sm:h-auto mx-0 sm:mx-4 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 Edit User
               </h3>
               <button
                 onClick={() => setEditingUser(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1041,20 +1041,20 @@ const UserManagement: React.FC<UserManagementProps> = ({
       {/* User Profile Modal */}
       {selectedUser && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
           onClick={() => setSelectedUser(null)}
         >
           <div
-            className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-2xl w-full h-full sm:h-auto mx-0 sm:mx-4 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-start mb-6">
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+            <div className="flex justify-between items-start mb-4 sm:mb-6">
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
                 User Profile
               </h3>
               <button
                 onClick={() => setSelectedUser(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1229,8 +1229,8 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-md w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
             <div className="flex items-start gap-4 mb-4">
               <AlertTriangle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
               <div>
@@ -1244,7 +1244,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
                 </p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 mt-auto">
               <button
                 onClick={() => {
                   if (showDeleteConfirm.startsWith("org-")) {
@@ -1253,13 +1253,13 @@ const UserManagement: React.FC<UserManagementProps> = ({
                     handleDeleteUser(showDeleteConfirm);
                   }
                 }}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                className="flex-1 px-4 py-3 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium min-h-[44px] touch-manipulation"
               >
                 Delete
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(null)}
-                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
+                className="flex-1 px-4 py-3 sm:py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium min-h-[44px] touch-manipulation"
               >
                 Cancel
               </button>
@@ -1270,8 +1270,8 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
       {/* Impersonation Confirmation Modal */}
       {impersonateUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-md w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
             <div className="flex items-start gap-4 mb-4">
               <LogIn className="w-6 h-6 text-emerald-500 flex-shrink-0 mt-0.5" />
               <div>
@@ -1290,17 +1290,17 @@ const UserManagement: React.FC<UserManagementProps> = ({
                 </p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 mt-auto">
               <button
                 onClick={() => handleImpersonateUser(impersonateUser)}
-                className={`${BUTTON_PRIMARY} flex-1 flex items-center justify-center gap-2`}
+                className={`${BUTTON_PRIMARY} flex-1 flex items-center justify-center gap-2 min-h-[44px] touch-manipulation`}
               >
                 <LogIn className="w-4 h-4" />
                 Login as {impersonateUser.name}
               </button>
               <button
                 onClick={() => setImpersonateUser(null)}
-                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
+                className="flex-1 px-4 py-3 sm:py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium min-h-[44px] touch-manipulation"
               >
                 Cancel
               </button>
@@ -1311,12 +1311,12 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
       {/* Email Org Admins Modal */}
       {showEmailModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-3xl w-full h-full sm:h-auto mx-0 sm:mx-4 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
               <div>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Mail className="w-6 h-6 text-emerald-600" />
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
                   Email Organization Admins
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
