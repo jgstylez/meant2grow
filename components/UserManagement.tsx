@@ -6,7 +6,7 @@ import { CARD_CLASS, INPUT_CLASS, BUTTON_PRIMARY } from '../styles/common';
 import {
   Users, Search, Filter, Edit2, Trash2, Building, Mail, User as UserIcon,
   Shield, Crown, GraduationCap, UserCheck, X, Save, AlertTriangle,
-  ChevronDown, ChevronUp, Eye, EyeOff, Plus, Globe, CheckCircle, Send
+  ChevronDown, ChevronUp, Eye, EyeOff, Plus, Globe, CheckCircle, Send, LogIn
 } from 'lucide-react';
 
 interface UserManagementProps {
@@ -43,6 +43,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
+  
+  // Impersonation functionality
+  const [impersonateUser, setImpersonateUser] = useState<User | null>(null);
   
   // Check if current user is platform admin
   const userRoleString = String(currentUser.role);
@@ -270,6 +273,32 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
       console.error('Error deleting organization:', error);
       alert('Failed to delete organization: ' + error.message);
     }
+  };
+
+  const handleImpersonateUser = (user: User) => {
+    // Security check: Only platform operators can impersonate
+    if (!isPlatformAdmin) {
+      alert('Only platform operators can impersonate users.');
+      return;
+    }
+    
+    // Prevent impersonating yourself
+    if (user.id === currentUser.id) {
+      alert('You cannot impersonate yourself.');
+      return;
+    }
+    
+    // Store original operator context
+    localStorage.setItem('originalOperatorId', currentUser.id);
+    localStorage.setItem('originalOrganizationId', currentUser.organizationId);
+    localStorage.setItem('isImpersonating', 'true');
+    
+    // Switch to target user
+    localStorage.setItem('userId', user.id);
+    localStorage.setItem('organizationId', user.organizationId);
+    
+    // Reload the app to trigger re-initialization with new user context
+    window.location.reload();
   };
 
   const toggleUserExpanded = (userId: string) => {
@@ -570,6 +599,18 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
+                      {isPlatformAdmin && user.id !== currentUser.id && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setImpersonateUser(user);
+                          }}
+                          className="p-2 text-emerald-400 hover:text-emerald-600"
+                          title="Login as this user"
+                        >
+                          <LogIn className="w-4 h-4" />
+                        </button>
+                      )}
                       {user.id !== currentUser.id && (
                         <button
                           onClick={() => setShowDeleteConfirm(user.id)}
@@ -778,6 +819,18 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
                   <Edit2 className="w-4 h-4 inline mr-2" />
                   Edit User
                 </button>
+                {isPlatformAdmin && selectedUser.id !== currentUser.id && (
+                  <button
+                    onClick={() => {
+                      setSelectedUser(null);
+                      setImpersonateUser(selectedUser);
+                    }}
+                    className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex items-center justify-center gap-2"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    Login as User
+                  </button>
+                )}
                 {selectedUser.id !== currentUser.id && (
                   <button
                     onClick={() => {
@@ -828,6 +881,43 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser, onNavigate
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Impersonation Confirmation Modal */}
+      {impersonateUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-start gap-4 mb-4">
+              <LogIn className="w-6 h-6 text-emerald-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                  Impersonate User
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                  You are about to login as <strong>{impersonateUser.name}</strong> ({impersonateUser.role}).
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  You will see the dashboard exactly as this user sees it. You can exit impersonation at any time using the banner at the top.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleImpersonateUser(impersonateUser)}
+                className={`${BUTTON_PRIMARY} flex-1 flex items-center justify-center gap-2`}
+              >
+                <LogIn className="w-4 h-4" />
+                Login as {impersonateUser.name}
+              </button>
+              <button
+                onClick={() => setImpersonateUser(null)}
                 className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
               >
                 Cancel

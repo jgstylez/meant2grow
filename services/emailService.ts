@@ -1,28 +1,73 @@
-import { MailtrapClient } from "mailtrap";
+// Don't import MailtrapClient at top level - use dynamic import instead
 import { User, Organization, Role, Match, Goal } from "../types";
 import { logger } from "./logger";
 
-// Initialize Mailtrap client
-const getMailtrapClient = () => {
-  const apiToken = import.meta.env.VITE_MAILTRAP_API_TOKEN;
-  const useSandbox = import.meta.env.VITE_MAILTRAP_USE_SANDBOX === "true";
-  const inboxId = import.meta.env.VITE_MAILTRAP_INBOX_ID
-    ? Number(import.meta.env.VITE_MAILTRAP_INBOX_ID)
-    : undefined;
+// Lazy initialization of Mailtrap client (only in server environments)
+let client: any = null;
+let clientPromise: Promise<any> | null = null;
 
-  if (!apiToken) {
-    logger.warn("MAILTRAP_API_TOKEN not set. Email sending will be disabled.");
+const getMailtrapClient = async () => {
+  // Check if we're in a browser environment
+  if (typeof window !== 'undefined') {
+    // In browser, don't initialize Mailtrap client
+    // Email sending should go through Cloud Functions/API routes
     return null;
   }
 
-  return new MailtrapClient({
-    token: apiToken,
-    sandbox: useSandbox,
-    testInboxId: inboxId, // Only used in sandbox mode
-  });
+  // If client already initialized, return it
+  if (client !== null) {
+    return client;
+  }
+
+  // If initialization is in progress, wait for it
+  if (clientPromise) {
+    return clientPromise;
+  }
+
+  // Start initialization
+  clientPromise = (async () => {
+    try {
+      // Dynamic import - only loads in server environments
+      const { MailtrapClient } = await import("mailtrap");
+      
+      const apiToken = import.meta.env.VITE_MAILTRAP_API_TOKEN;
+      const useSandbox = import.meta.env.VITE_MAILTRAP_USE_SANDBOX === "true";
+      const inboxId = import.meta.env.VITE_MAILTRAP_INBOX_ID
+        ? Number(import.meta.env.VITE_MAILTRAP_INBOX_ID)
+        : undefined;
+
+      if (!apiToken) {
+        logger.warn("MAILTRAP_API_TOKEN not set. Email sending will be disabled.");
+        return null;
+      }
+
+      client = new MailtrapClient({
+        token: apiToken,
+        sandbox: useSandbox,
+        testInboxId: inboxId, // Only used in sandbox mode
+      });
+      
+      return client;
+    } catch (error) {
+      logger.error("Failed to initialize Mailtrap client", error);
+      return null;
+    } finally {
+      clientPromise = null;
+    }
+  })();
+
+  return clientPromise;
 };
 
-const client = getMailtrapClient();
+// Lazy getter for client (synchronous check, async initialization)
+const getClient = () => {
+  // In browser, always return null immediately
+  if (typeof window !== 'undefined') {
+    return null;
+  }
+  // In server, return the client (may be null if not initialized yet)
+  return client;
+};
 
 // Email configuration
 const EMAIL_CONFIG = {
@@ -41,13 +86,22 @@ const sendEmail = async (options: {
   text: string;
   category?: string;
 }) => {
-  if (!client) {
+  // In browser environment, don't try to send emails directly
+  if (typeof window !== 'undefined') {
+    logger.info("Email service not available in browser. Use API routes for email sending.", { subject: options.subject });
+    return;
+  }
+
+  // Get or initialize the client (async)
+  const emailClient = await getMailtrapClient();
+  
+  if (!emailClient) {
     logger.info("Email service not configured. Would send:", { subject: options.subject });
     return;
   }
 
   try {
-    await client.send({
+    await emailClient.send({
       from: EMAIL_CONFIG.from,
       reply_to: { email: EMAIL_CONFIG.replyTo },
       to: options.to,

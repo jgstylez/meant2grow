@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   Info,
   Crown,
+  LogIn,
 } from "lucide-react";
 import { Role, User, Notification, ProgramSettings } from "../types";
 import { Logo } from "./Logo";
@@ -90,51 +91,83 @@ const Layout: React.FC<LayoutProps> = ({
 
   const formatRole = (role: Role | string) => {
     const roleString = String(role);
-    
+
     // Handle enum values
     if (role === Role.ADMIN) return "ORG ADMIN";
     if (role === Role.PLATFORM_ADMIN) return "Platform Operator";
     if (role === Role.MENTOR) return "Mentor";
     if (role === Role.MENTEE) return "Mentee";
-    
+
     // Handle string values
-    if (roleString === "ORGANIZATION_ADMIN" || roleString === "ADMIN") return "ORG ADMIN";
-    if (roleString === "PLATFORM_ADMIN" || roleString === "PLATFORM_OPERATOR") return "Platform Operator";
+    if (roleString === "ORGANIZATION_ADMIN" || roleString === "ADMIN")
+      return "ORG ADMIN";
+    if (roleString === "PLATFORM_ADMIN" || roleString === "PLATFORM_OPERATOR")
+      return "Platform Operator";
     if (roleString === "MENTOR") return "Mentor";
     if (roleString === "MENTEE") return "Mentee";
-    
+
     return roleString;
   };
 
   // Role checks - handle both enum and string values for robustness
   const userRoleString = String(currentUser.role);
-  
+
   // Check platform admin first (must come before other checks)
-  const isPlatformAdmin = currentUser.role === Role.PLATFORM_ADMIN || 
-                         userRoleString === "PLATFORM_ADMIN" || 
-                         userRoleString === "PLATFORM_OPERATOR";
-  
+  const isPlatformAdmin =
+    currentUser.role === Role.PLATFORM_ADMIN ||
+    userRoleString === "PLATFORM_ADMIN" ||
+    userRoleString === "PLATFORM_OPERATOR";
+
   // Check organization admin (must come after platform admin check)
-  const isAdmin = !isPlatformAdmin && (
-    currentUser.role === Role.ADMIN || 
-    userRoleString === "ORGANIZATION_ADMIN" || 
-    userRoleString === "ADMIN"
-  );
-  
-  const isMentor = !isPlatformAdmin && !isAdmin && (
-    currentUser.role === Role.MENTOR || 
-    userRoleString === "MENTOR"
-  );
-  
-  const isMentee = !isPlatformAdmin && !isAdmin && !isMentor && (
-    currentUser.role === Role.MENTEE || 
-    userRoleString === "MENTEE"
-  );
+  const isAdmin =
+    !isPlatformAdmin &&
+    (currentUser.role === Role.ADMIN ||
+      userRoleString === "ORGANIZATION_ADMIN" ||
+      userRoleString === "ADMIN");
+
+  const isMentor =
+    !isPlatformAdmin &&
+    !isAdmin &&
+    (currentUser.role === Role.MENTOR || userRoleString === "MENTOR");
+
+  const isMentee =
+    !isPlatformAdmin &&
+    !isAdmin &&
+    !isMentor &&
+    (currentUser.role === Role.MENTEE || userRoleString === "MENTEE");
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const brandColor = programSettings?.accentColor || "#10b981"; // Default Emerald
   const programName = programSettings?.programName || "Meant2Grow";
   const customLogo = programSettings?.logo;
+
+  // Check if impersonating
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [originalOperatorId, setOriginalOperatorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const impersonating = localStorage.getItem('isImpersonating') === 'true';
+    const originalId = localStorage.getItem('originalOperatorId');
+    setIsImpersonating(impersonating);
+    setOriginalOperatorId(originalId);
+  }, []);
+
+  const handleExitImpersonation = () => {
+    const originalId = localStorage.getItem('originalOperatorId');
+    const originalOrgId = localStorage.getItem('originalOrganizationId');
+    
+    if (originalId && originalOrgId) {
+      // Restore original operator session
+      localStorage.setItem('userId', originalId);
+      localStorage.setItem('organizationId', originalOrgId);
+      localStorage.removeItem('isImpersonating');
+      localStorage.removeItem('originalOperatorId');
+      localStorage.removeItem('originalOrganizationId');
+      
+      // Reload app to trigger re-initialization
+      window.location.reload();
+    }
+  };
 
   const NavItem = ({
     page,
@@ -162,16 +195,17 @@ const Layout: React.FC<LayoutProps> = ({
         style={
           isActive
             ? {
-              backgroundColor: `${brandColor}15`, // 10% opacity
-              color: brandColor,
-              fontWeight: 500,
-            }
+                backgroundColor: `${brandColor}15`, // 10% opacity
+                color: brandColor,
+                fontWeight: 500,
+              }
             : {}
         }
-        className={`flex items-center w-full px-3 py-2.5 mb-0.5 rounded-md transition-colors text-sm min-h-[44px] touch-manipulation ${isActive
-          ? "" // Handled by inline style for dynamic color
-          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200"
-          } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 ${className}`}
+        className={`flex items-center w-full px-3 py-2.5 mb-0.5 rounded-md transition-colors text-sm min-h-[44px] touch-manipulation ${
+          isActive
+            ? "" // Handled by inline style for dynamic color
+            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200"
+        } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 ${className}`}
       >
         <Icon className="w-4 h-4 mr-2 flex-shrink-0" aria-hidden="true" />
         <span className="truncate">{label}</span>
@@ -180,7 +214,7 @@ const Layout: React.FC<LayoutProps> = ({
   };
 
   const NotificationsPanel = () => (
-    <div 
+    <div
       role="dialog"
       aria-label="Notifications"
       aria-modal="true"
@@ -207,18 +241,25 @@ const Layout: React.FC<LayoutProps> = ({
             No notifications.
           </p>
         ) : (
-          <ul role="list" className="divide-y divide-slate-100 dark:divide-slate-800">
+          <ul
+            role="list"
+            className="divide-y divide-slate-100 dark:divide-slate-800"
+          >
             {notifications.map((n) => (
               <li
                 key={n.id}
-                className={`p-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors relative group ${!n.isRead ? "bg-slate-50/80 dark:bg-slate-800/50" : ""
-                  }`}
+                className={`p-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors relative group ${
+                  !n.isRead ? "bg-slate-50/80 dark:bg-slate-800/50" : ""
+                }`}
               >
                 <div className="flex justify-between items-start mb-1">
                   <span className="font-semibold text-xs text-slate-800 dark:text-white">
                     {n.title}
                   </span>
-                  <time className="text-[10px] text-slate-400" dateTime={n.timestamp}>
+                  <time
+                    className="text-[10px] text-slate-400"
+                    dateTime={n.timestamp}
+                  >
                     {n.timestamp}
                   </time>
                 </div>
@@ -261,6 +302,27 @@ const Layout: React.FC<LayoutProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row text-slate-900 dark:text-slate-100 transition-colors duration-300">
+      {/* Impersonation Banner */}
+      {isImpersonating && (
+        <div className="fixed top-0 left-0 right-0 z-[100] bg-amber-500 text-white px-4 py-2 shadow-lg">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <LogIn className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm font-medium truncate">
+                You are viewing as <strong>{currentUser.name}</strong> ({formatRole(currentUser.role)})
+              </span>
+            </div>
+            <button
+              onClick={handleExitImpersonation}
+              className="px-4 py-1.5 bg-white text-amber-600 rounded-lg font-medium text-sm hover:bg-amber-50 transition-colors flex items-center gap-2 flex-shrink-0"
+            >
+              <LogOut className="w-4 h-4" />
+              Exit Impersonation
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Skip to main content link for screen readers */}
       <a
         href="#main-content"
@@ -272,30 +334,24 @@ const Layout: React.FC<LayoutProps> = ({
       {/* Mobile Header */}
       <header className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 flex justify-between items-center sticky top-0 z-30">
         <div className="flex items-center space-x-2 min-w-0 flex-1">
-          {customLogo ? (
-            <img 
-              src={customLogo} 
-              alt={`${programName} logo`}
-              className="w-8 h-8 flex-shrink-0 object-contain"
-            />
-          ) : (
-            <Logo className="w-8 h-8 flex-shrink-0" title={programName} />
-          )}
+          <Logo className="w-8 h-8 flex-shrink-0" title="Meant2Grow" />
           <span className="font-bold text-sm uppercase text-slate-800 dark:text-white break-words leading-tight">
-            {programName}
+            Meant2Grow
           </span>
         </div>
         <div className="flex items-center gap-2">
           <button
             ref={notificationButtonRef}
             onClick={() => setShowNotifications(!showNotifications)}
-            aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+            aria-label={`Notifications${
+              unreadCount > 0 ? `, ${unreadCount} unread` : ""
+            }`}
             aria-expanded={showNotifications}
             className="relative p-2.5 text-slate-600 dark:text-slate-400 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 touch-manipulation"
           >
             <Bell className="w-5 h-5" aria-hidden="true" />
             {unreadCount > 0 && (
-              <span 
+              <span
                 className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"
                 aria-label={`${unreadCount} unread notifications`}
               ></span>
@@ -307,7 +363,11 @@ const Layout: React.FC<LayoutProps> = ({
             aria-expanded={isMobileMenuOpen}
             className="p-2.5 text-slate-600 dark:text-slate-400 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 touch-manipulation"
           >
-            {isMobileMenuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+            {isMobileMenuOpen ? (
+              <X aria-hidden="true" />
+            ) : (
+              <Menu aria-hidden="true" />
+            )}
           </button>
         </div>
       </header>
@@ -329,7 +389,7 @@ const Layout: React.FC<LayoutProps> = ({
               <h2 className="font-bold text-lg text-slate-900 dark:text-white">
                 Notifications
               </h2>
-              <button 
+              <button
                 onClick={() => setShowNotifications(false)}
                 aria-label="Close notifications"
                 className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 touch-manipulation"
@@ -339,22 +399,32 @@ const Layout: React.FC<LayoutProps> = ({
             </div>
             <div className="overflow-y-auto flex-1 touch-action-pan-y">
               {notifications.length === 0 ? (
-                <p className="text-center text-sm text-slate-500 mt-10" role="status">
+                <p
+                  className="text-center text-sm text-slate-500 mt-10"
+                  role="status"
+                >
                   No notifications.
                 </p>
               ) : (
-                <ul role="list" className="divide-y divide-slate-100 dark:divide-slate-800">
+                <ul
+                  role="list"
+                  className="divide-y divide-slate-100 dark:divide-slate-800"
+                >
                   {notifications.map((n) => (
                     <li
                       key={n.id}
-                      className={`p-4 ${!n.isRead ? "bg-slate-50 dark:bg-slate-800" : ""
-                        }`}
+                      className={`p-4 ${
+                        !n.isRead ? "bg-slate-50 dark:bg-slate-800" : ""
+                      }`}
                     >
                       <div className="flex justify-between items-start mb-1">
                         <span className="font-semibold text-sm text-slate-800 dark:text-white">
                           {n.title}
                         </span>
-                        <time className="text-xs text-slate-400" dateTime={n.timestamp}>
+                        <time
+                          className="text-xs text-slate-400"
+                          dateTime={n.timestamp}
+                        >
                           {n.timestamp}
                         </time>
                       </div>
@@ -405,22 +475,15 @@ const Layout: React.FC<LayoutProps> = ({
         fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-transform duration-200 ease-in-out touch-action-pan-y
         md:relative md:translate-x-0 md:z-10
         ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+        ${isImpersonating ? "top-12 md:top-0" : ""}
       `}
       >
         <div className="p-4 h-full flex flex-col touch-action-pan-y">
           <div className="hidden md:flex items-center mb-4">
             <div className="flex items-center space-x-2 min-w-0 flex-1">
-              {customLogo ? (
-                <img 
-                  src={customLogo} 
-                  alt={`${programName} logo`}
-                  className="w-7 h-7 flex-shrink-0 object-contain"
-                />
-              ) : (
-                <Logo className="w-7 h-7 flex-shrink-0" title={programName} />
-              )}
+              <Logo className="w-7 h-7 flex-shrink-0" title="Meant2Grow" />
               <span className="text-sm font-bold uppercase text-slate-800 dark:text-white tracking-tight break-words leading-tight">
-                {programName}
+                Meant2Grow
               </span>
             </div>
           </div>
@@ -434,8 +497,10 @@ const Layout: React.FC<LayoutProps> = ({
               />
               <div className="overflow-hidden min-w-0 flex-1">
                 <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                  {currentUser.name && currentUser.name.trim() && currentUser.name !== "Admin" 
-                    ? currentUser.name 
+                  {currentUser.name &&
+                  currentUser.name.trim() &&
+                  currentUser.name !== "Admin"
+                    ? currentUser.name
                     : "User Admin"}
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">
@@ -446,13 +511,15 @@ const Layout: React.FC<LayoutProps> = ({
               <div className="relative flex-shrink-0">
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
-                  aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
+                  aria-label={`Notifications${
+                    unreadCount > 0 ? `, ${unreadCount} unread` : ""
+                  }`}
                   aria-expanded={showNotifications}
                   className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors relative min-h-[32px] min-w-[32px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   <Bell className="w-4 h-4" aria-hidden="true" />
                   {unreadCount > 0 && (
-                    <span 
+                    <span
                       className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"
                       aria-label={`${unreadCount} unread notifications`}
                     ></span>
@@ -485,7 +552,10 @@ const Layout: React.FC<LayoutProps> = ({
             )}
           </div>
 
-          <nav aria-label="Main navigation" className="flex-1 space-y-0.5 overflow-y-auto touch-action-pan-y">
+          <nav
+            aria-label="Main navigation"
+            className="flex-1 space-y-0.5 overflow-y-auto touch-action-pan-y"
+          >
             <NavItem
               page="dashboard"
               icon={LayoutDashboard}
@@ -516,11 +586,7 @@ const Layout: React.FC<LayoutProps> = ({
                 <p className="px-3 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">
                   Manage
                 </p>
-                <NavItem
-                  page="participants"
-                  icon={Users}
-                  label="Users"
-                />
+                <NavItem page="participants" icon={Users} label="Users" />
                 <NavItem page="matching" icon={Repeat} label="Bridges" />
               </div>
             )}
@@ -530,11 +596,15 @@ const Layout: React.FC<LayoutProps> = ({
             )}
 
             <NavItem page="chat" icon={MessageSquare} label="Messages" />
-            <NavItem 
-              page="resources" 
-              icon={BookOpen} 
+            <NavItem
+              page="resources"
+              icon={BookOpen}
               label="Resources"
-              className={isAdmin ? "text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30" : ""}
+              className={
+                isAdmin
+                  ? "text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30"
+                  : ""
+              }
             />
             <NavItem page="calendar" icon={CalendarIcon} label="Calendar" />
 
@@ -572,7 +642,10 @@ const Layout: React.FC<LayoutProps> = ({
               aria-label="Log out"
               className="flex items-center w-full px-3 py-2.5 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors group text-sm min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-red-500"
             >
-              <LogOut className="w-4 h-4 mr-2 flex-shrink-0" aria-hidden="true" />
+              <LogOut
+                className="w-4 h-4 mr-2 flex-shrink-0"
+                aria-hidden="true"
+              />
               <span className="text-xs font-medium">Log Out</span>
             </button>
           </div>
@@ -580,15 +653,15 @@ const Layout: React.FC<LayoutProps> = ({
       </aside>
 
       {/* Main Content */}
-      <main 
+      <main
         id="main-content"
-        className="flex-1 overflow-y-auto h-screen p-3 sm:p-4 md:p-8 relative touch-action-pan-y"
+        className={`flex-1 overflow-y-auto h-screen p-3 sm:p-4 md:p-8 relative touch-action-pan-y ${isImpersonating ? 'pt-16' : ''}`}
         role="main"
       >
         {children}
 
         {/* Toast Container */}
-        <div 
+        <div
           role="region"
           aria-label="Notifications"
           aria-live="polite"
@@ -599,21 +672,31 @@ const Layout: React.FC<LayoutProps> = ({
             <div
               key={toast.id}
               role="alert"
-              className={`pointer-events-auto flex items-center p-3 sm:p-4 rounded-lg shadow-lg border animate-in slide-in-from-right-4 fade-in text-sm sm:text-base min-h-[44px] ${toast.type === "success"
-                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200"
-                : toast.type === "error"
+              className={`pointer-events-auto flex items-center p-3 sm:p-4 rounded-lg shadow-lg border animate-in slide-in-from-right-4 fade-in text-sm sm:text-base min-h-[44px] ${
+                toast.type === "success"
+                  ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200"
+                  : toast.type === "error"
                   ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
                   : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
-                }`}
+              }`}
             >
               {toast.type === "success" && (
-                <CheckCircle className="w-5 h-5 mr-3 text-emerald-500 flex-shrink-0" aria-hidden="true" />
+                <CheckCircle
+                  className="w-5 h-5 mr-3 text-emerald-500 flex-shrink-0"
+                  aria-hidden="true"
+                />
               )}
               {toast.type === "error" && (
-                <AlertTriangle className="w-5 h-5 mr-3 text-red-500 flex-shrink-0" aria-hidden="true" />
+                <AlertTriangle
+                  className="w-5 h-5 mr-3 text-red-500 flex-shrink-0"
+                  aria-hidden="true"
+                />
               )}
               {toast.type === "info" && (
-                <Info className="w-5 h-5 mr-3 text-blue-500 flex-shrink-0" aria-hidden="true" />
+                <Info
+                  className="w-5 h-5 mr-3 text-blue-500 flex-shrink-0"
+                  aria-hidden="true"
+                />
               )}
               <p className="text-sm font-medium flex-1">{toast.message}</p>
               <button
