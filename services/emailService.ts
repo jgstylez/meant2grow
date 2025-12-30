@@ -384,7 +384,7 @@ Ready for your next challenge? Set a new goal and keep growing!
     `.trim(),
   }),
 
-  // Trial ending email (for future Stripe integration)
+  // Trial ending email (trial management via Flowglad)
   trialEnding: (user: User, organization: Organization, daysRemaining: number) => ({
     subject: `Your Free Trial Ends in ${daysRemaining} Days`,
     html: `

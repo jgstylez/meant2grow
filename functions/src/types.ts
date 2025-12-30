@@ -22,8 +22,14 @@ export interface Organization {
   createdAt: string;
   subscriptionTier: "free" | "starter" | "professional" | "business" | "enterprise";
   organizationCode: string; // Unique code for participants to join
-  // Stripe subscription fields
+  // Flowglad subscription fields (payment processing via Flowglad)
+  flowgladCustomerId?: string;
+  flowgladSubscriptionId?: string;
+  billingInterval?: "monthly" | "yearly";
+  // Deprecated: Stripe fields (kept for backwards compatibility during migration)
+  /** @deprecated Use flowgladCustomerId instead */
   stripeCustomerId?: string;
+  /** @deprecated Use flowgladSubscriptionId instead */
   stripeSubscriptionId?: string;
   trialEnd?: string; // ISO date string - when free trial ends
   subscriptionStatus?: "active" | "trialing" | "past_due" | "canceled" | "unpaid";

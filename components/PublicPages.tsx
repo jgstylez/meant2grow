@@ -51,6 +51,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({
   onLogin,
   blogPosts = [],
 }) => {
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const Header = () => {
@@ -343,16 +344,59 @@ const PublicPages: React.FC<PublicPagesProps> = ({
           </div>
         );
       case "pricing":
+        // Calculate annual prices (2 months free = 10 months of monthly price)
+        const monthlyPrices = { starter: 99, professional: 199, business: 299 };
+        const annualPrices = {
+          starter: monthlyPrices.starter * 10,
+          professional: monthlyPrices.professional * 10,
+          business: monthlyPrices.business * 10,
+        };
+        const prices = billingPeriod === "monthly" ? monthlyPrices : annualPrices;
+        const periodLabel = billingPeriod === "monthly" ? "/mo" : "/yr";
+
         return (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-20">
             <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-12 md:mb-16">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 mb-3 sm:mb-4">
                 Simple, Transparent Pricing
               </h1>
-              <p className="text-base sm:text-lg md:text-xl text-slate-600">
+              <p className="text-base sm:text-lg md:text-xl text-slate-600 mb-6">
                 Choose the plan that fits your organization size. All plans
                 include a 14-day free trial.
               </p>
+              
+              {/* Billing Period Toggle */}
+              <div className="flex items-center justify-center mb-4">
+                <div className="inline-flex items-center rounded-lg bg-slate-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setBillingPeriod("monthly")}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                      billingPeriod === "monthly"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillingPeriod("annual")}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 relative ${
+                      billingPeriod === "annual"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Annual
+                    {billingPeriod === "annual" && (
+                      <span className="absolute -top-1 -right-1 text-[10px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-semibold">
+                        2mo free
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mb-8">
@@ -362,11 +406,16 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                   Starter
                 </h3>
                 <div className="text-4xl font-bold text-slate-900 mb-2">
-                  $99
+                  ${prices.starter.toLocaleString()}
                   <span className="text-base font-normal text-slate-500">
-                    /mo
+                    {periodLabel}
                   </span>
                 </div>
+                {billingPeriod === "annual" && (
+                  <p className="text-xs text-emerald-600 font-medium mb-1">
+                    ${monthlyPrices.starter}/mo billed annually
+                  </p>
+                )}
                 <p className="text-sm text-slate-500 mb-6">1-99 participants</p>
                 <p className="text-slate-600 mb-8 text-sm">
                   Perfect for small teams and growing organizations.
@@ -414,11 +463,16 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                 </div>
                 <h3 className="text-lg font-bold mb-2">Professional</h3>
                 <div className="text-4xl font-bold mb-2">
-                  $199
+                  ${prices.professional.toLocaleString()}
                   <span className="text-base font-normal text-slate-400">
-                    /mo
+                    {periodLabel}
                   </span>
                 </div>
+                {billingPeriod === "annual" && (
+                  <p className="text-xs text-emerald-400 font-medium mb-1">
+                    ${monthlyPrices.professional}/mo billed annually
+                  </p>
+                )}
                 <p className="text-sm text-slate-400 mb-6">
                   100-399 participants
                 </p>
@@ -468,11 +522,16 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                   Business
                 </h3>
                 <div className="text-4xl font-bold text-slate-900 mb-2">
-                  $299
+                  ${prices.business.toLocaleString()}
                   <span className="text-base font-normal text-slate-500">
-                    /mo
+                    {periodLabel}
                   </span>
                 </div>
+                {billingPeriod === "annual" && (
+                  <p className="text-xs text-emerald-600 font-medium mb-1">
+                    ${monthlyPrices.business}/mo billed annually
+                  </p>
+                )}
                 <p className="text-sm text-slate-500 mb-6">
                   400-999 participants
                 </p>

@@ -221,28 +221,70 @@ const AvatarCluster: React.FC<{
 };
 
 const EMOJIS = [
-  "👍",
-  "❤️",
-  "😂",
-  "😮",
-  "😢",
-  "😡",
-  "🎉",
-  "🔥",
-  "👀",
-  "🤝",
-  "🙌",
-  "👏",
-  "💪",
-  "🙏",
-  "💯",
-  "✨",
+  // Reactions & Emotions
+  "👍", "👎", "❤️", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎",
+  "😂", "😊", "😄", "😃", "😁", "😆", "😅", "🤣", "😭", "😢",
+  "😮", "😲", "😱", "😨", "😰", "😡", "😠", "🤬", "😤", "😤",
+  "😴", "😪", "🤤", "😋", "🤗", "🤔", "🤫", "🤭", "😏", "😌",
+  "😍", "🥰", "😘", "😗", "😙", "😚", "☺️", "🙂", "😉", "😎",
+  "🤓", "🧐", "😇", "🤠", "🥳", "🤡", "😷", "🤒", "🤕", "🤢",
+  // Celebrations & Actions
+  "🎉", "🎊", "🎈", "🎁", "🏆", "🥇", "🥈", "🥉", "🏅", "🎖️",
+  "🔥", "💯", "✨", "⭐", "🌟", "💫", "⚡", "💥", "💢", "💨",
+  "👀", "👁️", "👅", "👄", "💋", "👃", "👂", "👣", "👤", "👥",
+  // Hand Gestures
+  "👏", "🙌", "🤝", "🤲", "👐", "🙏", "✍️", "💪", "🦾", "🦿",
+  "🤞", "✌️", "🤟", "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️",
+  "👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤏", "✊", "👊", "🤛",
+  "🤜", "👏", "🙏", "🤝", "👍", "👎", "👊", "✊", "🤛", "🤜",
+  // Objects & Symbols
+  "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔",
+  "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "☮️",
+  "✝️", "☪️", "🕉️", "☸️", "✡️", "🔯", "🕎", "☯️", "☦️", "🛐",
+  // Food & Drink
+  "🍕", "🍔", "🍟", "🌭", "🍿", "🧂", "🥓", "🥚", "🍳", "🥞",
+  "🥐", "🥨", "🧀", "🍗", "🍖", "🌮", "🌯", "🥙", "🥗", "🥘",
+  "🥫", "🍝", "🍜", "🍲", "🍛", "🍣", "🍱", "🥟", "🍤", "🍙",
+  "🍚", "🍘", "🍥", "🥠", "🥮", "🍢", "🍡", "🍧", "🍨", "🍦",
+  "🥧", "🍰", "🎂", "🍮", "🍭", "🍬", "🍫", "🍿", "🍩", "🍪",
+  "🌰", "🥜", "🍯", "🥛", "🍼", "☕", "🍵", "🥤", "🍶", "🍺",
+  "🍻", "🥂", "🍷", "🥃", "🍸", "🍹", "🧃", "🧉", "🧊", "🥤",
+  // Animals & Nature
+  "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯",
+  "🦁", "🐮", "🐷", "🐽", "🐸", "🐵", "🙈", "🙉", "🙊", "🐒",
+  "🐔", "🐧", "🐦", "🐤", "🐣", "🐥", "🦆", "🦅", "🦉", "🦇",
+  "🐺", "🐗", "🐴", "🦄", "🐝", "🐛", "🦋", "🐌", "🐞", "🐜",
+  "🦟", "🦗", "🕷️", "🦂", "🐢", "🐍", "🦎", "🦖", "🦕", "🐙",
+  "🦑", "🦐", "🦞", "🦀", "🐡", "🐠", "🐟", "🐬", "🐳", "🐋",
+  "🦈", "🐊", "🐅", "🐆", "🦓", "🦍", "🦧", "🐘", "🦛", "🦏",
+  "🐪", "🐫", "🦒", "🦘", "🦡", "🐾", "🐉", "🐲", "🌵", "🎄",
+  "🌲", "🌳", "🌴", "🌱", "🌿", "☘️", "🍀", "🎍", "🎋", "🍃",
+  "🍂", "🍁", "🍄", "🌾", "💐", "🌷", "🌹", "🥀", "🌺", "🌸",
+  "🌼", "🌻", "🌞", "🌝", "🌛", "🌜", "🌚", "🌕", "🌖", "🌗",
+  "🌘", "🌑", "🌒", "🌓", "🌔", "🌙", "🌎", "🌍", "🌏", "💫",
+  "⭐", "🌟", "✨", "⚡", "☄️", "💥", "🔥", "☀️", "🌤️", "⛅",
+  "🌥️", "☁️", "🌦️", "🌧️", "⛈️", "🌩️", "⚡", "☔", "❄️", "☃️",
+  "⛄", "🌬️", "💨", "💧", "💦", "☂️", "☔", "🌊", "🌫️",
 ];
-const MOCK_GIFS = [
-  "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbDN4eWwxZnB4eWx4ZnB4eWwxZnB4eWx4ZnB4eWwxZnB4eWx4ZnB4eSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3oKIPnAiaMCws8nOsE/giphy.gif",
-  "https://media.giphy.com/media/l0HlHJGHe3yAMhdQY/giphy.gif",
-  "https://media.giphy.com/media/3o7TKr3nzbh5WgCFxe/giphy.gif",
-];
+// GIPHY API configuration
+// Get your free API key from: https://developers.giphy.com/
+const GIPHY_API_KEY = import.meta.env.VITE_GIPHY_API_KEY || "4Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3"; // Replace with your own free API key
+const GIPHY_BASE_URL = "https://api.giphy.com/v1/gifs";
+
+interface GiphyGif {
+  id: string;
+  images: {
+    fixed_height: {
+      url: string;
+      width: string;
+      height: string;
+    };
+    original: {
+      url: string;
+    };
+  };
+  title: string;
+}
 
 interface ChatProps {
   currentUser: User;
@@ -811,6 +853,9 @@ const Chat: React.FC<ChatProps> = ({
   const [attachment, setAttachment] = useState<File | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
+  const [gifSearchQuery, setGifSearchQuery] = useState("");
+  const [gifs, setGifs] = useState<GiphyGif[]>([]);
+  const [gifsLoading, setGifsLoading] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [messages, setMessages] = useState<Record<string, ChatMessageType[]>>(
     {}
@@ -1425,6 +1470,55 @@ const Chat: React.FC<ChatProps> = ({
       );
     }
   };
+
+  // Fetch GIFs from GIPHY API
+  useEffect(() => {
+    if (!showGifPicker) {
+      // Reset search when picker closes
+      setGifSearchQuery("");
+      return;
+    }
+
+    // Don't fetch if API key is not configured
+    if (!GIPHY_API_KEY || GIPHY_API_KEY === "4Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3") {
+      setGifs([]);
+      setGifsLoading(false);
+      return;
+    }
+
+    const fetchGifs = async () => {
+      setGifsLoading(true);
+      try {
+        const url = gifSearchQuery.trim()
+          ? `${GIPHY_BASE_URL}/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(gifSearchQuery.trim())}&limit=30&rating=g`
+          : `${GIPHY_BASE_URL}/trending?api_key=${GIPHY_API_KEY}&limit=30&rating=g`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`GIPHY API error: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        if (data.data && Array.isArray(data.data)) {
+          setGifs(data.data);
+        } else {
+          setGifs([]);
+        }
+      } catch (error) {
+        logger.error("Error fetching GIFs", error);
+        setGifs([]);
+      } finally {
+        setGifsLoading(false);
+      }
+    };
+
+    // Debounce search
+    const timeoutId = setTimeout(() => {
+      fetchGifs();
+    }, gifSearchQuery.trim() ? 500 : 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [showGifPicker, gifSearchQuery]);
 
   const handleToggleReaction = async (messageId: string, emoji: string) => {
     try {
@@ -2778,7 +2872,7 @@ const Chat: React.FC<ChatProps> = ({
             {!isBlocked ? (
               <div className="p-3 sm:p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 relative">
                 {showEmojiPicker && (
-                  <div className="absolute bottom-full left-0 sm:left-4 mb-2 bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4 w-full sm:w-[400px] h-64 sm:h-96 overflow-y-auto grid grid-cols-8 gap-2 z-20">
+                  <div className="absolute bottom-full left-0 sm:left-4 mb-2 bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 rounded-lg p-2 w-full sm:w-[360px] h-48 sm:h-64 overflow-y-auto grid grid-cols-10 gap-1 z-20">
                     {EMOJIS.map((e) => (
                       <button
                         key={e}
@@ -2786,7 +2880,7 @@ const Chat: React.FC<ChatProps> = ({
                           setInputText((prev) => prev + e);
                           setShowEmojiPicker(false);
                         }}
-                        className="text-2xl hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg p-2 transition-colors flex items-center justify-center"
+                        className="text-lg hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md p-1 transition-colors flex items-center justify-center aspect-square"
                       >
                         {e}
                       </button>
@@ -2794,46 +2888,82 @@ const Chat: React.FC<ChatProps> = ({
                   </div>
                 )}
                 {showGifPicker && (
-                  <div className="absolute bottom-full left-0 sm:left-16 mb-2 bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 rounded-xl p-3 sm:p-4 w-full sm:w-[600px] h-[400px] sm:h-[500px] overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 z-20">
-                    {MOCK_GIFS.map((url, i) => (
-                      <button
-                        key={i}
-                        onClick={async () => {
-                          if (!activeChatId || !organizationId) return;
-                          const isGroup = MOCK_GROUPS.some(
-                            (g) => g.id === activeChatId
-                          );
-                          const chatType: "dm" | "group" = isGroup
-                            ? "group"
-                            : "dm";
+                  <div className="absolute bottom-full left-0 sm:left-4 mb-2 bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 rounded-lg p-2 w-full sm:w-[400px] h-64 sm:h-80 flex flex-col z-20">
+                    {/* Search Input */}
+                    <div className="mb-2">
+                      <input
+                        type="text"
+                        placeholder="Search GIFs..."
+                        value={gifSearchQuery}
+                        onChange={(e) => setGifSearchQuery(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    {/* GIF Grid */}
+                    <div className="flex-1 overflow-y-auto grid grid-cols-3 gap-1">
+                      {gifsLoading ? (
+                        <div className="col-span-3 flex items-center justify-center py-8">
+                          <div className="flex items-center space-x-2 text-slate-500">
+                            <div className="w-4 h-4 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin"></div>
+                            <span className="text-sm">Loading GIFs...</span>
+                          </div>
+                        </div>
+                      ) : gifs.length === 0 ? (
+                        <div className="col-span-3 flex flex-col items-center justify-center py-8 text-slate-500 text-sm">
+                          {(!GIPHY_API_KEY || GIPHY_API_KEY === "4Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3") ? (
+                            <>
+                              <span className="mb-1">GIPHY API key not configured</span>
+                              <span className="text-xs text-slate-400">Get a free key at developers.giphy.com</span>
+                            </>
+                          ) : gifSearchQuery.trim() ? (
+                            "No GIFs found"
+                          ) : (
+                            "Search for GIFs"
+                          )}
+                        </div>
+                      ) : (
+                        gifs.map((gif) => (
+                          <button
+                            key={gif.id}
+                            onClick={async () => {
+                              if (!activeChatId || !organizationId) return;
+                              const isGroup = MOCK_GROUPS.some(
+                                (g) => g.id === activeChatId
+                              );
+                              const chatType: "dm" | "group" = isGroup
+                                ? "group"
+                                : "dm";
 
-                          try {
-                            await createChatMessage({
-                              organizationId,
-                              chatId: activeChatId,
-                              chatType,
-                              senderId: currentUser.id,
-                              text: "GIF",
-                              type: "image",
-                              fileUrl: url,
-                              timestamp: new Date().toISOString(),
-                              isRead: false,
-                              readBy: [currentUser.id],
-                            });
-                            setShowGifPicker(false);
-                          } catch (error) {
-                            console.error("Error sending GIF:", error);
-                          }
-                        }}
-                        className="hover:opacity-80 transition-opacity hover:scale-105 transform duration-150"
-                      >
-                        <img
-                          src={url}
-                          className="w-full h-32 object-cover rounded-lg shadow-sm"
-                          alt="GIF"
-                        />
-                      </button>
-                    ))}
+                              try {
+                                await createChatMessage({
+                                  organizationId,
+                                  chatId: activeChatId,
+                                  chatType,
+                                  senderId: currentUser.id,
+                                  text: "GIF",
+                                  type: "image",
+                                  fileUrl: gif.images.fixed_height.url,
+                                  timestamp: new Date().toISOString(),
+                                  isRead: false,
+                                  readBy: [currentUser.id],
+                                });
+                                setShowGifPicker(false);
+                              } catch (error) {
+                                logger.error("Error sending GIF", error);
+                              }
+                            }}
+                            className="hover:opacity-80 transition-opacity hover:scale-105 transform duration-150 aspect-square overflow-hidden rounded-md"
+                          >
+                            <img
+                              src={gif.images.fixed_height.url}
+                              alt={gif.title || "GIF"}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </button>
+                        ))
+                      )}
+                    </div>
                   </div>
                 )}
                 {attachment && (

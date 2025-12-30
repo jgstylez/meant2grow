@@ -535,6 +535,7 @@ const App: React.FC = () => {
           senderId: mentorId,
           text: welcomeMessage,
           type: 'text',
+          timestamp: new Date().toISOString(),
         }).catch((err) =>
           console.error("Error creating initial chat message for mentor view:", err)
         );
@@ -547,6 +548,7 @@ const App: React.FC = () => {
           senderId: mentorId,
           text: welcomeMessage,
           type: 'text',
+          timestamp: new Date().toISOString(),
         }).catch((err) =>
           console.error("Error creating initial chat message for mentee view:", err)
         );
