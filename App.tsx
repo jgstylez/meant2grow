@@ -1038,8 +1038,17 @@ const App: React.FC = () => {
           </Suspense>
         );
       case "platform-operator-management":
-        if (!currentUser || currentUser.role !== Role.PLATFORM_ADMIN)
+        // Check platform admin access - handle both enum and string role representations
+        if (!currentUser) {
           return <div className="p-8 text-center">Access denied.</div>;
+        }
+        const platformOpRoleStr = String(currentUser.role);
+        const isPlatformOp = currentUser.role === Role.PLATFORM_ADMIN || 
+                            platformOpRoleStr === "PLATFORM_ADMIN" || 
+                            platformOpRoleStr === "PLATFORM_OPERATOR";
+        if (!isPlatformOp) {
+          return <div className="p-8 text-center">Access denied.</div>;
+        }
         return (
           <Suspense
             fallback={<LoadingSpinner message="Loading platform operator management..." />}
@@ -1051,8 +1060,17 @@ const App: React.FC = () => {
         );
       default:
         if (currentPage.startsWith("user-management")) {
-          if (!currentUser || currentUser.role !== Role.PLATFORM_ADMIN)
+          // Check platform admin access - handle both enum and string role representations
+          if (!currentUser) {
             return <div className="p-8 text-center">Access denied.</div>;
+          }
+          const userMgmtRoleStr = String(currentUser.role);
+          const isPlatformOpForMgmt = currentUser.role === Role.PLATFORM_ADMIN || 
+                                     userMgmtRoleStr === "PLATFORM_ADMIN" || 
+                                     userMgmtRoleStr === "PLATFORM_OPERATOR";
+          if (!isPlatformOpForMgmt) {
+            return <div className="p-8 text-center">Access denied.</div>;
+          }
           // Use the memoized userManagementTab calculated at component level
           return (
             <Suspense
