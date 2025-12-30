@@ -1073,6 +1073,26 @@ const App: React.FC = () => {
           </Suspense>
         );
       default:
+        // Handle chat routes with userId (format: "chat:userId")
+        if (currentPage.startsWith("chat:")) {
+          if (!currentUser || !organizationId)
+            return <LoadingSpinner message="Loading messages..." />;
+          // Extract chatId from "chat:userId" format
+          const chatId = currentPage.split(":")[1];
+          return (
+            <Suspense fallback={<LoadingSpinner message="Loading messages..." />}>
+              <ErrorBoundary title="Messages Error">
+                <Chat
+                  currentUser={currentUser}
+                  users={users}
+                  organizationId={organizationId}
+                  initialChatId={chatId}
+                  matches={matches}
+                />
+              </ErrorBoundary>
+            </Suspense>
+          );
+        }
         if (currentPage.startsWith("user-management")) {
           // Check platform admin access - handle both enum and string role representations
           if (!currentUser) {
