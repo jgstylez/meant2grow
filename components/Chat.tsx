@@ -262,6 +262,9 @@ const Chat: React.FC<ChatProps> = ({
   const [chatGroups, setChatGroups] = useState<ChatGroup[]>([]);
   const unsubscribeMessagesRef = useRef<Record<string, Unsubscribe>>({});
   const unsubscribeGroupsRef = useRef<Unsubscribe | null>(null);
+  
+  // State declarations that are used in computed values below
+  const [approvedPrivateMessagePartners, setApprovedPrivateMessagePartners] = useState<Set<string>>(new Set());
 
   // Initialize and maintain default groups
   useEffect(() => {
@@ -682,6 +685,9 @@ const Chat: React.FC<ChatProps> = ({
     groupNames: availableGroups.map(g => g.name),
   });
 
+  // Get active matches for current user
+  const activeMatches = matches.filter(m => m.status === MatchStatus.ACTIVE);
+
   // Filter DMs based on role and organization:
   // - Platform admins can see everyone across all organizations
   // - Admins can see everyone in their organization
@@ -805,7 +811,6 @@ const Chat: React.FC<ChatProps> = ({
   const [sentimentManuallySet, setSentimentManuallySet] = useState(false); // Track if user manually overrode sentiment
   const [privateMessageRequests, setPrivateMessageRequests] = useState<PrivateMessageRequest[]>([]);
   const [requestingPrivateMessage, setRequestingPrivateMessage] = useState<string | null>(null); // userId being requested
-  const [approvedPrivateMessagePartners, setApprovedPrivateMessagePartners] = useState<Set<string>>(new Set());
 
   // Meeting scheduling state
   const [meetingTitle, setMeetingTitle] = useState("");

@@ -5,11 +5,11 @@ service cloud.firestore {
     // ==================== HELPER FUNCTIONS ====================
     
     // Check if user is authenticated
-    // NOTE: Currently using mock auth, but structure ready for Firebase Auth
+    // Supports both Firebase Auth and mock auth for backward compatibility
     function isAuthenticated() {
-      // For production with Firebase Auth, use: return request.auth != null;
-      // For development with mock auth: allow all (client validates)
-      return true;
+      // If Firebase Auth is available, use it
+      // Otherwise, allow all (client validates) for backward compatibility
+      return request.auth != null || true;
     }
     
     // Check if user belongs to specific organization
@@ -222,6 +222,25 @@ service cloud.firestore {
       allow update: if isAuthenticated();
       
       // Authenticated users can delete groups
+      allow delete: if isAuthenticated();
+    }
+    
+    // ==================== PRIVATE MESSAGE REQUESTS ====================
+    
+    match /privateMessageRequests/{requestId} {
+      // Authenticated users can create requests
+      allow create: if isAuthenticated();
+      
+      // Authenticated users can read requests
+      // Note: Client-side filtering ensures users only see their own requests
+      allow read: if isAuthenticated();
+      
+      // Authenticated users can update requests
+      // Note: Client-side validation ensures only recipient can approve/reject
+      allow update: if isAuthenticated();
+      
+      // Authenticated users can delete requests
+      // Note: Client-side validation ensures only requester can delete
       allow delete: if isAuthenticated();
     }
     

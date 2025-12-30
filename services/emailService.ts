@@ -4,10 +4,10 @@ import { logger } from "./logger";
 
 // Initialize Mailtrap client
 const getMailtrapClient = () => {
-  const apiToken = process.env.MAILTRAP_API_TOKEN;
-  const useSandbox = process.env.MAILTRAP_USE_SANDBOX === "true";
-  const inboxId = process.env.MAILTRAP_INBOX_ID
-    ? Number(process.env.MAILTRAP_INBOX_ID)
+  const apiToken = import.meta.env.VITE_MAILTRAP_API_TOKEN;
+  const useSandbox = import.meta.env.VITE_MAILTRAP_USE_SANDBOX === "true";
+  const inboxId = import.meta.env.VITE_MAILTRAP_INBOX_ID
+    ? Number(import.meta.env.VITE_MAILTRAP_INBOX_ID)
     : undefined;
 
   if (!apiToken) {
@@ -28,9 +28,9 @@ const client = getMailtrapClient();
 const EMAIL_CONFIG = {
   from: {
     name: "Meant2Grow",
-    email: process.env.MAILTRAP_FROM_EMAIL || "noreply@meant2grow.com",
+    email: import.meta.env.VITE_MAILTRAP_FROM_EMAIL || "noreply@meant2grow.com",
   },
-  replyTo: process.env.MAILTRAP_REPLY_TO_EMAIL || "support@meant2grow.com",
+  replyTo: import.meta.env.VITE_MAILTRAP_REPLY_TO_EMAIL || "support@meant2grow.com",
 };
 
 // Helper function to send email safely
@@ -92,7 +92,7 @@ const templates = {
               Share this code with mentors and mentees to help them join your program.
             </p>
             <div style="margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}" 
+              <a href="${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}" 
                  style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 Get Started
               </a>
@@ -113,7 +113,7 @@ Your organization code is: ${organization.organizationCode}
 
 Share this code with mentors and mentees to help them join your program.
 
-Get started: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}
+Get started: ${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}
 
 Need help? Reply to this email or visit our support center.
     `.trim(),
@@ -151,7 +151,7 @@ Need help? Reply to this email or visit our support center.
                  </p>`
       }
             <div style="margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}" 
+              <a href="${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}" 
                  style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 Complete Your Profile
               </a>
@@ -173,7 +173,7 @@ ${role === Role.MENTOR
         : 'As a mentee, you\'re taking an important step in your professional development.'
       }
 
-Complete your profile: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}
+Complete your profile: ${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}
 
 Questions? Reply to this email and we'll be happy to help.
     `.trim(),
@@ -205,7 +205,7 @@ Questions? Reply to this email and we'll be happy to help.
               <li>New messages and notifications</li>
             </ul>
             <div style="margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}" 
+              <a href="${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}" 
                  style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 Go to Dashboard
               </a>
@@ -227,7 +227,7 @@ Ready to continue your mentorship journey? Check out your dashboard to see:
 - Upcoming meetings and goals
 - New messages and notifications
 
-Go to Dashboard: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}
+Go to Dashboard: ${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}
 
 If this wasn't you, please contact support immediately.
     `.trim(),
@@ -286,7 +286,7 @@ If this wasn't you, please contact support immediately.
                    </p>`
         }
               <div style="margin: 30px 0;">
-                <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}/chat" 
+                <a href="${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}/chat" 
                    style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                   Start Conversation
                 </a>
@@ -318,7 +318,7 @@ ${bioSnippet ? `"${bioSnippet}"` : ''}
 ${mentor.name} is ready to guide you on your professional journey. Don't hesitate to reach out and introduce yourself!`
         }
 
-Start Conversation: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}/chat
+Start Conversation: ${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}/chat
 
 Remember: Great mentorship relationships start with open communication and mutual respect.
       `.trim(),
@@ -354,7 +354,7 @@ Remember: Great mentorship relationships start with open communication and mutua
               Keep up the excellent work!
             </p>
             <div style="margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}/goals" 
+              <a href="${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}/goals" 
                  style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 View Your Goals
               </a>
@@ -378,7 +378,7 @@ ${goal.description}
 
 This is a significant milestone in your professional development journey. Keep up the excellent work!
 
-View Your Goals: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}/goals
+View Your Goals: ${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}/goals
 
 Ready for your next challenge? Set a new goal and keep growing!
     `.trim(),
@@ -408,7 +408,7 @@ Ready for your next challenge? Set a new goal and keep growing!
               To continue enjoying all the benefits of Meant2Grow, please upgrade to a paid plan.
             </p>
             <div style="margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}/settings/billing" 
+              <a href="${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}/settings/billing" 
                  style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 Upgrade Now
               </a>
@@ -429,7 +429,7 @@ Your free trial for ${organization.name} ends in ${daysRemaining} ${daysRemainin
 
 To continue enjoying all the benefits of Meant2Grow, please upgrade to a paid plan.
 
-Upgrade Now: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}/settings/billing
+Upgrade Now: ${import.meta.env.VITE_APP_URL || 'https://meant2grow.com'}/settings/billing
 
 Questions about pricing? Reply to this email and we'll be happy to help.
     `.trim(),
@@ -550,7 +550,7 @@ export const sendInvitationEmail = async (
   inviterName: string
 ) => {
   const roleText = role === Role.MENTOR ? "Mentor" : role === Role.MENTEE ? "Mentee" : role;
-  const appUrl = process.env.VITE_APP_URL || "https://meant2grow.com";
+  const appUrl = import.meta.env.VITE_APP_URL || "https://meant2grow.com";
   
   const subject = `You've been invited to join ${organization.name} on Meant2Grow!`;
   const html = `

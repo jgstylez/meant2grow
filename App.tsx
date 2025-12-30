@@ -86,6 +86,7 @@ import { useVideoActions } from "./hooks/useVideoActions";
 import { useOnboardingActions } from "./hooks/useOnboardingActions";
 import { useGoalActions } from "./hooks/useGoalActions";
 import { getErrorMessage } from "./utils/errors";
+import { signInToFirebaseAuth, getIdToken, signOut as signOutGoogle } from "./services/googleAuth";
 
 // Loading component for Suspense fallback
 const LoadingSpinner: React.FC<{ message?: string }> = ({
@@ -219,6 +220,24 @@ const App: React.FC = () => {
 
   // Note: Authentication state is now restored synchronously during initialization
   // via getInitialAuthState() to prevent flash of landing page on refresh
+
+  // Restore Firebase Auth session on app load if Google ID token exists
+  useEffect(() => {
+    const restoreFirebaseAuth = async () => {
+      const idToken = getIdToken();
+      if (idToken && userId) {
+        // User is authenticated and has a Google ID token
+        // Sign in to Firebase Auth to enable Cloud Functions
+        try {
+          await signInToFirebaseAuth(idToken);
+        } catch (error) {
+          console.warn('Failed to restore Firebase Auth session:', error);
+          // Don't block the app if Firebase Auth restoration fails
+        }
+      }
+    };
+    restoreFirebaseAuth();
+  }, [userId]);
 
   // Save current page to localStorage when it changes (for page refresh persistence)
   // Don't save onboarding pages - let the onboarding logic handle those
@@ -399,7 +418,14 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Sign out from Firebase Auth
+    try {
+      await signOutGoogle();
+    } catch (error) {
+      console.warn('Error signing out from Firebase Auth:', error);
+    }
+    
     localStorage.removeItem("userId");
     localStorage.removeItem("organizationId");
     localStorage.removeItem("authToken");

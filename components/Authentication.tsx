@@ -10,7 +10,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Logo } from "./Logo";
-import { signInWithGoogle, initializeGoogleAuth } from "../services/googleAuth";
+import { signInWithGoogle, initializeGoogleAuth, signInToFirebaseAuth } from "../services/googleAuth";
 import {
   createUser,
   createOrganization,
@@ -341,6 +341,16 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
     try {
       const { user, idToken } = await signInWithGoogle();
+
+      // Sign in to Firebase Auth with Google ID token
+      // This is required for Firebase Cloud Functions to authenticate requests
+      try {
+        await signInToFirebaseAuth(idToken);
+      } catch (firebaseAuthError) {
+        console.warn('Failed to sign in to Firebase Auth (Cloud Functions may not work):', firebaseAuthError);
+        // Continue with the flow even if Firebase Auth sign-in fails
+        // The app will still work, but Cloud Functions that require auth will fail
+      }
 
       // Determine what to do based on mode
       if (mode === "org-signup") {

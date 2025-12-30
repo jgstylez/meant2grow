@@ -1,5 +1,8 @@
 // Google OAuth 2.0 - Authentication only (no calendar/drive access)
 
+import { signInWithCredential, GoogleAuthProvider, signOut as firebaseSignOut } from 'firebase/auth';
+import { auth } from './firebase';
+
 declare global {
   interface Window {
     google?: {
@@ -119,7 +122,29 @@ export const signInWithGoogle = (): Promise<{ user: GoogleUser; idToken: string 
   });
 };
 
-export const signOut = (): void => {
+/**
+ * Sign in to Firebase Auth using Google ID token
+ * This is required for Firebase Cloud Functions to authenticate requests
+ */
+export const signInToFirebaseAuth = async (idToken: string): Promise<void> => {
+  try {
+    const credential = GoogleAuthProvider.credential(idToken);
+    await signInWithCredential(auth, credential);
+  } catch (error) {
+    console.error('Error signing in to Firebase Auth:', error);
+    throw error;
+  }
+};
+
+export const signOut = async (): Promise<void> => {
+  // Sign out from Firebase Auth
+  try {
+    await firebaseSignOut(auth);
+  } catch (error) {
+    console.error('Error signing out from Firebase Auth:', error);
+  }
+  
+  // Clear localStorage
   localStorage.removeItem('google_id_token');
   localStorage.removeItem('authToken');
   localStorage.removeItem('organizationId');
