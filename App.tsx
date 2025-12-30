@@ -1036,25 +1036,26 @@ const App: React.FC = () => {
             </ErrorBoundary>
           </Suspense>
         );
-      case "user-management":
-        if (!currentUser || currentUser.role !== Role.PLATFORM_ADMIN)
-          return <div className="p-8 text-center">Access denied.</div>;
-        // Use the memoized userManagementTab calculated at component level
-        return (
-          <Suspense
-            fallback={<LoadingSpinner message="Loading user management..." />}
-          >
-            <ErrorBoundary title="User Management Error">
-              <UserManagement
-                key={`user-mgmt-${userManagementTab}`}
-                currentUser={currentUser}
-                onNavigate={setCurrentPage}
-                initialTab={userManagementTab}
-              />
-            </ErrorBoundary>
-          </Suspense>
-        );
       default:
+        if (currentPage.startsWith("user-management")) {
+          if (!currentUser || currentUser.role !== Role.PLATFORM_ADMIN)
+            return <div className="p-8 text-center">Access denied.</div>;
+          // Use the memoized userManagementTab calculated at component level
+          return (
+            <Suspense
+              fallback={<LoadingSpinner message="Loading user management..." />}
+            >
+              <ErrorBoundary title="User Management Error">
+                <UserManagement
+                  key={`user-mgmt-${userManagementTab}`}
+                  currentUser={currentUser}
+                  onNavigate={setCurrentPage}
+                  initialTab={userManagementTab}
+                />
+              </ErrorBoundary>
+            </Suspense>
+          );
+        }
         if (currentPage.startsWith("settings")) {
           const tab = currentPage.split(":")[1];
           return (

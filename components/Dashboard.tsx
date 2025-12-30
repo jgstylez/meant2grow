@@ -556,6 +556,77 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           </div>
         </div>
 
+        {/* Additional Platform Metrics */}
+        <div className={CARD_CLASS}>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-emerald-600" />
+                Platform Growth Metrics
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Key indicators of platform health and growth
+              </p>
+            </div>
+          </div>
+
+          {platformAdminLoading ? (
+            <div className="text-center py-8 text-slate-500">Loading...</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase">New Users (30d)</span>
+                </div>
+                <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">{platformStats.recentUsers}</div>
+                <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                  {platformStats.totalUsers > 0 ? `${((platformStats.recentUsers / platformStats.totalUsers) * 100).toFixed(1)}% of total` : 'No users yet'}
+                </div>
+              </div>
+
+              <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs font-medium text-blue-700 dark:text-blue-300 uppercase">Avg Users/Org</span>
+                </div>
+                <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                  {platformStats.totalOrgs > 0 ? (platformStats.totalUsers / platformStats.totalOrgs).toFixed(1) : '0'}
+                </div>
+                <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">Across {platformStats.totalOrgs} organizations</div>
+              </div>
+
+              <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <Repeat className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-xs font-medium text-purple-700 dark:text-purple-300 uppercase">Match Rate</span>
+                </div>
+                <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                  {platformStats.mentors > 0 && platformStats.mentees > 0
+                    ? `${((platformStats.activeMatches * 2) / (platformStats.mentors + platformStats.mentees) * 100).toFixed(1)}%`
+                    : '0%'}
+                </div>
+                <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">Participants matched</div>
+              </div>
+
+              <div className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-xs font-medium text-amber-700 dark:text-amber-300 uppercase">Goal Completion</span>
+                </div>
+                <div className="text-2xl font-bold text-amber-900 dark:text-amber-100">
+                  {platformStats.totalGoals > 0
+                    ? `${((platformStats.completedGoals / platformStats.totalGoals) * 100).toFixed(1)}%`
+                    : '0%'}
+                </div>
+                <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  {platformStats.completedGoals} of {platformStats.totalGoals} goals
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Stats Overview */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className={CARD_CLASS}>
@@ -594,169 +665,166 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
           </div>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Users Section - Takes 2 columns */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className={CARD_CLASS}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Users className="w-5 h-5 text-emerald-600" />
-                  Users
-                </h2>
-                <button
-                  onClick={() => onNavigate('user-management:users')}
-                  className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                >
-                  View All <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+        {/* Quick Actions & Organizations - Side by side on desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Quick Actions */}
+          <div className={CARD_CLASS}>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <Layout className="w-5 h-5 text-indigo-600" />
+              Quick Actions
+            </h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => onNavigate('user-management')}
+                className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">Manage All Users</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+              <button
+                onClick={() => onNavigate('settings:platform-admin')}
+                className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">Create Platform Operator</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+              <button
+                onClick={() => onNavigate('resources')}
+                className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">Manage Content</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+          </div>
 
-              {/* Search */}
-              <div className="relative mb-4">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Search users by name, email, or company..."
-                  value={userSearchQuery}
-                  onChange={(e) => setUserSearchQuery(e.target.value)}
-                  className={INPUT_CLASS + " pl-10 text-sm"}
-                />
-              </div>
-
-              {/* Users List */}
-              {platformAdminLoading ? (
-                <div className="text-center py-8 text-slate-500">Loading users...</div>
-              ) : filteredUsers.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">No users found</div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredUsers.map((u) => (
+          {/* Organizations */}
+          <div className={CARD_CLASS}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Building className="w-4 h-4 text-blue-600" />
+                Organizations
+              </h3>
+              <button
+                onClick={() => onNavigate('user-management:organizations')}
+                className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+              >
+                View All <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+            {platformAdminLoading ? (
+              <div className="text-center py-3 text-slate-500 text-xs">Loading...</div>
+            ) : allOrganizations.length === 0 ? (
+              <div className="text-center py-3 text-slate-500 text-xs">No organizations</div>
+            ) : (
+              <div className="space-y-1">
+                {allOrganizations.slice(0, 5).map((org) => {
+                  const orgUsers = allUsers.filter(u => u.organizationId === org.id);
+                  return (
                     <div
-                      key={u.id}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setSelectedUser(u);
-                      }}
+                      key={org.id}
+                      className="p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      onClick={() => onNavigate('user-management')}
                     >
-                      <img src={u.avatar} alt={u.name} className="w-10 h-10 rounded-full" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-slate-900 dark:text-white truncate">{u.name}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${getRoleBadgeColor(u.role)}`}>
-                            {getRoleIcon(u.role)}
-                            {u.role}
-                          </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-slate-900 dark:text-white truncate">{org.name}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{orgUsers.length} users</div>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                          <span className="flex items-center gap-1 truncate">
-                            <Mail className="w-3 h-3" />
-                            {u.email}
-                          </span>
-                          <span className="flex items-center gap-1 truncate">
-                            <Building className="w-3 h-3" />
-                            {getOrganizationName(u.organizationId)}
-                          </span>
-                        </div>
+                        <span className={`px-1.5 py-0.5 rounded text-xs shrink-0 ${org.subscriptionTier === 'enterprise' ? 'bg-purple-100 text-purple-800' :
+                          org.subscriptionTier === 'business' ? 'bg-purple-100 text-purple-800' :
+                            org.subscriptionTier === 'professional' ? 'bg-blue-100 text-blue-800' :
+                              org.subscriptionTier === 'starter' ? 'bg-emerald-100 text-emerald-800' :
+                                'bg-slate-100 text-slate-800'
+                          }`}>
+                          {org.subscriptionTier}
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Users Section - Full width */}
+        <div className={CARD_CLASS}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Users className="w-5 h-5 text-emerald-600" />
+              Users
+            </h2>
+            <button
+              onClick={() => onNavigate('user-management:users')}
+              className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+            >
+              View All <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
 
-          {/* Quick Actions & Organizations - Takes 1 column */}
-          <div className="space-y-4">
-            {/* Quick Actions */}
-            <div className={CARD_CLASS}>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                <Layout className="w-5 h-5 text-indigo-600" />
-                Quick Actions
-              </h3>
-              <div className="space-y-2">
-                <button
-                  onClick={() => onNavigate('user-management')}
-                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-emerald-600" />
-                    <span className="text-sm font-medium text-slate-900 dark:text-white">Manage All Users</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </button>
-                <button
-                  onClick={() => onNavigate('settings:platform-admin')}
-                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-2">
-                    <Crown className="w-4 h-4 text-amber-600" />
-                    <span className="text-sm font-medium text-slate-900 dark:text-white">Create Platform Operator</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </button>
-                <button
-                  onClick={() => onNavigate('resources')}
-                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-emerald-600" />
-                    <span className="text-sm font-medium text-slate-900 dark:text-white">Manage Content</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </button>
-              </div>
-            </div>
-
-            {/* Organizations */}
-            <div className={CARD_CLASS}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Building className="w-5 h-5 text-blue-600" />
-                  Organizations
-                </h3>
-                <button
-                  onClick={() => onNavigate('user-management')}
-                  className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-                >
-                  View All <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-              {platformAdminLoading ? (
-                <div className="text-center py-4 text-slate-500 text-sm">Loading...</div>
-              ) : allOrganizations.length === 0 ? (
-                <div className="text-center py-4 text-slate-500 text-sm">No organizations</div>
-              ) : (
-                <div className="space-y-2">
-                  {allOrganizations.slice(0, 5).map((org) => {
-                    const orgUsers = allUsers.filter(u => u.organizationId === org.id);
-                    return (
-                      <div
-                        key={org.id}
-                        className="p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                        onClick={() => onNavigate('user-management')}
-                      >
-                        <div className="font-medium text-slate-900 dark:text-white mb-1">{org.name}</div>
-                        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                          <span>{orgUsers.length} users</span>
-                          <span className={`px-2 py-0.5 rounded text-xs ${org.subscriptionTier === 'enterprise' ? 'bg-purple-100 text-purple-800' :
-                            org.subscriptionTier === 'business' ? 'bg-purple-100 text-purple-800' :
-                              org.subscriptionTier === 'professional' ? 'bg-blue-100 text-blue-800' :
-                                org.subscriptionTier === 'starter' ? 'bg-emerald-100 text-emerald-800' :
-                                  'bg-slate-100 text-slate-800'
-                            }`}>
-                            {org.subscriptionTier}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+          {/* Search */}
+          <div className="relative mb-4">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search users by name, email, or company..."
+              value={userSearchQuery}
+              onChange={(e) => setUserSearchQuery(e.target.value)}
+              className={INPUT_CLASS + " pl-10 text-sm"}
+            />
           </div>
+
+          {/* Users List */}
+          {platformAdminLoading ? (
+            <div className="text-center py-8 text-slate-500">Loading users...</div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">No users found</div>
+          ) : (
+            <div className="space-y-2">
+              {filteredUsers.map((u) => (
+                <div
+                  key={u.id}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelectedUser(u);
+                  }}
+                >
+                  <img src={u.avatar} alt={u.name} className="w-10 h-10 rounded-full" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-slate-900 dark:text-white truncate">{u.name}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${getRoleBadgeColor(u.role)}`}>
+                        {getRoleIcon(u.role)}
+                        {u.role}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                      <span className="flex items-center gap-1 truncate">
+                        <Mail className="w-3 h-3" />
+                        {u.email}
+                      </span>
+                      <span className="flex items-center gap-1 truncate">
+                        <Building className="w-3 h-3" />
+                        {getOrganizationName(u.organizationId)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Platform Analytics Section */}
@@ -874,58 +942,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
               </div>
             )}
           </div>
+        </div>
 
-          {/* Ratings Analytics */}
-          <div className={CARD_CLASS}>
+        {/* Ratings & Reviews - Combined - Full Width */}
+        <div className={CARD_CLASS}>
             <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Star className="w-5 h-5 text-amber-500" />
-                  Ratings & Reviews
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  Platform-wide feedback metrics
-                </p>
-              </div>
-            </div>
-
-            {platformAdminLoading ? (
-              <div className="text-center py-8 text-slate-500">Loading...</div>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{platformStats.approvedRatings}</div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Approved</div>
-                  </div>
-                  <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <div className="text-2xl font-bold text-slate-900 dark:text-white">{platformStats.totalRatings}</div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Total</div>
-                  </div>
-                </div>
-                {platformStats.approvedRatings > 0 && (
-                  <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
-                      <div className="text-3xl font-bold text-amber-900 dark:text-amber-100">
-                        {platformStats.avgRating.toFixed(1)}
-                      </div>
-                    </div>
-                    <div className="text-sm text-amber-700 dark:text-amber-300">Average Rating</div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Pending Reviews - Platform Operator View */}
-          <div className={CARD_CLASS}>
-            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-amber-500" />
-                  Pending Reviews Approval
-                </h2>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Star className="w-5 h-5 text-amber-500" />
+                    Ratings & Reviews
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Platform-wide feedback metrics and approval management
+                  </p>
+                </div>
                 <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full">
                   Platform Operator
                 </span>
@@ -936,205 +967,117 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                 </span>
               )}
             </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              Review and approve or reject ratings from all organizations across the platform
-            </p>
+
             {platformAdminLoading ? (
-              <div className="text-center py-8 text-slate-500">Loading reviews...</div>
-            ) : allRatings.filter(r => !r.isApproved).length === 0 ? (
-              <div className="text-center py-8">
-                <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3 opacity-50" />
-                <p className="text-slate-400 text-sm">No pending reviews across all organizations</p>
-              </div>
+              <div className="text-center py-8 text-slate-500">Loading...</div>
             ) : (
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {allRatings.filter(r => !r.isApproved).map(rating => {
-                  const fromUser = allUsers.find(u => u.id === rating.fromUserId);
-                  const toUser = allUsers.find(u => u.id === rating.toUserId);
-                  const ratingOrg = allOrganizations.find(o => o.id === rating.organizationId);
-                  return (
-                    <div key={rating.id} className="p-4 border-2 border-amber-200 dark:border-amber-800 rounded-lg bg-amber-50/50 dark:bg-amber-900/10">
-                      <div className="flex justify-between items-start gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Building className="w-4 h-4 text-blue-500" />
-                            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
-                              {ratingOrg?.name || 'Unknown Organization'}
-                            </span>
-                          </div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-white mb-1">
-                            <span className="font-semibold">{fromUser?.name || 'Unknown User'}</span>
-                            <span className="text-slate-400 mx-1">reviewed</span>
-                            <span className="font-semibold">{toUser?.name || 'Unknown User'}</span>
-                          </p>
-                          <div className="flex items-center gap-1 mt-1 mb-2">
-                            {[...Array(5)].map((_, i) => (
-                              <Star key={i} className={`w-4 h-4 ${i < rating.score ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
-                            ))}
-                            <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">({rating.score}/5)</span>
-                          </div>
-                          {rating.comment && (
-                            <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 italic line-clamp-3 bg-white dark:bg-slate-800 p-3 rounded border border-slate-200 dark:border-slate-700">
-                              "{rating.comment}"
-                            </p>
-                          )}
-                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-                            Submitted: {new Date(rating.date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex flex-col gap-2 shrink-0">
-                          <button
-                            onClick={() => onApproveRating(rating.id)}
-                            className="p-2.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-600 transition-colors shadow-sm flex items-center justify-center gap-1"
-                            title="Approve Review"
-                          >
-                            <Check className="w-4 h-4" />
-                            <span className="text-xs font-medium">Approve</span>
-                          </button>
-                          {onRejectRating && (
-                            <button
-                              onClick={() => onRejectRating(rating.id)}
-                              className="p-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 dark:hover:bg-red-600 transition-colors shadow-sm flex items-center justify-center gap-1"
-                              title="Reject Review"
-                            >
-                              <X className="w-4 h-4" />
-                              <span className="text-xs font-medium">Reject</span>
-                            </button>
-                          )}
+              <div className="space-y-6">
+                {/* Metrics Section */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{platformStats.approvedRatings}</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Approved</div>
+                    </div>
+                    <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{platformStats.totalRatings}</div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Total</div>
+                    </div>
+                  </div>
+                  {platformStats.approvedRatings > 0 && (
+                    <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
+                        <div className="text-3xl font-bold text-amber-900 dark:text-amber-100">
+                          {platformStats.avgRating.toFixed(1)}
                         </div>
                       </div>
+                      <div className="text-sm text-amber-700 dark:text-amber-300">Average Rating</div>
                     </div>
-                  );
-                })}
+                  )}
+                </div>
+
+                {/* Pending Reviews Section */}
+                <div className="border-t border-slate-200 dark:border-slate-800 pt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <AlertCircle className="w-5 h-5 text-amber-500" />
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-white">Pending Reviews Approval</h3>
+                  </div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                    Review and approve or reject ratings from all organizations across the platform
+                  </p>
+                  {allRatings.filter(r => !r.isApproved).length === 0 ? (
+                    <div className="text-center py-8">
+                      <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3 opacity-50" />
+                      <p className="text-slate-400 text-sm">No pending reviews across all organizations</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {allRatings.filter(r => !r.isApproved).map(rating => {
+                        const fromUser = allUsers.find(u => u.id === rating.fromUserId);
+                        const toUser = allUsers.find(u => u.id === rating.toUserId);
+                        const ratingOrg = allOrganizations.find(o => o.id === rating.organizationId);
+                        return (
+                          <div key={rating.id} className="p-4 border-2 border-amber-200 dark:border-amber-800 rounded-lg bg-amber-50/50 dark:bg-amber-900/10">
+                            <div className="flex justify-between items-start gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Building className="w-4 h-4 text-blue-500" />
+                                  <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
+                                    {ratingOrg?.name || 'Unknown Organization'}
+                                  </span>
+                                </div>
+                                <p className="text-sm font-medium text-slate-900 dark:text-white mb-1">
+                                  <span className="font-semibold">{fromUser?.name || 'Unknown User'}</span>
+                                  <span className="text-slate-400 mx-1">reviewed</span>
+                                  <span className="font-semibold">{toUser?.name || 'Unknown User'}</span>
+                                </p>
+                                <div className="flex items-center gap-1 mt-1 mb-2">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star key={i} className={`w-4 h-4 ${i < rating.score ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                                  ))}
+                                  <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">({rating.score}/5)</span>
+                                </div>
+                                {rating.comment && (
+                                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 italic line-clamp-3 bg-white dark:bg-slate-800 p-3 rounded border border-slate-200 dark:border-slate-700">
+                                    "{rating.comment}"
+                                  </p>
+                                )}
+                                <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                                  Submitted: {new Date(rating.date).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <div className="flex flex-col gap-2 shrink-0">
+                                <button
+                                  onClick={() => onApproveRating(rating.id)}
+                                  className="p-2.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-600 transition-colors shadow-sm flex items-center justify-center gap-1"
+                                  title="Approve Review"
+                                >
+                                  <Check className="w-4 h-4" />
+                                  <span className="text-xs font-medium">Approve</span>
+                                </button>
+                                {onRejectRating && (
+                                  <button
+                                    onClick={() => onRejectRating(rating.id)}
+                                    className="p-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 dark:hover:bg-red-600 transition-colors shadow-sm flex items-center justify-center gap-1"
+                                    title="Reject Review"
+                                  >
+                                    <X className="w-4 h-4" />
+                                    <span className="text-xs font-medium">Reject</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
-
-          {/* Community Chats Access */}
-          <div className={CARD_CLASS}>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-indigo-600" />
-                  Community Chats
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  Access and monitor community conversations
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={() => onNavigate('chat-mentors')}
-                className="w-full flex items-center justify-between p-4 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                    <GraduationCap className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-900 dark:text-white">Mentors Circle</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                      {platformStats.mentors} mentors
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </button>
-
-              <button
-                onClick={() => onNavigate('chat-mentees')}
-                className="w-full flex items-center justify-between p-4 rounded-lg border-2 border-teal-200 dark:border-teal-800 hover:border-teal-400 dark:hover:border-teal-600 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-all text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
-                    <UserCheck className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-900 dark:text-white">Mentees Hub</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                      {platformStats.mentees} mentees
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-              </button>
-            </div>
-          </div>
         </div>
-
-        {/* Additional Platform Metrics */}
-        <div className={CARD_CLASS}>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-emerald-600" />
-                Platform Growth Metrics
-              </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Key indicators of platform health and growth
-              </p>
-            </div>
-          </div>
-
-          {platformAdminLoading ? (
-            <div className="text-center py-8 text-slate-500">Loading...</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase">New Users (30d)</span>
-                </div>
-                <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">{platformStats.recentUsers}</div>
-                <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                  {platformStats.totalUsers > 0 ? `${((platformStats.recentUsers / platformStats.totalUsers) * 100).toFixed(1)}% of total` : 'No users yet'}
-                </div>
-              </div>
-
-              <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <Building className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-xs font-medium text-blue-700 dark:text-blue-300 uppercase">Avg Users/Org</span>
-                </div>
-                <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                  {platformStats.totalOrgs > 0 ? (platformStats.totalUsers / platformStats.totalOrgs).toFixed(1) : '0'}
-                </div>
-                <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">Across {platformStats.totalOrgs} organizations</div>
-              </div>
-
-              <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <Repeat className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                  <span className="text-xs font-medium text-purple-700 dark:text-purple-300 uppercase">Match Rate</span>
-                </div>
-                <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                  {platformStats.mentors > 0 && platformStats.mentees > 0
-                    ? `${((platformStats.activeMatches * 2) / (platformStats.mentors + platformStats.mentees) * 100).toFixed(1)}%`
-                    : '0%'}
-                </div>
-                <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">Participants matched</div>
-              </div>
-
-              <div className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span className="text-xs font-medium text-amber-700 dark:text-amber-300 uppercase">Goal Completion</span>
-                </div>
-                <div className="text-2xl font-bold text-amber-900 dark:text-amber-100">
-                  {platformStats.totalGoals > 0
-                    ? `${((platformStats.completedGoals / platformStats.totalGoals) * 100).toFixed(1)}%`
-                    : '0%'}
-                </div>
-                <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  {platformStats.completedGoals} of {platformStats.totalGoals} goals
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
       {/* User Details Modal */}
       {selectedUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
