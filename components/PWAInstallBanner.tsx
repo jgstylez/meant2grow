@@ -71,9 +71,12 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
     };
   }, []);
 
+  // Only show on Android or iOS devices (not desktop)
+  const isMobileDevice = platform === 'android' || platform === 'ios';
+
   // Update CSS variable for banner height to adjust main content padding
   useEffect(() => {
-    if (!currentUser || isInstalled || !isMobileScreen || isDismissed) {
+    if (!currentUser || isInstalled || !isMobileScreen || !isMobileDevice || isDismissed) {
       // Reset padding when banner is hidden
       document.documentElement.style.setProperty('--pwa-banner-offset', '0px');
       return;
@@ -110,7 +113,7 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
         mediaQuery768.removeEventListener('change', handleMediaChange);
       };
     }
-  }, [currentUser, isInstalled, isMobileScreen, isDismissed]);
+  }, [currentUser, isInstalled, isMobileScreen, isMobileDevice, isDismissed]);
 
   // Don't show if:
   // - User not signed up
@@ -128,9 +131,10 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
   // Don't show if:
   // - User not signed up
   // - Already installed
+  // - Not a mobile device (Android/iOS)
   // - Not mobile screen size (<= 768px)
   // - User dismissed
-  if (!currentUser || isInstalled || !isMobileScreen || isDismissed) {
+  if (!currentUser || isInstalled || !isMobileDevice || !isMobileScreen || isDismissed) {
     return null;
   }
 
@@ -142,18 +146,29 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
     e?.stopPropagation();
     
     try {
-      console.log('Install button clicked', { platform, canShowPrompt, isAndroid });
+      console.log('Install button clicked', { platform, canShowPrompt, isAndroid, isInstalled });
       
       if (isAndroid) {
-        // Always try to trigger install - the hook will handle if prompt is available
-        await install();
+        if (canShowPrompt) {
+          // Trigger the native install prompt
+          await install();
+        } else {
+          // Prompt not available - provide helpful feedback
+          console.warn('Install prompt not available. The app may not meet installability criteria or the prompt was already dismissed.');
+          // Show a brief message to the user
+          const message = 'Install prompt not available. Please use Chrome menu (⋮) → "Install app" or "Add to Home screen".';
+          alert(message);
+        }
       } else if (isIOS) {
         // iOS: Can't programmatically trigger, but we can show a helpful message
         console.log('iOS installation requires using the Share menu');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Install error:', error);
-      // If install fails, it might mean the prompt isn't available
+      // Provide user-friendly error message
+      if (error.message) {
+        console.error('Error details:', error.message);
+      }
       // User can still use browser menu as fallback
     }
   };

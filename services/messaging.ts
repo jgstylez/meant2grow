@@ -2,6 +2,7 @@ import { messaging, getToken, onMessage } from './firebase';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { getAuth } from 'firebase/auth';
+import { saveDeviceInfo, createDeviceInfo, generateDeviceId, getUserDevices, removeDevice } from './deviceTracking';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
 
@@ -92,25 +93,37 @@ export async function requestNotificationPermission(): Promise<string | null> {
 
 /**
  * Save FCM token to Firestore for the current user
+ * Now uses device tracking to store multiple devices per user
  */
-export async function saveFCMToken(userId: string, token: string): Promise<void> {
+export async function saveFCMToken(userId: string, token: string, deviceId?: string): Promise<string> {
   try {
+    // Get or generate device ID
+    const currentDeviceId = deviceId || generateDeviceId();
+    
+    // Create device info
+    const deviceInfo = await createDeviceInfo(token, currentDeviceId);
+    
+    // Save device info (will update if device exists, or add new device)
+    await saveDeviceInfo(userId, deviceInfo);
+    
+    // Also maintain backward compatibility with single fcmToken field
+    // (for existing code that might still reference it)
     const tokenRef = doc(db, 'users', userId);
     const userDoc = await getDoc(tokenRef);
     
     if (userDoc.exists()) {
-      // Update existing user document with FCM token
       await updateDoc(tokenRef, {
-        fcmToken: token,
+        fcmToken: token, // Keep for backward compatibility
         fcmTokenUpdatedAt: new Date().toISOString(),
       });
     } else {
-      // Create user document with FCM token (shouldn't happen, but handle gracefully)
       await setDoc(tokenRef, {
         fcmToken: token,
         fcmTokenUpdatedAt: new Date().toISOString(),
       }, { merge: true });
     }
+    
+    return currentDeviceId;
   } catch (error) {
     console.error('Error saving FCM token:', error);
     throw error;
@@ -119,14 +132,22 @@ export async function saveFCMToken(userId: string, token: string): Promise<void>
 
 /**
  * Remove FCM token from Firestore
+ * If deviceId is provided, removes that specific device; otherwise removes all devices
  */
-export async function removeFCMToken(userId: string): Promise<void> {
+export async function removeFCMToken(userId: string, deviceId?: string): Promise<void> {
   try {
-    const tokenRef = doc(db, 'users', userId);
-    await updateDoc(tokenRef, {
-      fcmToken: null,
-      fcmTokenUpdatedAt: null,
-    });
+    if (deviceId) {
+      // Remove specific device
+      await removeDevice(userId, deviceId);
+    } else {
+      // Remove all devices (legacy behavior)
+      const tokenRef = doc(db, 'users', userId);
+      await updateDoc(tokenRef, {
+        fcmToken: null,
+        fcmTokenUpdatedAt: null,
+        devices: [],
+      });
+    }
   } catch (error) {
     console.error('Error removing FCM token:', error);
     throw error;
@@ -148,7 +169,9 @@ export function setupTokenRefreshHandler(userId: string): () => void {
     try {
       const newToken = await requestNotificationPermission();
       if (newToken) {
-        await saveFCMToken(userId, newToken);
+        // Get current device ID from localStorage if available
+        const currentDeviceId = localStorage.getItem(`deviceId_${userId}`);
+        await saveFCMToken(userId, newToken, currentDeviceId || undefined);
         console.log('FCM token refreshed and saved');
       }
     } catch (error) {
@@ -183,8 +206,9 @@ export function setupTokenRefreshHandler(userId: string): () => void {
 
 /**
  * Get FCM token for current user and save it
+ * Returns the device ID along with the token
  */
-export async function initializeFCM(userId: string): Promise<string | null> {
+export async function initializeFCM(userId: string): Promise<{ token: string; deviceId: string } | null> {
   if (!messaging) {
     return null;
   }
@@ -193,8 +217,21 @@ export async function initializeFCM(userId: string): Promise<string | null> {
     const token = await requestNotificationPermission();
     
     if (token) {
-      await saveFCMToken(userId, token);
-      return token;
+      // Get or generate device ID
+      let deviceId = localStorage.getItem(`deviceId_${userId}`);
+      
+      if (!deviceId) {
+        // Generate new device ID and save it
+        deviceId = generateDeviceId();
+        localStorage.setItem(`deviceId_${userId}`, deviceId);
+      }
+      
+      const savedDeviceId = await saveFCMToken(userId, token, deviceId);
+      
+      // Update localStorage with the saved device ID (in case it was updated)
+      localStorage.setItem(`deviceId_${userId}`, savedDeviceId);
+      
+      return { token, deviceId: savedDeviceId };
     }
     
     return null;

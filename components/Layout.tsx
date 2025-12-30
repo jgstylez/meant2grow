@@ -700,6 +700,10 @@ const Layout: React.FC<LayoutProps> = ({
         className="flex-1 overflow-y-auto overflow-x-hidden h-screen px-3 pb-3 sm:px-4 sm:pb-4 md:px-8 md:pb-8 relative touch-action-pan-y w-full max-w-full"
         role="main"
         data-impersonating={isImpersonating ? "true" : undefined}
+        style={{
+          // Calculate top padding: PWA banner offset + impersonation banner (if present) + base padding
+          paddingTop: `calc(var(--pwa-banner-offset, 0px) + ${isImpersonating ? '4rem + ' : ''}var(--main-base-pt, 0.75rem))`
+        }}
       >
         {children}
 

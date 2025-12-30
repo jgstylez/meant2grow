@@ -32,6 +32,7 @@ import {
     getAppleCredentials,
     clearAppleCredentials,
 } from '../services/appleCalendarService';
+import { useDevices } from '../hooks/useDevices';
 
 interface SettingsViewProps {
     user: User;
@@ -140,6 +141,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
         const now = new Date();
         return trialEndDate > now;
     }, [organization?.trialEnd]);
+
+    // Device tracking
+    const { devices, isLoading: devicesLoading, revokeDevice, currentDeviceId } = useDevices(user.id);
+    const [revokingDeviceId, setRevokingDeviceId] = useState<string | null>(null);
 
     // Calculate days remaining in trial
     const trialDaysRemaining = useMemo(() => {
@@ -781,32 +786,90 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                             {/* Active Sessions */}
                             <div>
                                 <h3 className="font-bold text-slate-800 dark:text-white mb-4">Active Sessions</h3>
-                                <div className="space-y-3">
-                                    <div className="bg-white dark:bg-slate-900 border border-emerald-500 p-4 rounded-xl flex justify-between items-center shadow-sm">
-                                        <div className="flex items-center">
-                                            <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg mr-4">
-                                                <Globe className="w-6 h-6 text-slate-600 dark:text-slate-400" />
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-slate-800 dark:text-white text-sm">Chrome on MacOS (This Device)</p>
-                                                <p className="text-xs text-slate-500">New York, USA • Active Now</p>
-                                            </div>
-                                        </div>
-                                        <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded">Current</span>
+                                {devicesLoading ? (
+                                    <div className="text-sm text-slate-500 dark:text-slate-400">Loading devices...</div>
+                                ) : devices.length === 0 ? (
+                                    <div className="text-sm text-slate-500 dark:text-slate-400">No active sessions</div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {devices.map((device) => {
+                                            const isCurrent = device.deviceId === currentDeviceId || device.isCurrentDevice;
+                                            const lastActive = new Date(device.lastActiveAt);
+                                            const now = new Date();
+                                            const diffMs = now.getTime() - lastActive.getTime();
+                                            const diffMins = Math.floor(diffMs / 60000);
+                                            const diffHours = Math.floor(diffMins / 60);
+                                            const diffDays = Math.floor(diffHours / 24);
+                                            
+                                            let timeAgo = 'Active Now';
+                                            if (diffMins < 1) {
+                                                timeAgo = 'Active Now';
+                                            } else if (diffMins < 60) {
+                                                timeAgo = `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
+                                            } else if (diffHours < 24) {
+                                                timeAgo = `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+                                            } else {
+                                                timeAgo = `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+                                            }
+
+                                            const Icon = device.platform === 'ios' || device.platform === 'android' ? Smartphone : Globe;
+                                            const platformColor = device.platform === 'ios' ? 'text-blue-500' : 
+                                                                  device.platform === 'android' ? 'text-green-500' : 
+                                                                  'text-slate-600 dark:text-slate-400';
+
+                                            return (
+                                                <div 
+                                                    key={device.deviceId}
+                                                    className={`bg-white dark:bg-slate-900 border ${isCurrent ? 'border-emerald-500' : 'border-slate-200 dark:border-slate-800'} p-4 rounded-xl flex justify-between items-center ${isCurrent ? 'shadow-sm' : ''}`}
+                                                >
+                                                    <div className="flex items-center flex-1 min-w-0">
+                                                        <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg mr-4 flex-shrink-0">
+                                                            <Icon className={`w-6 h-6 ${platformColor}`} />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-bold text-slate-800 dark:text-white text-sm truncate">
+                                                                {device.deviceName}
+                                                                {isCurrent && ' (This Device)'}
+                                                            </p>
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                                                {device.location ? `${device.location} • ` : ''}
+                                                                {timeAgo}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 ml-4">
+                                                        {isCurrent && (
+                                                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded flex-shrink-0">
+                                                                Current
+                                                            </span>
+                                                        )}
+                                                        {!isCurrent && (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (confirm(`Are you sure you want to revoke access for ${device.deviceName}?`)) {
+                                                                        setRevokingDeviceId(device.deviceId);
+                                                                        try {
+                                                                            await revokeDevice(device.deviceId);
+                                                                        } catch (error) {
+                                                                            console.error('Error revoking device:', error);
+                                                                            alert('Failed to revoke device. Please try again.');
+                                                                        } finally {
+                                                                            setRevokingDeviceId(null);
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                disabled={revokingDeviceId === device.deviceId}
+                                                                className="text-xs text-red-500 font-medium hover:underline disabled:opacity-50 flex-shrink-0"
+                                                            >
+                                                                {revokingDeviceId === device.deviceId ? 'Revoking...' : 'Revoke'}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl flex justify-between items-center">
-                                        <div className="flex items-center">
-                                            <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg mr-4">
-                                                <Smartphone className="w-6 h-6 text-slate-600 dark:text-slate-400" />
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-slate-800 dark:text-white text-sm">iPhone 13 App</p>
-                                                <p className="text-xs text-slate-500">New York, USA • 2 hours ago</p>
-                                            </div>
-                                        </div>
-                                        <button className="text-xs text-red-500 font-medium hover:underline">Revoke</button>
-                                    </div>
-                                </div>
+                                )}
                             </div>
 
                             {/* Data & Privacy */}

@@ -50,12 +50,12 @@ export function useFCM(userId: string | null) {
       setState(prev => ({ ...prev, isInitializing: true, error: null }));
       
       try {
-        const token = await initializeFCM(userId);
+        const result = await initializeFCM(userId);
         // Update permission after initialization (it may have changed)
         const updatedPermission = getNotificationPermission();
         setState(prev => ({
           ...prev,
-          token,
+          token: result?.token || null,
           isInitializing: false,
           permission: updatedPermission,
         }));
@@ -138,14 +138,14 @@ export function useFCM(userId: string | null) {
     }
 
     try {
-      const token = await initializeFCM(userId || '');
+      const result = await initializeFCM(userId || '');
       setState(prev => ({
         ...prev,
-        token,
+        token: result?.token || null,
         permission: getNotificationPermission(),
         error: null,
       }));
-      return token !== null;
+      return result !== null && result.token !== null;
     } catch (error: any) {
       setState(prev => ({
         ...prev,
