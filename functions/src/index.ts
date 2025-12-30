@@ -1539,3 +1539,11 @@ async function sendMeetingReminders(
   }
 }
 
+// Export Gemini AI functions
+export {
+  getMatchSuggestions,
+  getRecommendedResources,
+  breakdownGoal,
+  suggestMilestones,
+} from "./gemini";
+

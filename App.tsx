@@ -55,6 +55,7 @@ import {
   createTrainingVideo,
   updateTrainingVideo,
   deleteTrainingVideo,
+  createChatMessage,
 } from "./services/database";
 
 // Lazy load heavy components for code splitting
@@ -492,31 +493,62 @@ const App: React.FC = () => {
       const mentor = users.find((u) => u.id === mentorId);
       const mentee = users.find((u) => u.id === menteeId);
 
-      if (organizationId) {
+      if (organizationId && mentor && mentee) {
+        // Create initial welcoming message in the chat
+        // For DMs, each user has their own chat view identified by the other user's ID
+        // - Mentee views chat with chatId = mentorId
+        // - Mentor views chat with chatId = menteeId
+        // We need to create the message in both chat views so both users can see it
+        const welcomeMessage = `Hi ${mentee.name}! 👋 I'm ${mentor.name}, ${mentor.title} at ${mentor.company}. ${mentor.skills && mentor.skills.length > 0 ? `I specialize in ${mentor.skills.slice(0, 3).join(", ")}.` : ""} I'm excited to be your mentor and help you on your journey! ${mentee.goals && mentee.goals.length > 0 ? `I see you're looking to grow in ${mentee.goals.slice(0, 2).join(" and ")}.` : ""} Let's get started!`;
+
+        // Create message in mentor's chat view (chatId = menteeId)
+        createChatMessage({
+          organizationId,
+          chatId: menteeId, // Mentor's view: chat with mentee
+          chatType: 'dm',
+          senderId: mentorId,
+          text: welcomeMessage,
+          type: 'text',
+        }).catch((err) =>
+          console.error("Error creating initial chat message for mentor view:", err)
+        );
+
+        // Create message in mentee's chat view (chatId = mentorId)
+        createChatMessage({
+          organizationId,
+          chatId: mentorId, // Mentee's view: chat with mentor
+          chatType: 'dm',
+          senderId: mentorId,
+          text: welcomeMessage,
+          type: 'text',
+        }).catch((err) =>
+          console.error("Error creating initial chat message for mentee view:", err)
+        );
+
+        // Create notification for mentee with mentor introduction and chat link
         createNotification({
           organizationId,
           userId: menteeId,
           type: "bridge",
           title: "New Mentor Match",
-          body: mentor
-            ? `You have been matched with ${mentor.name}!`
-            : "You have been matched with a new mentor!",
+          body: `You've been matched with ${mentor.name}, ${mentor.title} at ${mentor.company}. ${mentor.skills && mentor.skills.length > 0 ? `Specializes in ${mentor.skills.slice(0, 3).join(", ")}.` : ""} Reach out to start your mentorship journey!`,
           isRead: false,
           timestamp: new Date().toISOString(),
+          chatId: mentorId, // Link to mentor's chat
         }).catch((err) =>
           console.error("Error creating notification for mentee:", err)
         );
 
+        // Create notification for mentor with mentee introduction and chat link
         createNotification({
           organizationId,
           userId: mentorId,
           type: "bridge",
           title: "New Mentee Match",
-          body: mentee
-            ? `You have been matched with ${mentee.name}!`
-            : "You have been matched with a new mentee!",
+          body: `You've been matched with ${mentee.name}, ${mentee.title} at ${mentee.company}. ${mentee.goals && mentee.goals.length > 0 ? `Looking to grow in: ${mentee.goals.slice(0, 3).join(", ")}.` : ""} Ready to guide them on their journey!`,
           isRead: false,
           timestamp: new Date().toISOString(),
+          chatId: menteeId, // Link to mentee's chat
         }).catch((err) =>
           console.error("Error creating notification for mentor:", err)
         );
@@ -892,12 +924,16 @@ const App: React.FC = () => {
       case "chat-mentees":
         if (!currentUser || !organizationId)
           return <LoadingSpinner message="Loading messages..." />;
-        const chatId =
-          currentPage === "chat-mentors"
-            ? "g-mentors"
-            : currentPage === "chat-mentees"
-            ? "g-mentees"
-            : undefined;
+        // Handle chat page with optional chatId (format: "chat:userId" or "chat:groupId")
+        let chatId: string | undefined;
+        if (currentPage.startsWith("chat:")) {
+          // Extract chatId from "chat:userId" format
+          chatId = currentPage.split(":")[1];
+        } else if (currentPage === "chat-mentors") {
+          chatId = "g-mentors";
+        } else if (currentPage === "chat-mentees") {
+          chatId = "g-mentees";
+        }
         return (
           <Suspense fallback={<LoadingSpinner message="Loading messages..." />}>
             <ErrorBoundary title="Messages Error">
@@ -906,6 +942,7 @@ const App: React.FC = () => {
                 users={users}
                 organizationId={organizationId}
                 initialChatId={chatId}
+                matches={matches}
               />
             </ErrorBoundary>
           </Suspense>

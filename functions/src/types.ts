@@ -199,6 +199,7 @@ export interface Notification {
   body: string;
   isRead: boolean;
   timestamp: string;
+  chatId?: string; // Optional: for notifications that should navigate to a chat
 }
 
 export interface BlockRecord {

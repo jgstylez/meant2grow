@@ -237,6 +237,15 @@ If this wasn't you, please contact support immediately.
   matchCreated: (user: User, match: Match, mentor: User, mentee: User) => {
     const isMentor = user.id === match.mentorId;
     const otherUser = isMentor ? mentee : mentor;
+    
+    // Build introduction details
+    const otherUserIntro = `${otherUser.name}, ${otherUser.title} at ${otherUser.company}`;
+    const skillsOrGoals = isMentor 
+      ? (mentee.goals && mentee.goals.length > 0 ? mentee.goals.slice(0, 3).join(", ") : null)
+      : (mentor.skills && mentor.skills.length > 0 ? mentor.skills.slice(0, 3).join(", ") : null);
+    const bioSnippet = otherUser.bio && otherUser.bio.length > 0 
+      ? (otherUser.bio.length > 120 ? otherUser.bio.substring(0, 120) + "..." : otherUser.bio)
+      : null;
 
     return {
       subject: `New Mentorship Match: ${otherUser.name}`,
@@ -255,16 +264,25 @@ If this wasn't you, please contact support immediately.
             <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
               <p style="font-size: 16px; margin-bottom: 20px;">Hi ${user.name},</p>
               <p style="font-size: 16px; margin-bottom: 20px;">
-                Great news! You've been matched with <strong>${otherUser.name}</strong>!
+                Great news! You've been matched with <strong>${otherUserIntro}</strong>.
               </p>
+              
               ${isMentor
-          ? `<p style="font-size: 16px; margin-bottom: 20px;">
-                     ${mentee.name} is looking forward to learning from your expertise. 
-                     Reach out to start building a meaningful mentorship relationship.
+          ? `<div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+                     <p style="font-size: 15px; margin: 0 0 10px 0; font-weight: 600; color: #111827;">About ${mentee.name}:</p>
+                     ${skillsOrGoals ? `<p style="font-size: 14px; margin: 0 0 10px 0; color: #374151;"><strong>Goals:</strong> ${skillsOrGoals}</p>` : ''}
+                     ${bioSnippet ? `<p style="font-size: 14px; margin: 0; color: #6b7280; font-style: italic;">"${bioSnippet}"</p>` : ''}
+                   </div>
+                   <p style="font-size: 16px; margin-bottom: 20px;">
+                     ${mentee.name} is looking forward to learning from your expertise. Reach out to start building a meaningful mentorship relationship.
                    </p>`
-          : `<p style="font-size: 16px; margin-bottom: 20px;">
-                     ${mentor.name} is ready to guide you on your professional journey. 
-                     Don't hesitate to reach out and introduce yourself!
+          : `<div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+                     <p style="font-size: 15px; margin: 0 0 10px 0; font-weight: 600; color: #111827;">About ${mentor.name}:</p>
+                     ${skillsOrGoals ? `<p style="font-size: 14px; margin: 0 0 10px 0; color: #374151;"><strong>Specializes in:</strong> ${skillsOrGoals}</p>` : ''}
+                     ${bioSnippet ? `<p style="font-size: 14px; margin: 0; color: #6b7280; font-style: italic;">"${bioSnippet}"</p>` : ''}
+                   </div>
+                   <p style="font-size: 16px; margin-bottom: 20px;">
+                     ${mentor.name} is ready to guide you on your professional journey. Don't hesitate to reach out and introduce yourself!
                    </p>`
         }
               <div style="margin: 30px 0;">
@@ -285,11 +303,19 @@ New Mentorship Match: ${otherUser.name}
 
 Hi ${user.name},
 
-Great news! You've been matched with ${otherUser.name}!
+Great news! You've been matched with ${otherUserIntro}.
 
 ${isMentor
-          ? `${mentee.name} is looking forward to learning from your expertise. Reach out to start building a meaningful mentorship relationship.`
-          : `${mentor.name} is ready to guide you on your professional journey. Don't hesitate to reach out and introduce yourself!`
+          ? `About ${mentee.name}:
+${skillsOrGoals ? `Goals: ${skillsOrGoals}` : ''}
+${bioSnippet ? `"${bioSnippet}"` : ''}
+
+${mentee.name} is looking forward to learning from your expertise. Reach out to start building a meaningful mentorship relationship.`
+          : `About ${mentor.name}:
+${skillsOrGoals ? `Specializes in: ${skillsOrGoals}` : ''}
+${bioSnippet ? `"${bioSnippet}"` : ''}
+
+${mentor.name} is ready to guide you on your professional journey. Don't hesitate to reach out and introduce yourself!`
         }
 
 Start Conversation: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}/chat

@@ -208,11 +208,22 @@ export interface Notification {
   body: string;
   isRead: boolean;
   timestamp: string;
+  chatId?: string; // Optional: for notifications that should navigate to a chat
 }
 
 export interface BlockRecord {
   blockerId: string;
   blockedId: string;
+}
+
+export interface PrivateMessageRequest {
+  id: string;
+  organizationId: string;
+  requesterId: string; // User who requested the private message
+  recipientId: string; // User who needs to approve
+  status: "pending" | "approved" | "declined";
+  createdAt: string;
+  respondedAt?: string; // When the recipient responded
 }
 
 export interface ReportRecord {

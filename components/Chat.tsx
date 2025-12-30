@@ -6,6 +6,9 @@ import {
   ChatGroup,
   Mood,
   CalendarEvent,
+  Match,
+  MatchStatus,
+  PrivateMessageRequest,
 } from "../types";
 import { INPUT_CLASS, BUTTON_PRIMARY } from "../styles/common";
 import {
@@ -50,6 +53,11 @@ import {
   createCalendarEvent,
   updateChatGroup,
   createNotification,
+  createPrivateMessageRequest,
+  getPrivateMessageRequest,
+  updatePrivateMessageRequest,
+  subscribeToPrivateMessageRequests,
+  getApprovedPrivateMessagePartners,
 } from "../services/database";
 import { Unsubscribe } from "../services/database";
 import { logger } from "../services/logger";
@@ -241,6 +249,7 @@ interface ChatProps {
   users: User[];
   organizationId: string;
   initialChatId?: string;
+  matches?: Match[];
 }
 
 const Chat: React.FC<ChatProps> = ({
@@ -248,6 +257,7 @@ const Chat: React.FC<ChatProps> = ({
   users,
   organizationId,
   initialChatId,
+  matches = [],
 }) => {
   const [chatGroups, setChatGroups] = useState<ChatGroup[]>([]);
   const unsubscribeMessagesRef = useRef<Record<string, Unsubscribe>>({});
@@ -675,8 +685,7 @@ const Chat: React.FC<ChatProps> = ({
   // Filter DMs based on role and organization:
   // - Platform admins can see everyone across all organizations
   // - Admins can see everyone in their organization
-  // - Mentees can see Mentees Hub and messages directly sent to them
-  // - Mentors can see Mentors Circle and messages directly sent to them
+  // - Regular users can see: admins, matched partners, and approved private message partners
   const availableDMs = users.filter((u) => {
     if (u.id === currentUser.id) return false;
 
@@ -693,8 +702,25 @@ const Chat: React.FC<ChatProps> = ({
       return true;
     }
 
-    // Regular users can only see admins in their organization
-    return u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN;
+    // Regular users can see:
+    // 1. Admins in their organization
+    // 2. Matched partners (mentors see mentees, mentees see mentors)
+    // 3. Approved private message partners
+    if (u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN) {
+      return true;
+    }
+
+    // Check if user is a matched partner
+    const isMatchedPartner = activeMatches.some(m => 
+      m.status === MatchStatus.ACTIVE &&
+      ((m.mentorId === currentUser.id && m.menteeId === u.id) ||
+       (m.menteeId === currentUser.id && m.mentorId === u.id))
+    );
+
+    // Check if user is an approved private message partner
+    const isApprovedPartner = approvedPrivateMessagePartners.has(u.id);
+
+    return isMatchedPartner || isApprovedPartner;
   });
   const allChats = [...availableGroups, ...availableDMs];
 
@@ -777,6 +803,9 @@ const Chat: React.FC<ChatProps> = ({
   >("Neutral");
   const [showSentimentMenu, setShowSentimentMenu] = useState(false);
   const [sentimentManuallySet, setSentimentManuallySet] = useState(false); // Track if user manually overrode sentiment
+  const [privateMessageRequests, setPrivateMessageRequests] = useState<PrivateMessageRequest[]>([]);
+  const [requestingPrivateMessage, setRequestingPrivateMessage] = useState<string | null>(null); // userId being requested
+  const [approvedPrivateMessagePartners, setApprovedPrivateMessagePartners] = useState<Set<string>>(new Set());
 
   // Meeting scheduling state
   const [meetingTitle, setMeetingTitle] = useState("");
@@ -882,14 +911,25 @@ const Chat: React.FC<ChatProps> = ({
       // Only allow if:
       // 1. Current user is admin/platform admin (can see all)
       // 2. Chat partner is admin/platform admin (regular users can message admins)
+      // 3. Users are matched partners (mentor-mentee match)
+      // 4. Users are approved private message partners
+      const isMatchedPartner = activeMatches.some(m => 
+        m.status === MatchStatus.ACTIVE &&
+        ((m.mentorId === currentUser.id && m.menteeId === chatPartnerId) ||
+         (m.menteeId === currentUser.id && m.mentorId === chatPartnerId))
+      );
+      const isApprovedPartner = approvedPrivateMessagePartners.has(chatPartnerId);
+
       if (
         currentUser.role !== Role.ADMIN &&
         currentUser.role !== Role.PLATFORM_ADMIN &&
         chatPartner &&
         chatPartner.role !== Role.ADMIN &&
-        chatPartner.role !== Role.PLATFORM_ADMIN
+        chatPartner.role !== Role.PLATFORM_ADMIN &&
+        !isMatchedPartner &&
+        !isApprovedPartner
       ) {
-        // Regular user trying to chat with another regular user - not allowed
+        // Regular user trying to chat with another regular user - not allowed unless matched
         setMessages((prev) => {
           if (prev[activeChatId]?.length === 0) return prev; // Already empty
           return {
@@ -955,11 +995,32 @@ const Chat: React.FC<ChatProps> = ({
           const isSender = msg.senderId === currentUser.id;
           const isRecipient = msg.senderId === activeChatId; // Chat partner sent the message
 
+          // Check if users are matched partners
+          const isMatchedPartner = activeMatches.some(m => 
+            m.status === MatchStatus.ACTIVE &&
+            ((m.mentorId === currentUser.id && m.menteeId === activeChatId) ||
+             (m.menteeId === currentUser.id && m.mentorId === activeChatId))
+          );
+
+          // Check if users are approved private message partners
+          const isApprovedPartner = approvedPrivateMessagePartners.has(activeChatId);
+
           // Admins can see all messages in their organization
           if (
             currentUser.role === Role.ADMIN ||
             currentUser.role === Role.PLATFORM_ADMIN
           ) {
+            return isSender || isRecipient;
+          }
+
+          // Allow messages between matched partners or approved private message partners
+          if (isMatchedPartner || isApprovedPartner) {
+            return isSender || isRecipient;
+          }
+
+          // For non-matched regular users, check if chat partner is admin
+          const chatPartner = users.find(u => u.id === activeChatId);
+          if (chatPartner && (chatPartner.role === Role.ADMIN || chatPartner.role === Role.PLATFORM_ADMIN)) {
             return isSender || isRecipient;
           }
 
@@ -1333,6 +1394,124 @@ const Chat: React.FC<ChatProps> = ({
       setReactionMenuMessageId(null);
     } catch (error) {
       logger.error("Error updating reaction", error);
+    }
+  };
+
+  // Handle requesting private message from group chat
+  const handleRequestPrivateMessage = async (recipientId: string) => {
+    if (!organizationId) return;
+    
+    try {
+      setRequestingPrivateMessage(recipientId);
+      
+      // Check if request already exists
+      const existingRequest = await getPrivateMessageRequest(
+        currentUser.id,
+        recipientId,
+        organizationId
+      );
+      
+      if (existingRequest) {
+        if (existingRequest.status === 'pending') {
+          alert('You already have a pending request with this user.');
+          return;
+        } else if (existingRequest.status === 'approved') {
+          // Request already approved, open chat
+          setActiveChatId(recipientId);
+          setActiveModal(null);
+          return;
+        }
+      }
+      
+      // Create new request
+      await createPrivateMessageRequest({
+        organizationId,
+        requesterId: currentUser.id,
+        recipientId,
+        status: 'pending',
+      });
+      
+      // Create notification for recipient
+      const recipient = users.find(u => u.id === recipientId);
+      await createNotification({
+        organizationId,
+        userId: recipientId,
+        type: 'message',
+        title: 'Private Message Request',
+        body: `${currentUser.name} wants to message you privately`,
+        isRead: false,
+        timestamp: new Date().toISOString(),
+      });
+      
+      alert('Request sent! The user will be notified and can approve your request.');
+    } catch (error) {
+      console.error('Error requesting private message:', error);
+      alert('Failed to send request. Please try again.');
+    } finally {
+      setRequestingPrivateMessage(null);
+    }
+  };
+
+  // Subscribe to private message requests and fetch approved partners
+  useEffect(() => {
+    if (!organizationId || !currentUser) return;
+    
+    const unsubscribe = subscribeToPrivateMessageRequests(
+      currentUser.id,
+      organizationId,
+      (requests) => {
+        setPrivateMessageRequests(requests);
+      }
+    );
+    
+    // Fetch approved private message partners
+    getApprovedPrivateMessagePartners(currentUser.id, organizationId)
+      .then(partnerIds => {
+        setApprovedPrivateMessagePartners(new Set(partnerIds));
+      })
+      .catch(error => {
+        console.error('Error fetching approved private message partners:', error);
+      });
+    
+    return () => unsubscribe();
+  }, [organizationId, currentUser?.id]);
+
+  // Handle approving/declining private message requests
+  const handleRespondToRequest = async (requestId: string, approve: boolean) => {
+    try {
+      const request = privateMessageRequests.find(r => r.id === requestId);
+      if (!request) return;
+      
+      await updatePrivateMessageRequest(requestId, {
+        status: approve ? 'approved' : 'declined',
+        respondedAt: new Date().toISOString(),
+      });
+      
+      if (approve) {
+        // Add to approved partners
+        setApprovedPrivateMessagePartners(prev => new Set([...prev, request.requesterId]));
+        
+        // Create notification for requester
+        await createNotification({
+          organizationId,
+          userId: request.requesterId,
+          type: 'message',
+          title: 'Private Message Approved',
+          body: `${currentUser.name} approved your private message request`,
+          isRead: false,
+          timestamp: new Date().toISOString(),
+          chatId: currentUser.id, // Link to chat
+        });
+        
+        // Also open the chat for the approver
+        setActiveChatId(request.requesterId);
+      }
+      
+      // Remove from local state
+      setPrivateMessageRequests(prev => prev.filter(r => r.id !== requestId));
+    } catch (error) {
+      console.error('Error responding to request:', error);
+      alert('Failed to respond to request. Please try again.');
     }
   };
 
@@ -1747,7 +1926,27 @@ const Chat: React.FC<ChatProps> = ({
   };
 
   const NewMessageModal = () => {
-    // Get all users that can be messaged (same logic as availableDMs)
+    // Get active matches for current user
+    const activeMatches = matches.filter(m => m.status === MatchStatus.ACTIVE);
+    const matchedUserIds = new Set<string>();
+    
+    if (currentUser.role === Role.MENTOR) {
+      // Mentors can see their matched mentees
+      activeMatches.forEach(m => {
+        if (m.mentorId === currentUser.id) {
+          matchedUserIds.add(m.menteeId);
+        }
+      });
+    } else if (currentUser.role === Role.MENTEE) {
+      // Mentees can see their matched mentors
+      activeMatches.forEach(m => {
+        if (m.menteeId === currentUser.id) {
+          matchedUserIds.add(m.mentorId);
+        }
+      });
+    }
+
+    // Get all users that can be messaged
     const messageableUsers = users.filter((u) => {
       if (u.id === currentUser.id) return false;
 
@@ -1764,8 +1963,15 @@ const Chat: React.FC<ChatProps> = ({
         return true;
       }
 
-      // Regular users can only see admins in their organization
-      return u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN;
+      // Regular users can see:
+      // 1. Admins in their organization
+      // 2. Their matched partners (mentors see mentees, mentees see mentors)
+      if (u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN) {
+        return true;
+      }
+
+      // Check if user is a matched partner
+      return matchedUserIds.has(u.id);
     });
 
     // Filter users based on search query
@@ -2354,11 +2560,29 @@ const Chat: React.FC<ChatProps> = ({
                       </div>
                     )}
                     {!isMe && (
-                      <img
-                        src={sender?.avatar || "https://via.placeholder.com/40"}
-                        className="w-8 h-8 rounded-full mr-2 self-end mb-1"
-                        alt=""
-                      />
+                      <div className="relative group/avatar mr-2 self-end mb-1">
+                        <img
+                          src={sender?.avatar || "https://via.placeholder.com/40"}
+                          className="w-8 h-8 rounded-full cursor-pointer"
+                          alt=""
+                        />
+                        {isGroup && sender && (
+                          <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover/avatar:opacity-100 transition-opacity z-20">
+                            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-2 min-w-[150px]">
+                              <div className="text-xs font-semibold text-slate-900 dark:text-white mb-2">
+                                {sender.name}
+                              </div>
+                              <button
+                                onClick={() => handleRequestPrivateMessage(msg.senderId)}
+                                disabled={requestingPrivateMessage === msg.senderId}
+                                className="w-full text-left px-2 py-1.5 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded transition-colors disabled:opacity-50"
+                              >
+                                {requestingPrivateMessage === msg.senderId ? 'Sending...' : 'Message privately'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                     <div
                       className={`max-w-[85%] sm:max-w-[75%] md:max-w-[70%] ${
@@ -2997,6 +3221,69 @@ const Chat: React.FC<ChatProps> = ({
       {activeModal === "shareContact" && <ShareContactModal />}
       {activeModal === "newMessage" && <NewMessageModal />}
       {activeModal === "clearHistory" && <ClearHistoryModal />}
+
+      {/* Private Message Requests Modal */}
+      {privateMessageRequests.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-50 max-w-sm w-full mx-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 animate-in slide-in-from-bottom-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                Private Message Requests
+              </h3>
+              <button
+                onClick={() => setPrivateMessageRequests([])}
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {privateMessageRequests.map((request) => {
+                const requester = users.find(u => u.id === request.requesterId);
+                if (!requester) return null;
+                
+                return (
+                  <div
+                    key={request.id}
+                    className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
+                  >
+                    <div className="flex items-start gap-3 mb-2">
+                      <img
+                        src={requester.avatar || "https://via.placeholder.com/40"}
+                        alt={requester.name}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                          {requester.name}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          wants to message you privately
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleRespondToRequest(request.id, true)}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleRespondToRequest(request.id, false)}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg transition-colors"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

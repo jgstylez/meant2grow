@@ -44,7 +44,7 @@ const convertTimestamp = (value: any): string => {
 // Export Unsubscribe type for use in hooks
 export type { Unsubscribe };
 import { db } from './firebase';
-import { User, Match, Goal, Milestone, Rating, Resource, CalendarEvent, Notification, Invitation, Organization, ProgramSettings, ChatMessage, ChatGroup, BlogPost, DiscussionGuide, CareerTemplate, TrainingVideo } from '../types';
+import { User, Match, Goal, Milestone, Rating, Resource, CalendarEvent, Notification, Invitation, Organization, ProgramSettings, ChatMessage, ChatGroup, BlogPost, DiscussionGuide, CareerTemplate, TrainingVideo, PrivateMessageRequest } from '../types';
 
 // ==================== ORGANIZATION OPERATIONS ====================
 
@@ -1719,6 +1719,120 @@ export const subscribeToChatGroups = (
 export const updateChatGroup = async (groupId: string, updates: Partial<ChatGroup>): Promise<void> => {
   const groupRef = doc(db, 'chatGroups', groupId);
   await updateDoc(groupRef, updates);
+};
+
+// ==================== PRIVATE MESSAGE REQUEST OPERATIONS ====================
+
+export const createPrivateMessageRequest = async (requestData: Omit<PrivateMessageRequest, 'id' | 'createdAt'>): Promise<string> => {
+  const requestRef = doc(collection(db, 'privateMessageRequests'));
+  await setDoc(requestRef, {
+    ...requestData,
+    createdAt: Timestamp.now(),
+  });
+  return requestRef.id;
+};
+
+export const getPrivateMessageRequestsByUser = async (userId: string, organizationId: string): Promise<PrivateMessageRequest[]> => {
+  const q = query(
+    collection(db, 'privateMessageRequests'),
+    where('organizationId', '==', organizationId),
+    where('recipientId', '==', userId),
+    where('status', '==', 'pending')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: convertTimestamp(doc.data().createdAt),
+    respondedAt: doc.data().respondedAt ? convertTimestamp(doc.data().respondedAt) : undefined,
+  })) as PrivateMessageRequest[];
+};
+
+export const getPrivateMessageRequest = async (requesterId: string, recipientId: string, organizationId: string): Promise<PrivateMessageRequest | null> => {
+  const q = query(
+    collection(db, 'privateMessageRequests'),
+    where('organizationId', '==', organizationId),
+    where('requesterId', '==', requesterId),
+    where('recipientId', '==', recipientId)
+  );
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+  const doc = snapshot.docs[0];
+  return {
+    id: doc.id,
+    ...doc.data(),
+    createdAt: convertTimestamp(doc.data().createdAt),
+    respondedAt: doc.data().respondedAt ? convertTimestamp(doc.data().respondedAt) : undefined,
+  } as PrivateMessageRequest;
+};
+
+export const updatePrivateMessageRequest = async (requestId: string, updates: Partial<PrivateMessageRequest>): Promise<void> => {
+  const requestRef = doc(db, 'privateMessageRequests', requestId);
+  const updateData: any = { ...updates };
+  if (updates.respondedAt) {
+    updateData.respondedAt = Timestamp.now();
+  }
+  await updateDoc(requestRef, updateData);
+};
+
+export const subscribeToPrivateMessageRequests = (
+  userId: string,
+  organizationId: string,
+  callback: (requests: PrivateMessageRequest[]) => void
+): Unsubscribe => {
+  const q = query(
+    collection(db, 'privateMessageRequests'),
+    where('organizationId', '==', organizationId),
+    where('recipientId', '==', userId),
+    where('status', '==', 'pending')
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot) => {
+      const requests = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: convertTimestamp(doc.data().createdAt),
+        respondedAt: doc.data().respondedAt ? convertTimestamp(doc.data().respondedAt) : undefined,
+      })) as PrivateMessageRequest[];
+      callback(requests);
+    },
+    (error) => {
+      console.error('Error subscribing to private message requests:', error);
+      callback([]);
+    }
+  );
+};
+
+export const getApprovedPrivateMessagePartners = async (userId: string, organizationId: string): Promise<string[]> => {
+  // Get all approved requests where user is either requester or recipient
+  const q1 = query(
+    collection(db, 'privateMessageRequests'),
+    where('organizationId', '==', organizationId),
+    where('requesterId', '==', userId),
+    where('status', '==', 'approved')
+  );
+  const q2 = query(
+    collection(db, 'privateMessageRequests'),
+    where('organizationId', '==', organizationId),
+    where('recipientId', '==', userId),
+    where('status', '==', 'approved')
+  );
+  
+  const [snapshot1, snapshot2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+  
+  const partnerIds = new Set<string>();
+  snapshot1.docs.forEach(doc => {
+    const data = doc.data();
+    partnerIds.add(data.recipientId);
+  });
+  snapshot2.docs.forEach(doc => {
+    const data = doc.data();
+    partnerIds.add(data.requesterId);
+  });
+  
+  return Array.from(partnerIds);
 };
 
 // ==================== HELPER FUNCTIONS ====================

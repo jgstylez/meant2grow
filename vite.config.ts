@@ -12,9 +12,8 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react()],
     define: {
-      // Use Vercel environment variables or fallback to empty string
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || '')
+      // Note: Gemini API key is now stored securely in Firebase Functions secrets
+      // No longer exposed in client bundle
     },
     resolve: {
       alias: {

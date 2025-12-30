@@ -108,38 +108,72 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                             <p>No notifications found.</p>
                         </div>
                     ) : (
-                        filteredNotifications.map(n => (
-                            <div key={n.id} className={`p-4 flex gap-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors group ${!n.isRead ? 'bg-emerald-50/30 dark:bg-emerald-900/5' : ''}`}>
-                                <div className="pt-1">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={selectedIds.includes(n.id)}
-                                        onChange={() => toggleSelection(n.id)}
-                                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                                    />
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <h3 className={`text-sm ${!n.isRead ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-300'}`}>
-                                            {n.title}
-                                            {!n.isRead && <span className="ml-2 inline-block w-2 h-2 bg-emerald-500 rounded-full"></span>}
-                                        </h3>
-                                        <span className="text-xs text-slate-400 whitespace-nowrap">{n.timestamp}</span>
+                        filteredNotifications.map(n => {
+                            const isClickable = n.type === 'bridge' && n.chatId;
+                            const handleClick = () => {
+                                if (isClickable && n.chatId) {
+                                    // Navigate to chat with the specific chatId
+                                    // The chat page will use initialChatId prop
+                                    onNavigate(`chat:${n.chatId}`);
+                                }
+                            };
+                            
+                            return (
+                                <div 
+                                    key={n.id} 
+                                    onClick={isClickable ? handleClick : undefined}
+                                    className={`p-4 flex gap-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors group ${!n.isRead ? 'bg-emerald-50/30 dark:bg-emerald-900/5' : ''} ${isClickable ? 'cursor-pointer' : ''}`}
+                                >
+                                    <div className="pt-1">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={selectedIds.includes(n.id)}
+                                            onChange={(e) => {
+                                                e.stopPropagation();
+                                                toggleSelection(n.id);
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                        />
                                     </div>
-                                    <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">{n.body}</p>
-                                </div>
-                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {!n.isRead && (
-                                        <button onClick={() => onMarkAsRead(n.id)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-full" title="Mark as Read">
-                                            <Check className="w-4 h-4" />
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <h3 className={`text-sm ${!n.isRead ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-300'}`}>
+                                                {n.title}
+                                                {!n.isRead && <span className="ml-2 inline-block w-2 h-2 bg-emerald-500 rounded-full"></span>}
+                                                {isClickable && <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400">→ Open chat</span>}
+                                            </h3>
+                                            <span className="text-xs text-slate-400 whitespace-nowrap">{n.timestamp}</span>
+                                        </div>
+                                        <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">{n.body}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {!n.isRead && (
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onMarkAsRead(n.id);
+                                                }} 
+                                                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-full" 
+                                                title="Mark as Read"
+                                            >
+                                                <Check className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDelete(n.id);
+                                            }} 
+                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full" 
+                                            title="Delete"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
                                         </button>
-                                    )}
-                                    <button onClick={() => onDelete(n.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full" title="Delete">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             </div>
