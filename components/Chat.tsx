@@ -605,7 +605,11 @@ const Chat: React.FC<ChatProps> = ({
   const MOCK_GROUPS: ChatGroup[] = availableGroupsList;
 
   // Filter groups based on role, membership, and organization
-  const isPlatformAdmin = currentUser.role === Role.PLATFORM_ADMIN;
+  // Handle both enum and string values for platform admin role
+  const userRoleStr = String(currentUser.role);
+  const isPlatformAdmin = currentUser.role === Role.PLATFORM_ADMIN || 
+                         userRoleStr === "PLATFORM_ADMIN" || 
+                         userRoleStr === "PLATFORM_OPERATOR";
   const availableGroups = MOCK_GROUPS.filter((g) => {
     // Platform admins can see groups from all organizations
     // Other users can only see groups from their organization
@@ -704,7 +708,12 @@ const Chat: React.FC<ChatProps> = ({
     if (u.organizationId !== currentUser.organizationId) return false;
 
     // Regular admins can see everyone in their organization
-    if (currentUser.role === Role.ADMIN) {
+    // Handle both enum and string values for role checks
+    const currentUserRoleStr = String(currentUser.role);
+    const isCurrentUserAdmin = currentUser.role === Role.ADMIN || 
+                               currentUserRoleStr === "ADMIN" || 
+                               currentUserRoleStr === "ORGANIZATION_ADMIN";
+    if (isCurrentUserAdmin) {
       return true;
     }
 
@@ -712,7 +721,14 @@ const Chat: React.FC<ChatProps> = ({
     // 1. Admins in their organization
     // 2. Matched partners (mentors see mentees, mentees see mentors)
     // 3. Approved private message partners
-    if (u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN) {
+    const otherUserRoleStr = String(u.role);
+    const isOtherUserAdmin = u.role === Role.ADMIN || 
+                            otherUserRoleStr === "ADMIN" || 
+                            otherUserRoleStr === "ORGANIZATION_ADMIN";
+    const isOtherUserPlatformAdmin = u.role === Role.PLATFORM_ADMIN || 
+                                    otherUserRoleStr === "PLATFORM_ADMIN" || 
+                                    otherUserRoleStr === "PLATFORM_OPERATOR";
+    if (isOtherUserAdmin || isOtherUserPlatformAdmin) {
       return true;
     }
 
@@ -925,12 +941,32 @@ const Chat: React.FC<ChatProps> = ({
       );
       const isApprovedPartner = approvedPrivateMessagePartners.has(chatPartnerId);
 
+      // Handle both enum and string values for role checks
+      const currentUserRoleStrForChat = String(currentUser.role);
+      const isCurrentUserAdminForChat = currentUser.role === Role.ADMIN || 
+                                       currentUserRoleStrForChat === "ADMIN" || 
+                                       currentUserRoleStrForChat === "ORGANIZATION_ADMIN";
+      const isCurrentUserPlatformAdminForChat = currentUser.role === Role.PLATFORM_ADMIN || 
+                                               currentUserRoleStrForChat === "PLATFORM_ADMIN" || 
+                                               currentUserRoleStrForChat === "PLATFORM_OPERATOR";
+      
+      const chatPartnerRoleStr = chatPartner ? String(chatPartner.role) : "";
+      const isChatPartnerAdmin = chatPartner && (
+        chatPartner.role === Role.ADMIN || 
+        chatPartnerRoleStr === "ADMIN" || 
+        chatPartnerRoleStr === "ORGANIZATION_ADMIN"
+      );
+      const isChatPartnerPlatformAdmin = chatPartner && (
+        chatPartner.role === Role.PLATFORM_ADMIN || 
+        chatPartnerRoleStr === "PLATFORM_ADMIN" || 
+        chatPartnerRoleStr === "PLATFORM_OPERATOR"
+      );
+
       if (
-        currentUser.role !== Role.ADMIN &&
-        currentUser.role !== Role.PLATFORM_ADMIN &&
-        chatPartner &&
-        chatPartner.role !== Role.ADMIN &&
-        chatPartner.role !== Role.PLATFORM_ADMIN &&
+        !isCurrentUserAdminForChat &&
+        !isCurrentUserPlatformAdminForChat &&
+        !isChatPartnerAdmin &&
+        !isChatPartnerPlatformAdmin &&
         !isMatchedPartner &&
         !isApprovedPartner
       ) {
@@ -1011,10 +1047,15 @@ const Chat: React.FC<ChatProps> = ({
           const isApprovedPartner = approvedPrivateMessagePartners.has(activeChatId);
 
           // Admins can see all messages in their organization
-          if (
-            currentUser.role === Role.ADMIN ||
-            currentUser.role === Role.PLATFORM_ADMIN
-          ) {
+          // Handle both enum and string values for role checks
+          const currentUserRoleStrForMessages = String(currentUser.role);
+          const isCurrentUserAdminForMessages = currentUser.role === Role.ADMIN || 
+                                               currentUserRoleStrForMessages === "ADMIN" || 
+                                               currentUserRoleStrForMessages === "ORGANIZATION_ADMIN";
+          const isCurrentUserPlatformAdminForMessages = currentUser.role === Role.PLATFORM_ADMIN || 
+                                                        currentUserRoleStrForMessages === "PLATFORM_ADMIN" || 
+                                                        currentUserRoleStrForMessages === "PLATFORM_OPERATOR";
+          if (isCurrentUserAdminForMessages || isCurrentUserPlatformAdminForMessages) {
             return isSender || isRecipient;
           }
 
@@ -1025,8 +1066,17 @@ const Chat: React.FC<ChatProps> = ({
 
           // For non-matched regular users, check if chat partner is admin
           const chatPartner = users.find(u => u.id === activeChatId);
-          if (chatPartner && (chatPartner.role === Role.ADMIN || chatPartner.role === Role.PLATFORM_ADMIN)) {
-            return isSender || isRecipient;
+          if (chatPartner) {
+            const chatPartnerRoleStrForMessages = String(chatPartner.role);
+            const isChatPartnerAdminForMessages = chatPartner.role === Role.ADMIN || 
+                                                 chatPartnerRoleStrForMessages === "ADMIN" || 
+                                                 chatPartnerRoleStrForMessages === "ORGANIZATION_ADMIN";
+            const isChatPartnerPlatformAdminForMessages = chatPartner.role === Role.PLATFORM_ADMIN || 
+                                                         chatPartnerRoleStrForMessages === "PLATFORM_ADMIN" || 
+                                                         chatPartnerRoleStrForMessages === "PLATFORM_OPERATOR";
+            if (isChatPartnerAdminForMessages || isChatPartnerPlatformAdminForMessages) {
+              return isSender || isRecipient;
+            }
           }
 
           return isSender || isRecipient;
@@ -1964,14 +2014,26 @@ const Chat: React.FC<ChatProps> = ({
       if (u.organizationId !== currentUser.organizationId) return false;
 
       // Regular admins can see everyone in their organization
-      if (currentUser.role === Role.ADMIN) {
+      // Handle both enum and string values for role checks
+      const currentUserRoleStrForUserList = String(currentUser.role);
+      const isCurrentUserAdminForUserList = currentUser.role === Role.ADMIN || 
+                                           currentUserRoleStrForUserList === "ADMIN" || 
+                                           currentUserRoleStrForUserList === "ORGANIZATION_ADMIN";
+      if (isCurrentUserAdminForUserList) {
         return true;
       }
 
       // Regular users can see:
       // 1. Admins in their organization
       // 2. Their matched partners (mentors see mentees, mentees see mentors)
-      if (u.role === Role.ADMIN || u.role === Role.PLATFORM_ADMIN) {
+      const otherUserRoleStrForUserList = String(u.role);
+      const isOtherUserAdminForUserList = u.role === Role.ADMIN || 
+                                         otherUserRoleStrForUserList === "ADMIN" || 
+                                         otherUserRoleStrForUserList === "ORGANIZATION_ADMIN";
+      const isOtherUserPlatformAdminForUserList = u.role === Role.PLATFORM_ADMIN || 
+                                                  otherUserRoleStrForUserList === "PLATFORM_ADMIN" || 
+                                                  otherUserRoleStrForUserList === "PLATFORM_OPERATOR";
+      if (isOtherUserAdminForUserList || isOtherUserPlatformAdminForUserList) {
         return true;
       }
 

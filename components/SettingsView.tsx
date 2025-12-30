@@ -370,34 +370,84 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
         }
     }, [isPlatformAdmin, activeTab]);
 
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    
+    const activeTabData = visibleTabs.find(t => t.id === activeTab);
+    const ActiveTabIcon = activeTabData?.icon;
+
     return (
-        <div className="flex h-[calc(100vh-8rem)] bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="w-64 bg-slate-50 dark:bg-slate-950 border-r border-slate-100 dark:border-slate-800 flex flex-col">
+        <div className="flex flex-col md:flex-row h-[calc(100vh-8rem)] bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+            {/* Mobile Tab Selector */}
+            <div className="md:hidden border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2">
+                <button
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    aria-label="Open settings menu"
+                    aria-expanded={isMobileMenuOpen}
+                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-slate-800 dark:text-white bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                    <span className="flex items-center">
+                        {ActiveTabIcon && (
+                            <ActiveTabIcon className="w-4 h-4 mr-2" aria-hidden="true" />
+                        )}
+                        {activeTabData?.label || 'Settings'}
+                    </span>
+                    <Settings className={`w-4 h-4 transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                </button>
+                {isMobileMenuOpen && (
+                    <div className="mt-2 space-y-1 max-h-[60vh] overflow-y-auto touch-action-pan-y">
+                        {visibleTabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => {
+                                    setActiveTab(tab.id);
+                                    setIsMobileMenuOpen(false);
+                                }}
+                                aria-label={`${tab.label} settings`}
+                                aria-current={activeTab === tab.id ? 'page' : undefined}
+                                className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                                    activeTab === tab.id
+                                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 bg-white dark:bg-slate-900'
+                                }`}
+                            >
+                                <tab.icon className="w-4 h-4 mr-3 flex-shrink-0" aria-hidden="true" />
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop Sidebar */}
+            <aside className="hidden md:flex w-64 bg-slate-50 dark:bg-slate-950 border-r border-slate-100 dark:border-slate-800 flex-col">
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800">
                     <h2 className="font-bold text-slate-800 dark:text-white">Settings</h2>
                 </div>
-                <nav className="flex-1 p-2 space-y-1">
+                <nav className="flex-1 p-2 space-y-1 overflow-y-auto touch-action-pan-y" aria-label="Settings navigation">
                     {visibleTabs.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
-                            className={`w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === tab.id
+                            aria-label={`${tab.label} settings`}
+                            aria-current={activeTab === tab.id ? 'page' : undefined}
+                            className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                                activeTab === tab.id
                                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
                                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                                 }`}
                         >
-                            <tab.icon className="w-4 h-4 mr-3" />
+                            <tab.icon className="w-4 h-4 mr-3 flex-shrink-0" aria-hidden="true" />
                             {tab.label}
                         </button>
                     ))}
                 </nav>
-            </div>
+            </aside>
 
-            <div className="flex-1 p-8 overflow-y-auto">
-                <div className="max-w-2xl">
+            <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto touch-action-pan-y">
+                <div className="max-w-2xl mx-auto">
                     {activeTab === 'profile' && (
-                        <div className="space-y-6 animate-in fade-in">
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Profile Settings</h2>
+                        <div className="space-y-4 sm:space-y-6 animate-in fade-in">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-6">Profile Settings</h2>
 
                             {/* Admin-only: Program Name Update */}
                             {isOrgAdmin && programSettings && organizationId && onUpdateOrganization && (
@@ -436,15 +486,61 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                 </div>
                             )}
 
-                            <div className="flex items-center gap-6 mb-8">
-                                <img src={formData.avatar} alt="" className="w-24 h-24 rounded-full object-cover border-4 border-slate-100 dark:border-slate-800" />
-                                <button className="text-sm text-emerald-600 dark:text-emerald-400 font-medium hover:underline">Change Photo</button>
+                            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 mb-6 sm:mb-8">
+                                <img src={formData.avatar} alt={`${formData.name || 'User'}'s avatar`} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-slate-100 dark:border-slate-800 flex-shrink-0" />
+                                <button 
+                                    aria-label="Change profile photo"
+                                    className="text-sm text-emerald-600 dark:text-emerald-400 font-medium hover:underline min-h-[44px] px-4 py-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                >
+                                    Change Photo
+                                </button>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="col-span-2"><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Full Name</label><input className={INPUT_CLASS} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} /></div>
-                                <div className="col-span-2"><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Bio</label><textarea className={INPUT_CLASS} rows={4} value={formData.bio} onChange={e => setFormData({ ...formData, bio: e.target.value })} /></div>
-                                <div><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Title</label><input className={INPUT_CLASS} value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} /></div>
-                                <div><label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Organization</label><input className={INPUT_CLASS} value={formData.company} onChange={e => setFormData({ ...formData, company: e.target.value })} /></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                                <div className="col-span-2">
+                                    <label htmlFor="profile-name" className="block text-xs font-semibold text-slate-500 uppercase mb-1">Full Name</label>
+                                    <input 
+                                        id="profile-name"
+                                        className={INPUT_CLASS} 
+                                        value={formData.name} 
+                                        onChange={e => setFormData({ ...formData, name: e.target.value })} 
+                                        aria-describedby="profile-name-description"
+                                    />
+                                    <span id="profile-name-description" className="sr-only">Enter your full name</span>
+                                </div>
+                                <div className="col-span-2">
+                                    <label htmlFor="profile-bio" className="block text-xs font-semibold text-slate-500 uppercase mb-1">Bio</label>
+                                    <textarea 
+                                        id="profile-bio"
+                                        className={INPUT_CLASS} 
+                                        rows={4} 
+                                        value={formData.bio} 
+                                        onChange={e => setFormData({ ...formData, bio: e.target.value })} 
+                                        aria-describedby="profile-bio-description"
+                                    />
+                                    <span id="profile-bio-description" className="sr-only">Enter a brief biography</span>
+                                </div>
+                                <div>
+                                    <label htmlFor="profile-title" className="block text-xs font-semibold text-slate-500 uppercase mb-1">Title</label>
+                                    <input 
+                                        id="profile-title"
+                                        className={INPUT_CLASS} 
+                                        value={formData.title} 
+                                        onChange={e => setFormData({ ...formData, title: e.target.value })} 
+                                        aria-describedby="profile-title-description"
+                                    />
+                                    <span id="profile-title-description" className="sr-only">Enter your job title</span>
+                                </div>
+                                <div>
+                                    <label htmlFor="profile-company" className="block text-xs font-semibold text-slate-500 uppercase mb-1">Organization</label>
+                                    <input 
+                                        id="profile-company"
+                                        className={INPUT_CLASS} 
+                                        value={formData.company} 
+                                        onChange={e => setFormData({ ...formData, company: e.target.value })} 
+                                        aria-describedby="profile-company-description"
+                                    />
+                                    <span id="profile-company-description" className="sr-only">Enter your organization name</span>
+                                </div>
                                 <div className="col-span-2">
                                     <SkillsSelector
                                         selectedSkills={formData.skills || []}
@@ -455,7 +551,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                 </div>
                                 <div className="col-span-2">
                                     <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Current Mood</label>
-                                    <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                                    <div className="grid grid-cols-4 sm:grid-cols-8 gap-2" role="group" aria-label="Select your current mood">
                                         {(['Happy', 'Neutral', 'Stressed', 'Excited', 'Tired', 'Motivated', 'Anxious', 'Grateful'] as Mood[]).map((mood) => {
                                             const isSelected = formData.mood === mood;
                                             const moodIcons: Record<Mood, React.ReactNode> = {
@@ -473,12 +569,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     key={mood}
                                                     type="button"
                                                     onClick={() => setFormData({ ...formData, mood })}
-                                                    className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${isSelected
+                                                    aria-label={`Set mood to ${mood}`}
+                                                    aria-pressed={isSelected}
+                                                    className={`p-2 sm:p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 min-h-[60px] sm:min-h-[80px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 ${isSelected
                                                         ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
                                                         : 'border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700 text-slate-600 dark:text-slate-400'
                                                         }`}
                                                 >
-                                                    {moodIcons[mood]}
+                                                    <span aria-hidden="true">{moodIcons[mood]}</span>
                                                     <span className="text-[10px] font-medium">{mood}</span>
                                                 </button>
                                             );
@@ -491,15 +589,15 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                     )}
 
                     {activeTab === 'preferences' && (
-                        <div className="space-y-6 animate-in fade-in">
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Preferences</h2>
+                        <div className="space-y-4 sm:space-y-6 animate-in fade-in">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Preferences</h2>
                             {user.role === Role.MENTOR && (
                                 <div className={CARD_CLASS}>
                                     <h3 className="font-bold text-slate-800 dark:text-white mb-4">Mentorship Capacity</h3>
                                     <div className="space-y-4">
                                         <label 
                                             onClick={toggleAcceptingNewMentees}
-                                            className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                            className="flex items-center justify-between p-3 sm:p-4 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                         >
                                             <div className="flex-1">
                                                 <span className="text-sm font-medium">Accepting New Mentees</span>
@@ -509,18 +607,22 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     </p>
                                                 )}
                                             </div>
+                                            <span aria-hidden="true">
                                             {isAcceptingNewMentees ? (
-                                                <ToggleRight className="w-6 h-6 text-emerald-500" />
+                                                    <ToggleRight className="w-6 h-6 text-emerald-500 flex-shrink-0" />
                                             ) : (
-                                                <ToggleLeft className="w-6 h-6 text-slate-400" />
+                                                    <ToggleLeft className="w-6 h-6 text-slate-400 flex-shrink-0" />
                                             )}
+                                            </span>
                                         </label>
                                         <div>
-                                            <label className="block text-xs font-semibold text-slate-500 mb-1">Max Mentees</label>
+                                            <label htmlFor="max-mentees" className="block text-xs font-semibold text-slate-500 mb-1">Max Mentees</label>
                                             <select 
+                                                id="max-mentees"
                                                 className={INPUT_CLASS}
                                                 value={maxMentees}
                                                 onChange={(e) => handleMaxMenteesChange(parseInt(e.target.value, 10))}
+                                                aria-describedby="max-mentees-description"
                                             >
                                                 <option value={1}>1</option>
                                                 <option value={2}>2</option>
@@ -528,6 +630,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                 <option value={4}>4</option>
                                                 <option value={5}>5</option>
                                             </select>
+                                            <span id="max-mentees-description" className="sr-only">Select maximum number of mentees you can mentor</span>
                                         </div>
                                     </div>
                                 </div>
@@ -536,10 +639,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                 <div className={CARD_CLASS}>
                                     <h3 className="font-bold text-slate-800 dark:text-white mb-4">Learning Visibility</h3>
                                     <div className="space-y-4">
-                                        <label className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                                        <label className="flex items-center justify-between p-3 sm:p-4 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500">
                                             <span className="text-sm font-medium">Make Goals Public</span>
-                                            <button onClick={toggleGoalsPublic} type="button" className="focus:outline-none">
-                                                {goalsPublic ? <ToggleRight className="w-6 h-6 text-emerald-500" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                                            <button onClick={toggleGoalsPublic} type="button" aria-label={goalsPublic ? "Make goals private" : "Make goals public"} className="focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded">
+                                                <span aria-hidden="true">
+                                                    {goalsPublic ? <ToggleRight className="w-6 h-6 text-emerald-500 flex-shrink-0" /> : <ToggleLeft className="w-6 h-6 text-slate-400 flex-shrink-0" />}
+                                                </span>
                                             </button>
                                         </label>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 px-3">
@@ -552,10 +657,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                             )}
                             <div className={CARD_CLASS + " mt-6"}>
                                 <h3 className="font-bold text-slate-800 dark:text-white mb-4">Appearance</h3>
-                                <label className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg">
-                                    <span className="text-sm font-medium flex items-center"><Moon className="w-4 h-4 mr-2" /> Dark Mode</span>
-                                    <button onClick={toggleDarkMode}>
-                                        {darkMode ? <ToggleRight className="w-6 h-6 text-emerald-500" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                                <label className="flex items-center justify-between p-3 sm:p-4 border border-slate-200 dark:border-slate-700 rounded-lg min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                    <span className="text-sm font-medium flex items-center"><Moon className="w-4 h-4 mr-2" aria-hidden="true" /> Dark Mode</span>
+                                    <button onClick={toggleDarkMode} aria-label={darkMode ? "Disable dark mode" : "Enable dark mode"} className="focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded">
+                                        <span aria-hidden="true">
+                                            {darkMode ? <ToggleRight className="w-6 h-6 text-emerald-500 flex-shrink-0" /> : <ToggleLeft className="w-6 h-6 text-slate-400 flex-shrink-0" />}
+                                        </span>
                                     </button>
                                 </label>
                             </div>
@@ -563,25 +670,37 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                     )}
 
                     {activeTab === 'notifications' && (
-                        <div className="space-y-6 animate-in fade-in">
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Notification Preferences</h2>
-                            <div className="space-y-4">
+                        <div className="space-y-4 sm:space-y-6 animate-in fade-in">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Notification Preferences</h2>
+                            <div className="space-y-3 sm:space-y-4">
                                 {Object.entries(notificationPrefs).map(([category, prefs]) => {
                                     const typedPrefs = prefs as { email: boolean; push: boolean };
                                     return (
-                                        <div key={category} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg">
-                                            <span className="font-medium text-slate-700 dark:text-slate-200">{category}</span>
-                                            <div className="flex gap-6">
-                                                <label className="flex items-center cursor-pointer space-x-2">
+                                        <div key={category} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg gap-3 sm:gap-0">
+                                            <span className="font-medium text-slate-700 dark:text-slate-200 text-sm sm:text-base">{category}</span>
+                                            <div className="flex gap-4 sm:gap-6">
+                                                <label className="flex items-center cursor-pointer space-x-2 min-h-[44px] touch-manipulation">
                                                     <span className="text-xs text-slate-500 dark:text-slate-400">Email</span>
-                                                    <button onClick={() => togglePref(category, 'email')}>
+                                                    <button 
+                                                        onClick={() => togglePref(category, 'email')}
+                                                        aria-label={`${typedPrefs.email ? 'Disable' : 'Enable'} email notifications for ${category}`}
+                                                        className="focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded"
+                                                    >
+                                                        <span aria-hidden="true">
                                                         {typedPrefs.email ? <ToggleRight className="w-8 h-8 text-emerald-500" /> : <ToggleLeft className="w-8 h-8 text-slate-300 dark:text-slate-600" />}
+                                                        </span>
                                                     </button>
                                                 </label>
-                                                <label className="flex items-center cursor-pointer space-x-2">
+                                                <label className="flex items-center cursor-pointer space-x-2 min-h-[44px] touch-manipulation">
                                                     <span className="text-xs text-slate-500 dark:text-slate-400">In-App</span>
-                                                    <button onClick={() => togglePref(category, 'push')}>
+                                                    <button 
+                                                        onClick={() => togglePref(category, 'push')}
+                                                        aria-label={`${typedPrefs.push ? 'Disable' : 'Enable'} in-app notifications for ${category}`}
+                                                        className="focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded"
+                                                    >
+                                                        <span aria-hidden="true">
                                                         {typedPrefs.push ? <ToggleRight className="w-8 h-8 text-emerald-500" /> : <ToggleLeft className="w-8 h-8 text-slate-300 dark:text-slate-600" />}
+                                                        </span>
                                                     </button>
                                                 </label>
                                             </div>
@@ -593,8 +712,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                     )}
 
                     {activeTab === 'security' && (
-                        <div className="space-y-8 animate-in fade-in">
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Security & Login</h2>
+                        <div className="space-y-6 sm:space-y-8 animate-in fade-in">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Security & Login</h2>
 
                             {/* Password Section */}
                             <div className={CARD_CLASS}>
@@ -606,14 +725,30 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                         <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Current Password</label>
                                         <input type="password" className={INPUT_CLASS} value={passwordForm.current} onChange={e => setPasswordForm({ ...passwordForm, current: e.target.value })} />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">New Password</label>
-                                            <input type="password" className={INPUT_CLASS} value={passwordForm.new} onChange={e => setPasswordForm({ ...passwordForm, new: e.target.value })} />
+                                            <label htmlFor="new-password" className="block text-xs font-semibold text-slate-500 uppercase mb-1">New Password</label>
+                                            <input 
+                                                id="new-password"
+                                                type="password" 
+                                                className={INPUT_CLASS} 
+                                                value={passwordForm.new} 
+                                                onChange={e => setPasswordForm({ ...passwordForm, new: e.target.value })} 
+                                                aria-describedby="new-password-description"
+                                            />
+                                            <span id="new-password-description" className="sr-only">Enter your new password</span>
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Confirm New Password</label>
-                                            <input type="password" className={INPUT_CLASS} value={passwordForm.confirm} onChange={e => setPasswordForm({ ...passwordForm, confirm: e.target.value })} />
+                                            <label htmlFor="confirm-password" className="block text-xs font-semibold text-slate-500 uppercase mb-1">Confirm New Password</label>
+                                            <input 
+                                                id="confirm-password"
+                                                type="password" 
+                                                className={INPUT_CLASS} 
+                                                value={passwordForm.confirm} 
+                                                onChange={e => setPasswordForm({ ...passwordForm, confirm: e.target.value })} 
+                                                aria-describedby="confirm-password-description"
+                                            />
+                                            <span id="confirm-password-description" className="sr-only">Confirm your new password</span>
                                         </div>
                                     </div>
                                 </div>
@@ -628,8 +763,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                         </h3>
                                         <p className="text-xs text-slate-500 mt-1">Add an extra layer of security to your account.</p>
                                     </div>
-                                    <button onClick={() => setTwoFactorEnabled(!twoFactorEnabled)}>
+                                    <button 
+                                        onClick={() => setTwoFactorEnabled(!twoFactorEnabled)}
+                                        aria-label={twoFactorEnabled ? "Disable two-factor authentication" : "Enable two-factor authentication"}
+                                        className="min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded touch-manipulation"
+                                    >
+                                        <span aria-hidden="true">
                                         {twoFactorEnabled ? <ToggleRight className="w-10 h-10 text-emerald-500" /> : <ToggleLeft className="w-10 h-10 text-slate-300" />}
+                                        </span>
                                     </button>
                                 </div>
                                 {twoFactorEnabled && (
@@ -691,18 +832,18 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                     )}
 
                     {activeTab === 'calendar' && (
-                        <div className="space-y-6 animate-in fade-in">
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Sync Calendar</h2>
+                        <div className="space-y-4 sm:space-y-6 animate-in fade-in">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Sync Calendar</h2>
                             <p className="text-sm text-slate-500 dark:text-slate-400">
                                 Connect your calendars to automatically sync meetings and receive reminders. You can connect multiple calendars.
                             </p>
                             <div className="space-y-4">
                                 {/* Google Calendar */}
-                                <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl gap-3 sm:gap-0">
                                     <div className="flex items-center">
-                                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold mr-4">G</div>
+                                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold mr-4 flex-shrink-0" aria-hidden="true">G</div>
                                         <div>
-                                            <p className="font-bold text-slate-800 dark:text-white">Google Calendar</p>
+                                            <p className="font-bold text-slate-800 dark:text-white text-sm sm:text-base">Google Calendar</p>
                                             <p className="text-xs text-slate-500 dark:text-slate-400">
                                                 {googleConnected ? 'Connected • Events will sync automatically' : 'Connect your Google Calendar'}
                                             </p>
@@ -720,7 +861,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     console.error('Error disconnecting Google Calendar:', error);
                                                 }
                                             }}
-                                            className="text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                                            aria-label="Disconnect Google Calendar"
+                                            className="text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 px-4 py-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-red-500 w-full sm:w-auto"
                                         >
                                             Disconnect
                                         </button>
@@ -742,7 +884,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                 }
                                             }}
                                             disabled={calendarSyncing.google}
-                                            className="text-sm font-medium text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            aria-label="Connect Google Calendar"
+                                            className="text-sm font-medium text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600 px-4 py-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full sm:w-auto"
                                         >
                                             {calendarSyncing.google ? 'Connecting...' : 'Connect'}
                                         </button>
@@ -793,8 +936,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                     )}
 
                     {activeTab === 'billing' && isOrgAdmin && (
-                        <div className="space-y-6 animate-in fade-in">
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Billing & Subscription</h2>
+                        <div className="space-y-4 sm:space-y-6 animate-in fade-in">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Billing & Subscription</h2>
 
                             {/* Current Plan */}
                             <div className={CARD_CLASS}>
@@ -902,9 +1045,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                 </h3>
                                 <div className="space-y-3">
                                     {currentPlan !== 'starter' && currentPlan !== 'trial' && (
-                                        <div className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl">
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl gap-3 sm:gap-0">
                                             <div>
-                                                <p className="font-bold text-slate-800 dark:text-white">Starter</p>
+                                                <p className="font-bold text-slate-800 dark:text-white text-sm sm:text-base">Starter</p>
                                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">$99/month • 1-99 participants</p>
                                             </div>
                                             <button
@@ -912,18 +1055,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     setTargetPlan('starter');
                                                     setShowUpgradeModal(true);
                                                 }}
-                                                className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${['professional', 'business', 'enterprise'].includes(currentPlan)
+                                                aria-label={`${['professional', 'business', 'enterprise'].includes(currentPlan) ? 'Downgrade' : 'Upgrade'} to Starter plan`}
+                                                className={`flex items-center justify-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full sm:w-auto ${['professional', 'business', 'enterprise'].includes(currentPlan)
                                                     ? 'border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                                                     : 'bg-emerald-600 text-white hover:bg-emerald-700'
                                                     }`}
                                             >
                                                 {['professional', 'business', 'enterprise'].includes(currentPlan) ? (
                                                     <>
-                                                        <ArrowDown className="w-4 h-4 mr-1" /> Downgrade
+                                                        <ArrowDown className="w-4 h-4 mr-1" aria-hidden="true" /> Downgrade
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <ArrowUp className="w-4 h-4 mr-1" /> Upgrade
+                                                        <ArrowUp className="w-4 h-4 mr-1" aria-hidden="true" /> Upgrade
                                                     </>
                                                 )}
                                             </button>
@@ -1171,12 +1315,26 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
 
                             {/* Upgrade Modal */}
                             {showUpgradeModal && targetPlan && (
-                                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800">
+                                <div 
+                                    role="dialog"
+                                    aria-modal="true"
+                                    aria-labelledby="upgrade-modal-title"
+                                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                                    onClick={(e) => {
+                                        if (e.target === e.currentTarget) {
+                                            setShowUpgradeModal(false);
+                                        }
+                                    }}
+                                >
+                                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-4 sm:p-6 border border-slate-200 dark:border-slate-800 touch-action-pan-y max-h-[90vh] overflow-y-auto">
                                         <div className="flex items-center justify-between mb-4">
-                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Confirm Plan Change</h3>
-                                            <button onClick={() => setShowUpgradeModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                                                <X className="w-5 h-5" />
+                                            <h3 id="upgrade-modal-title" className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Confirm Plan Change</h3>
+                                            <button 
+                                                onClick={() => setShowUpgradeModal(false)}
+                                                aria-label="Close modal"
+                                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 touch-manipulation"
+                                            >
+                                                <X className="w-5 h-5" aria-hidden="true" />
                                             </button>
                                         </div>
                                         <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
@@ -1185,11 +1343,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                             {targetPlan === 'business' && 'You\'re changing to the Business plan at $299/month (400-999 participants).'}
                                             {targetPlan === 'enterprise' && 'You\'re upgrading to the Enterprise plan. Our sales team will contact you to discuss custom pricing for 1000+ participants.'}
                                         </p>
-                                        <div className="flex gap-3">
+                                        <div className="flex flex-col sm:flex-row gap-3">
                                             <button
                                                 onClick={() => setShowUpgradeModal(false)}
                                                 disabled={isBillingLoading}
-                                                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                                aria-label="Cancel plan change"
+                                                className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-slate-500"
                                             >
                                                 Cancel
                                             </button>
@@ -1208,7 +1367,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     }
                                                 }}
                                                 disabled={isBillingLoading}
-                                                className={BUTTON_PRIMARY + " flex-1" + (isBillingLoading ? " opacity-50" : "")}
+                                                aria-label="Continue to checkout"
+                                                className={`${BUTTON_PRIMARY} flex-1 min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 ${isBillingLoading ? " opacity-50" : ""}`}
                                             >
                                                 {isBillingLoading ? 'Redirecting to checkout...' : 'Continue to Checkout'}
                                             </button>
@@ -1219,21 +1379,36 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
 
                             {/* Cancel Confirmation Modal */}
                             {showCancelConfirm && (
-                                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800">
+                                <div 
+                                    role="dialog"
+                                    aria-modal="true"
+                                    aria-labelledby="cancel-modal-title"
+                                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                                    onClick={(e) => {
+                                        if (e.target === e.currentTarget) {
+                                            setShowCancelConfirm(false);
+                                        }
+                                    }}
+                                >
+                                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-md w-full p-4 sm:p-6 border border-slate-200 dark:border-slate-800 touch-action-pan-y max-h-[90vh] overflow-y-auto">
                                         <div className="flex items-center justify-between mb-4">
-                                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Cancel Subscription</h3>
-                                            <button onClick={() => setShowCancelConfirm(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                                                <X className="w-5 h-5" />
+                                            <h3 id="cancel-modal-title" className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Cancel Subscription</h3>
+                                            <button 
+                                                onClick={() => setShowCancelConfirm(false)}
+                                                aria-label="Close modal"
+                                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 touch-manipulation"
+                                            >
+                                                <X className="w-5 h-5" aria-hidden="true" />
                                             </button>
                                         </div>
                                         <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
                                             To cancel your subscription, please visit the billing portal.
                                         </p>
-                                        <div className="flex gap-3">
+                                        <div className="flex flex-col sm:flex-row gap-3">
                                             <button
                                                 onClick={() => setShowCancelConfirm(false)}
-                                                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                                aria-label="Close cancel subscription modal"
+                                                className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-slate-500"
                                             >
                                                 Close
                                             </button>
@@ -1243,7 +1418,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     setShowCancelConfirm(false);
                                                 }}
                                                 disabled={isBillingLoading}
-                                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                                                aria-label="Go to billing portal"
+                                                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
                                             >
                                                 {isBillingLoading ? 'Redirecting...' : 'Go to Portal'}
                                             </button>
@@ -1391,10 +1567,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                     )}
 
                     {activeTab !== 'platform-admin' && (
-                        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                            {showSuccess && <span className="text-emerald-600 text-sm font-medium flex items-center"><CheckCircle className="w-4 h-4 mr-2" /> Changes saved successfully</span>}
-                            <button onClick={handleSave} className={BUTTON_PRIMARY + " ml-auto"}>
-                                <Save className="w-4 h-4 mr-2" /> Save Changes
+                        <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0">
+                            {showSuccess && (
+                                <span className="text-emerald-600 text-sm font-medium flex items-center" role="status" aria-live="polite">
+                                    <CheckCircle className="w-4 h-4 mr-2 flex-shrink-0" aria-hidden="true" /> 
+                                    Changes saved successfully
+                                </span>
+                            )}
+                            <button 
+                                onClick={handleSave} 
+                                aria-label="Save changes"
+                                className={`${BUTTON_PRIMARY} min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 w-full sm:w-auto sm:ml-auto`}
+                            >
+                                <Save className="w-4 h-4 mr-2" aria-hidden="true" /> 
+                                Save Changes
                             </button>
                         </div>
                     )}
