@@ -1,34 +1,79 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, X, Share2, Smartphone, ChevronRight } from 'lucide-react';
+import { Download, X, Smartphone } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+
+// iOS Share Icon - matches the native iOS Share icon (square with upward arrow)
+// This is the exact shape: a rounded square with an arrow pointing up from the center top
+const IOSShareIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+  >
+    {/* Rounded square/rectangle at bottom */}
+    <rect x="4" y="10" width="16" height="12" rx="1.5" ry="1.5" />
+    {/* Upward arrow emerging from top center */}
+    <path d="M12 10V4" />
+    <path d="M8 6l4-4 4 4" />
+  </svg>
+);
 
 interface PWAInstallBannerProps {
   currentUser: { id: string } | null;
 }
 
 export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser }) => {
-  const { isInstalled, isMobile, platform, canShowPrompt, install } = usePWAInstall();
+  const { isInstalled, platform, canShowPrompt, install } = usePWAInstall();
   const [isDismissed, setIsDismissed] = useState(false);
+  const [isMobileScreen, setIsMobileScreen] = useState(false);
   const bannerRef = useRef<HTMLDivElement>(null);
 
-  // Debug logging (remove in production)
+  // Check screen size using media query (more reliable than user agent)
+  // Show on screens 768px and below (mobile/tablet)
   useEffect(() => {
-    if (currentUser) {
-      console.log('[PWA Banner Debug]', {
-        hasUser: !!currentUser,
-        isInstalled,
-        isMobile,
-        platform,
-        canShowPrompt,
-        isDismissed,
-        shouldShow: currentUser && !isInstalled && isMobile && !isDismissed
-      });
+    const checkScreenSize = () => {
+      setIsMobileScreen(window.innerWidth <= 768);
+    };
+
+    // Check immediately
+    checkScreenSize();
+
+    // Listen for resize events
+    window.addEventListener('resize', checkScreenSize);
+    
+    // Also listen to media query changes
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const handleMediaChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobileScreen(e.matches);
+    };
+    
+    // Set initial state
+    setIsMobileScreen(mediaQuery.matches);
+    
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleMediaChange);
+    } else {
+      (mediaQuery as any).addListener(handleMediaChange);
     }
-  }, [currentUser, isInstalled, isMobile, platform, canShowPrompt, isDismissed]);
+
+    return () => {
+      window.removeEventListener('resize', checkScreenSize);
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleMediaChange);
+      } else {
+        (mediaQuery as any).removeListener(handleMediaChange);
+      }
+    };
+  }, []);
 
   // Update CSS variable for banner height to adjust main content padding
   useEffect(() => {
-    if (!currentUser || isInstalled || !isMobile || isDismissed) {
+    if (!currentUser || isInstalled || !isMobileScreen || isDismissed) {
       // Reset padding when banner is hidden
       document.documentElement.style.setProperty('--pwa-banner-offset', '0px');
       return;
@@ -65,7 +110,7 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
         mediaQuery768.removeEventListener('change', handleMediaChange);
       };
     }
-  }, [currentUser, isInstalled, isMobile, isDismissed]);
+  }, [currentUser, isInstalled, isMobileScreen, isDismissed]);
 
   // Don't show if:
   // - User not signed up
@@ -73,55 +118,19 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
   // - Not mobile
   // - User dismissed (though we want it persistent, so this might not be used)
   
-  // Debug: Log why banner might not be showing (only log once per condition change)
-  useEffect(() => {
-    if (currentUser && !isInstalled && isMobile && !isDismissed) {
-      console.log('[PWA Banner] ✅ Showing banner', { 
-        platform, 
-        isMobile, 
-        canShowPrompt,
-        screenWidth: window.innerWidth,
-        screenHeight: window.innerHeight,
-        hasTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
-        userAgent: navigator.userAgent.substring(0, 50)
-      });
-    } else {
-      if (!currentUser) {
-        console.log('[PWA Banner] ❌ Not showing: No current user');
-      } else if (isInstalled) {
-        console.log('[PWA Banner] ❌ Not showing: App already installed (standalone mode)');
-      } else if (!isMobile) {
-        console.log('[PWA Banner] ❌ Not showing: Not detected as mobile device', { 
-          platform, 
-          isMobile,
-          screenWidth: window.innerWidth,
-          screenHeight: window.innerHeight,
-          hasTouch: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
-          userAgent: navigator.userAgent.substring(0, 50)
-        });
-      } else if (isDismissed) {
-        console.log('[PWA Banner] ❌ Not showing: User dismissed');
-      }
-    }
-  }, [currentUser, isInstalled, isMobile, isDismissed, platform, canShowPrompt]);
-  
-  // Fallback: If we're uncertain but have touch + small screen, show banner anyway
-  // This handles edge cases where UA detection fails
-  const hasTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const isSmallScreen = window.innerWidth <= 768;
-  const shouldShowFallback = hasTouchScreen && isSmallScreen && !isInstalled;
-  
+  // Handle dismiss - save to localStorage so it persists
+  const handleDismiss = () => {
+    setIsDismissed(true);
+    // Save dismissal preference (optional - remove if you want it to show again on refresh)
+    // localStorage.setItem('pwa-banner-dismissed', 'true');
+  };
+
   // Don't show if:
   // - User not signed up
   // - Already installed
-  // - Not mobile AND not fallback case
-  // - User dismissed (though we want it persistent, so this might not be used)
-  if (!currentUser || isInstalled || isDismissed) {
-    return null;
-  }
-  
-  // Show if mobile detected OR fallback conditions met
-  if (!isMobile && !shouldShowFallback) {
+  // - Not mobile screen size (<= 768px)
+  // - User dismissed
+  if (!currentUser || isInstalled || !isMobileScreen || isDismissed) {
     return null;
   }
 
@@ -141,7 +150,7 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
   return (
     <div 
       ref={bannerRef}
-      className="fixed left-0 right-0 z-[60] bg-emerald-600 text-white shadow-lg"
+      className="fixed left-0 right-0 z-[60] bg-emerald-600 text-white shadow-lg md:hidden"
       style={{ top: topOffset }}
     >
       <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4">
@@ -149,7 +158,7 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
           {/* Icon */}
           <div className="flex-shrink-0 mt-0.5">
             {isIOS ? (
-              <Share2 className="w-5 h-5 sm:w-6 sm:h-6" />
+              <IOSShareIcon className="w-5 h-5 sm:w-6 sm:h-6" />
             ) : (
               <Download className="w-5 h-5 sm:w-6 sm:h-6" />
             )}
@@ -165,7 +174,7 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
                 <p className="text-xs sm:text-sm text-emerald-50 leading-relaxed">
                   {isIOS ? (
                     <>
-                      Tap the <Share2 className="w-3 h-3 inline mx-0.5" /> Share button, then select{' '}
+                      Tap the <IOSShareIcon className="w-3 h-3 inline mx-0.5" /> Share button, then select{' '}
                       <strong>"Add to Home Screen"</strong> for push notifications and faster access.
                     </>
                   ) : (
@@ -177,8 +186,8 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
                 </p>
               </div>
 
-              {/* Action Button */}
-              {isAndroid && canShowPrompt ? (
+              {/* Action Button or Dismiss */}
+              {platform === 'android' && canShowPrompt ? (
                 <button
                   onClick={handleInstall}
                   className="flex-shrink-0 bg-white text-emerald-600 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-emerald-50 transition-colors flex items-center gap-1.5 shadow-sm"
@@ -188,9 +197,13 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
                   <span className="hidden sm:inline">Install</span>
                 </button>
               ) : (
-                <div className="flex-shrink-0 flex items-center text-emerald-50">
-                  <ChevronRight className="w-5 h-5" />
-                </div>
+                <button
+                  onClick={handleDismiss}
+                  className="flex-shrink-0 p-1.5 text-emerald-50 hover:text-white hover:bg-emerald-700 rounded transition-colors"
+                  aria-label="Dismiss banner"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               )}
             </div>
 
@@ -202,7 +215,7 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
                   <span>
                     <strong>Step 1:</strong> Tap Share{' '}
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-white/20 mx-0.5">
-                      <Share2 className="w-3 h-3" />
+                      <IOSShareIcon className="w-3 h-3" />
                     </span>
                     {' '}
                     <strong>Step 2:</strong> Scroll down → Tap "Add to Home Screen"

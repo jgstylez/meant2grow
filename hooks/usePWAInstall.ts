@@ -19,61 +19,160 @@ interface PWAInstallState {
  */
 /**
  * Comprehensive mobile device detection
+ * Strictly excludes desktop browsers (including touch-enabled laptops)
+ * Only shows banner on actual mobile devices (phones/tablets)
  */
 function detectMobileDevice(): { isMobile: boolean; platform: 'ios' | 'android' | 'desktop' | 'unknown' } {
   const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
   const ua = userAgent.toLowerCase();
   
+  // Collect all detection data for debugging
+  const detectionData: any = {
+    fullUserAgent: userAgent,
+    userAgentShort: userAgent.substring(0, 100),
+  };
+  
   // Check for iOS - multiple patterns to catch all variations
+  // iOS Safari, Chrome on iOS, Firefox on iOS, etc.
   const isIOS = 
     /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream ||
     (window.navigator as any).standalone === true ||
     /iphone|ipad|ipod/.test(ua) ||
-    (ua.includes('mac') && 'ontouchend' in document);
+    // Safari on iOS 13+ sometimes reports as Mac, but has touch
+    (ua.includes('macintosh') && 'ontouchend' in document && window.innerWidth < 1024);
   
-  // Check for Android
-  const isAndroid = /Android/.test(userAgent) || /android/.test(ua);
+  detectionData.isIOS = isIOS;
   
-  // Additional mobile indicators
+  // Check for Android - be comprehensive
+  // Android Chrome, Samsung Internet, Firefox, Edge, etc.
+  const isAndroid = 
+    /Android/.test(userAgent) || 
+    /android/.test(ua) ||
+    ua.includes('wv') || // WebView indicator
+    ua.includes('samsung') || // Samsung Internet
+    ua.includes('mobile'); // Generic mobile indicator
+  
+  detectionData.isAndroid = isAndroid;
+  
+  // Additional mobile indicators - check touch FIRST before using it
   const hasTouchScreen = 
     'ontouchstart' in window || 
     navigator.maxTouchPoints > 0 || 
-    (navigator as any).msMaxTouchPoints > 0;
+    (navigator as any).msMaxTouchPoints > 0 ||
+    'TouchEvent' in window;
   
-  const screenWidth = window.innerWidth || screen.width;
-  const screenHeight = window.innerHeight || screen.height;
-  const isSmallScreen = screenWidth <= 768 || screenHeight <= 768;
-  const isPortrait = screenHeight > screenWidth;
+  detectionData.hasTouchScreen = hasTouchScreen;
+  detectionData.maxTouchPoints = navigator.maxTouchPoints;
   
-  // Mobile detection: be more aggressive
-  // Consider mobile if:
-  // 1. User agent indicates iOS/Android
-  // 2. Touch screen + small screen (most reliable)
-  // 3. Touch screen + portrait orientation
+  // Check for desktop browser indicators - exclude these explicitly
+  // But be VERY careful not to exclude mobile browsers
+  // Mobile browsers often include "mobile" or have touch, so check for those first
+  const hasMobileIndicator = ua.includes('mobile') || ua.includes('phone') || hasTouchScreen;
+  
+  const hasWindowsDesktop = ua.includes('windows') && !ua.includes('phone') && !ua.includes('mobile') && !hasMobileIndicator;
+  const hasMacDesktop = ua.includes('macintosh') && 
+                       !ua.includes('iphone') && 
+                       !ua.includes('ipad') && 
+                       !ua.includes('ipod') && 
+                       !('ontouchend' in document) &&
+                       !hasMobileIndicator;
+  const hasLinuxDesktop = ua.includes('linux') && 
+                         !ua.includes('android') && 
+                         !ua.includes('mobile') && 
+                         !hasMobileIndicator;
+  const hasX11 = ua.includes('x11') && !hasMobileIndicator;
+  
+  // Only consider it desktop if we're SURE it's desktop (not mobile)
+  // If there's any mobile indicator, don't mark as desktop
+  const isDesktopBrowser = !hasMobileIndicator && (hasWindowsDesktop || hasMacDesktop || hasLinuxDesktop || hasX11);
+  
+  detectionData.desktopChecks = {
+    hasWindowsDesktop,
+    hasMacDesktop,
+    hasLinuxDesktop,
+    hasX11,
+    isDesktopBrowser,
+  };
+  
+  // Get screen dimensions
+  const screenWidth = window.innerWidth || screen.width || (window as any).screen?.width || 0;
+  const screenHeight = window.innerHeight || screen.height || (window as any).screen?.height || 0;
+  const screenAvailWidth = screen.availWidth || 0;
+  const screenAvailHeight = screen.availHeight || 0;
+  
+  detectionData.screen = {
+    width: screenWidth,
+    height: screenHeight,
+    availWidth: screenAvailWidth,
+    availHeight: screenAvailHeight,
+    devicePixelRatio: window.devicePixelRatio || 1,
+  };
+  
+  // Mobile screen size check - phones/tablets
+  // Modern phones can have larger screens, so be more lenient
+  const isPhoneSize = screenWidth <= 768;
+  const isTabletSize = screenWidth > 768 && screenWidth <= 1024 && screenHeight <= 1366;
+  const isSmallScreen = isPhoneSize || isTabletSize;
+  
+  detectionData.screenChecks = {
+    isPhoneSize,
+    isTabletSize,
+    isSmallScreen,
+  };
+  
+  // Check for mobile connection (if available)
+  const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+  const isMobileConnection = connection?.type === 'cellular';
+  const connectionType = connection?.type || 'unknown';
+  
+  detectionData.connection = {
+    available: !!connection,
+    type: connectionType,
+    isMobileConnection,
+  };
+  
+  // Mobile detection logic:
+  // Priority 1: Explicit mobile UA (iOS/Android) - most reliable
+  // Priority 2: Touch + small screen (but exclude desktop browsers first)
+  // Priority 3: Touch + mobile connection
+  
   const isMobileUA = isIOS || isAndroid;
-  const isMobileByTouch = hasTouchScreen && (isSmallScreen || isPortrait);
+  const isMobileByTouch = hasTouchScreen && isSmallScreen && !isDesktopBrowser;
+  const isMobileByConnection = hasTouchScreen && isMobileConnection && !isDesktopBrowser;
   
-  // If we have touch + small screen, it's almost certainly mobile
-  // Even if UA doesn't match (some browsers hide their mobile UA)
-  const isMobile = isMobileUA || isMobileByTouch || (hasTouchScreen && screenWidth < 1024);
+  // Final decision: mobile if we have mobile UA OR (touch + small screen AND not desktop)
+  const isMobile = isMobileUA || isMobileByTouch || isMobileByConnection;
+  
+  detectionData.mobileChecks = {
+    isMobileUA,
+    isMobileByTouch,
+    isMobileByConnection,
+    finalIsMobile: isMobile,
+  };
   
   // Determine platform
-  let platform: 'ios' | 'android' | 'desktop' | 'unknown' = 'unknown';
+  let platform: 'ios' | 'android' | 'desktop' | 'unknown' = 'desktop';
   if (isIOS) {
     platform = 'ios';
   } else if (isAndroid) {
     platform = 'android';
   } else if (isMobile) {
-    // If detected as mobile but platform unclear, try to infer
-    if (hasTouchScreen && isSmallScreen) {
-      // Could be iOS or Android, default to unknown but still show banner
-      platform = 'unknown';
-    } else {
-      platform = 'desktop';
-    }
-  } else {
-    platform = 'desktop';
+    // If detected as mobile but platform unclear
+    platform = 'unknown';
   }
+  
+  detectionData.platform = platform;
+  
+  // Comprehensive debug logging - always log to help diagnose issues
+  console.group('🔍 [Mobile Detection]');
+  console.log('User Agent:', userAgent);
+  console.log('Detection Result:', {
+    isMobile,
+    platform,
+    isDesktopBrowser,
+  });
+  console.log('Detailed Checks:', detectionData);
+  console.groupEnd();
   
   return { isMobile, platform };
 }

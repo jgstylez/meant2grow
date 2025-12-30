@@ -24,6 +24,14 @@ export default defineConfig(({ mode }) => {
           // After build, replace placeholders in service worker with actual values
           const swPath = path.resolve(__dirname, 'dist/firebase-messaging-sw.js');
           try {
+            // Check if service worker file exists
+            if (!require('fs').existsSync(swPath)) {
+              console.error('❌ Service worker file not found in dist folder!');
+              console.error('   Expected location:', swPath);
+              console.error('   Make sure public/firebase-messaging-sw.js exists and is being copied during build.');
+              return;
+            }
+
             let swContent = readFileSync(swPath, 'utf-8');
             
             // Replace placeholders with actual environment variables
@@ -35,8 +43,12 @@ export default defineConfig(({ mode }) => {
             swContent = swContent.replace('{{VITE_FIREBASE_APP_ID}}', env.VITE_FIREBASE_APP_ID || '');
             
             writeFileSync(swPath, swContent, 'utf-8');
-          } catch (error) {
-            console.warn('Could not update service worker with environment variables:', error);
+            console.log('✅ Service worker file updated with environment variables');
+          } catch (error: any) {
+            console.error('❌ Could not update service worker with environment variables:', error);
+            if (error.code === 'ENOENT') {
+              console.error('   Service worker file not found. Ensure public/firebase-messaging-sw.js exists.');
+            }
           }
         }
       }
