@@ -125,5 +125,69 @@
     word-wrap: break-word;
     overflow-wrap: break-word;
   }
+  
+  /* Ensure checkboxes are properly styled in light mode */
+  input[type="checkbox"] {
+    background-color: white !important;
+    border-color: #cbd5e1;
+  }
+  
+  input[type="checkbox"]:checked {
+    background-color: #10b981 !important;
+    border-color: #10b981;
+  }
+  
+  .dark input[type="checkbox"] {
+    background-color: #334155 !important;
+    border-color: #64748b;
+  }
+  
+  .dark input[type="checkbox"]:checked {
+    background-color: #10b981 !important;
+    border-color: #10b981;
+  }
+
+  /* Hide Recharts legend on mobile (data shown in stat cards above) */
+  .recharts-wrapper .recharts-legend-wrapper,
+  div.recharts-legend-wrapper,
+  .recharts-responsive-container .recharts-legend-wrapper {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  @media (min-width: 768px) {
+    .recharts-wrapper .recharts-legend-wrapper,
+    div.recharts-legend-wrapper,
+    .recharts-responsive-container .recharts-legend-wrapper {
+      display: block !important;
+      visibility: visible !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
+
+    /* Force horizontal layout on larger screens */
+    .recharts-default-legend {
+      display: flex !important;
+      flex-direction: row !important;
+      justify-content: center !important;
+      align-items: center !important;
+      gap: 16px !important;
+      flex-wrap: wrap !important;
+    }
+
+    .recharts-default-legend li {
+      display: inline-flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      margin: 0 !important;
+      padding: 0 8px !important;
+    }
+
+    .recharts-legend-item-text {
+      white-space: nowrap !important;
+    }
+  }
 }
 

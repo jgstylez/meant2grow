@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { User, Match, Role, MatchStatus } from '../types';
 import { INPUT_CLASS } from '../styles/common';
-import { Users, Search, X, CheckCircle, ArrowRight, Briefcase, GraduationCap, Sparkles, MessageSquare, Loader2, Repeat, Menu, Link2, Calendar } from 'lucide-react';
+import { Users, Search, X, CheckCircle, ArrowRight, Briefcase, GraduationCap, Sparkles, MessageSquare, Loader2, Repeat, List, Link2, Calendar } from 'lucide-react';
 import { getMatchSuggestions } from '../services/geminiService';
 
 interface MatchingProps {
@@ -125,8 +125,9 @@ const Matching: React.FC<MatchingProps> = ({ users, matches, onCreateMatch }) =>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="p-2 text-slate-600 dark:text-slate-400"
+            aria-label="Toggle view options"
           >
-            <Menu className="w-5 h-5" />
+            <List className="w-5 h-5" />
           </button>
         </div>
       )}

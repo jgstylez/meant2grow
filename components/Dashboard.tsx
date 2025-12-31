@@ -703,29 +703,29 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     return (
       <>
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500 px-2 sm:px-0">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Globe className="w-6 h-6 text-amber-500" />
-                Platform Operator Dashboard
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Globe className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 flex-shrink-0" />
+                <span className="truncate">Platform Operator Dashboard</span>
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                 Overview and management of all users and organizations
               </p>
             </div>
           </div>
 
           {/* Additional Platform Metrics */}
-          <div className={CARD_CLASS}>
-            <div className="flex items-center justify-between mb-6">
+          <div className={CARD_CLASS + " p-4 sm:p-6"}>
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
               <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-emerald-600" />
-                  Platform Growth Metrics
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 flex-shrink-0" />
+                  <span>Platform Growth Metrics</span>
                 </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                   Key indicators of platform health and growth
                 </p>
               </div>
@@ -734,18 +734,18 @@ const Dashboard: React.FC<DashboardProps> = ({
             {platformAdminLoading ? (
               <div className="text-center py-8 text-slate-500">Loading...</div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="p-3 sm:p-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
                   <div className="flex items-center gap-2 mb-2">
-                    <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase">
+                    <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                    <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase truncate">
                       New Users (30d)
                     </span>
                   </div>
-                  <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
+                  <div className="text-xl sm:text-2xl font-bold text-emerald-900 dark:text-emerald-100">
                     {platformStats.recentUsers}
                   </div>
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 break-words">
                     {platformStats.totalUsers > 0
                       ? `${(
                           (platformStats.recentUsers /
@@ -756,33 +756,33 @@ const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                 </div>
 
-                <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center gap-2 mb-2">
-                    <Building className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    <span className="text-xs font-medium text-blue-700 dark:text-blue-300 uppercase">
+                    <Building className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    <span className="text-xs font-medium text-blue-700 dark:text-blue-300 uppercase truncate">
                       Avg Users/Org
                     </span>
                   </div>
-                  <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                  <div className="text-xl sm:text-2xl font-bold text-blue-900 dark:text-blue-100">
                     {platformStats.totalOrgs > 0
                       ? (
                           platformStats.totalUsers / platformStats.totalOrgs
                         ).toFixed(1)
                       : "0"}
                   </div>
-                  <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 break-words">
                     Across {platformStats.totalOrgs} organizations
                   </div>
                 </div>
 
-                <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                <div className="p-3 sm:p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
                   <div className="flex items-center gap-2 mb-2">
-                    <Repeat className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300 uppercase">
+                    <Repeat className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                    <span className="text-xs font-medium text-purple-700 dark:text-purple-300 uppercase truncate">
                       Match Rate
                     </span>
                   </div>
-                  <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                  <div className="text-xl sm:text-2xl font-bold text-purple-900 dark:text-purple-100">
                     {platformStats.mentors > 0 && platformStats.mentees > 0
                       ? `${(
                           ((platformStats.activeMatches * 2) /
@@ -791,19 +791,19 @@ const Dashboard: React.FC<DashboardProps> = ({
                         ).toFixed(1)}%`
                       : "0%"}
                   </div>
-                  <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                  <div className="text-xs text-purple-600 dark:text-purple-400 mt-1 break-words">
                     Participants matched
                   </div>
                 </div>
 
-                <div className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                <div className="p-3 sm:p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
                   <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300 uppercase">
+                    <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300 uppercase truncate">
                       Goal Completion
                     </span>
                   </div>
-                  <div className="text-2xl font-bold text-amber-900 dark:text-amber-100">
+                  <div className="text-xl sm:text-2xl font-bold text-amber-900 dark:text-amber-100">
                     {platformStats.totalGoals > 0
                       ? `${(
                           (platformStats.completedGoals /
@@ -812,7 +812,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         ).toFixed(1)}%`
                       : "0%"}
                   </div>
-                  <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  <div className="text-xs text-amber-600 dark:text-amber-400 mt-1 break-words">
                     {platformStats.completedGoals} of {platformStats.totalGoals}{" "}
                     goals
                   </div>
@@ -822,115 +822,115 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Stats Overview */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3 lg:gap-4">
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">
                 Total Users
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-white">
                 {platformAdminLoading ? "..." : platformStats.totalUsers}
               </div>
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                <UserCheck className="w-3 h-3" /> Mentees
+                <UserCheck className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Mentees</span>
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-purple-600">
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600">
                 {platformAdminLoading ? "..." : platformStats.mentees}
               </div>
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                <GraduationCap className="w-3 h-3" /> Mentors
+                <GraduationCap className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Mentors</span>
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-emerald-600">
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-600">
                 {platformAdminLoading ? "..." : platformStats.mentors}
               </div>
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                <Building className="w-3 h-3" /> Organizations
+                <Building className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Organizations</span>
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-white">
                 {platformAdminLoading ? "..." : platformStats.totalOrgs}
               </div>
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                <Shield className="w-3 h-3" /> Org Admins
+                <Shield className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Org Admins</span>
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-blue-600">
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">
                 {platformAdminLoading ? "..." : platformStats.orgAdmins}
               </div>
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                <Crown className="w-3 h-3" /> Operators
+                <Crown className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Operators</span>
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-amber-600">
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-amber-600">
                 {platformAdminLoading ? "..." : platformStats.platformAdmins}
               </div>
             </div>
           </div>
 
           {/* Quick Actions & Organizations - Side by side on desktop */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Quick Actions */}
-            <div className={CARD_CLASS}>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                <Layout className="w-5 h-5 text-indigo-600" />
-                Quick Actions
+            <div className={CARD_CLASS + " p-4 sm:p-6"}>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-3 sm:mb-4 flex items-center gap-2">
+                <Layout className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" />
+                <span>Quick Actions</span>
               </h3>
               <div className="space-y-2">
                 <button
                   onClick={() => onNavigate("user-management")}
-                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left min-h-[44px] touch-manipulation"
                 >
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-emerald-600" />
-                    <span className="text-sm font-medium text-slate-900 dark:text-white">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Users className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span className="text-sm font-medium text-slate-900 dark:text-white truncate">
                       Manage All Users
                     </span>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 </button>
                 <button
                   onClick={() => onNavigate("platform-operator-management")}
-                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left min-h-[44px] touch-manipulation"
                 >
-                  <div className="flex items-center gap-2">
-                    <Crown className="w-4 h-4 text-amber-600" />
-                    <span className="text-sm font-medium text-slate-900 dark:text-white">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Crown className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <span className="text-sm font-medium text-slate-900 dark:text-white truncate">
                       Create Platform Operator
                     </span>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 </button>
                 <button
                   onClick={() => onNavigate("resources")}
-                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+                  className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left min-h-[44px] touch-manipulation"
                 >
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-emerald-600" />
-                    <span className="text-sm font-medium text-slate-900 dark:text-white">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Globe className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span className="text-sm font-medium text-slate-900 dark:text-white truncate">
                       Manage Content
                     </span>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 </button>
               </div>
             </div>
 
             {/* Organizations */}
-            <div className={CARD_CLASS}>
+            <div className={CARD_CLASS + " p-4 sm:p-6"}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Building className="w-4 h-4 text-blue-600" />
-                  Organizations
+                  <Building className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                  <span>Organizations</span>
                 </h3>
                 <button
                   onClick={() => onNavigate("user-management:organizations")}
-                  className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                  className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 flex-shrink-0 min-h-[32px] touch-manipulation"
                 >
                   View All <ChevronRight className="w-3 h-3" />
                 </button>
@@ -952,10 +952,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                     return (
                       <div
                         key={org.id}
-                        className="p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        className="p-2.5 sm:p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer min-h-[44px] sm:min-h-0 flex items-center touch-manipulation"
                         onClick={() => onNavigate("user-management")}
                       >
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between gap-2 w-full min-w-0">
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium text-slate-900 dark:text-white truncate">
                               {org.name}
@@ -967,14 +967,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                           <span
                             className={`px-1.5 py-0.5 rounded text-xs shrink-0 ${
                               org.subscriptionTier === "enterprise"
-                                ? "bg-purple-100 text-purple-800"
+                                ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
                                 : org.subscriptionTier === "business"
-                                ? "bg-purple-100 text-purple-800"
+                                ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
                                 : org.subscriptionTier === "professional"
-                                ? "bg-blue-100 text-blue-800"
+                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
                                 : org.subscriptionTier === "starter"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-slate-100 text-slate-800"
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
                             }`}
                           >
                             {org.subscriptionTier}
@@ -989,17 +989,17 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Users Section - Full width */}
-          <div className={CARD_CLASS}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-emerald-600" />
-                Users
+          <div className={CARD_CLASS + " p-4 sm:p-6"}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 flex-shrink-0" />
+                <span>Users</span>
               </h2>
               <button
                 onClick={() => onNavigate("user-management:users")}
-                className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                className="text-xs sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 self-start sm:self-auto min-h-[32px] touch-manipulation"
               >
-                View All <ChevronRight className="w-4 h-4" />
+                View All <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
               </button>
             </div>
 
@@ -1011,7 +1011,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 placeholder="Search users by name, email, or company..."
                 value={userSearchQuery}
                 onChange={(e) => setUserSearchQuery(e.target.value)}
-                className={INPUT_CLASS + " pl-10 text-sm"}
+                className={INPUT_CLASS + " pl-10 text-sm min-h-[44px]"}
               />
             </div>
 
@@ -1029,7 +1029,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 {filteredUsers.map((u) => (
                   <div
                     key={u.id}
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer min-h-[60px] sm:min-h-0 touch-manipulation"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -1039,15 +1039,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <img
                       src={u.avatar}
                       alt={u.name}
-                      className="w-10 h-10 rounded-full"
+                      className="w-10 h-10 rounded-full flex-shrink-0"
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-slate-900 dark:text-white truncate">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 mb-1">
+                        <span className="font-medium text-sm sm:text-base text-slate-900 dark:text-white truncate">
                           {u.name}
                         </span>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${getRoleBadgeColor(
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${getRoleBadgeColor(
                             u.role
                           )}`}
                         >
@@ -1055,14 +1055,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                           {u.role}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                        <span className="flex items-center gap-1 truncate">
-                          <Mail className="w-3 h-3" />
-                          {u.email}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-xs text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1 min-w-0">
+                          <Mail className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{u.email}</span>
                         </span>
-                        <span className="flex items-center gap-1 truncate">
-                          <Building className="w-3 h-3" />
-                          {getOrganizationName(u.organizationId)}
+                        <span className="flex items-center gap-1 min-w-0">
+                          <Building className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{getOrganizationName(u.organizationId)}</span>
                         </span>
                       </div>
                     </div>
@@ -1073,16 +1073,16 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Platform Analytics Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {/* Matches Analytics */}
-            <div className={CARD_CLASS}>
-              <div className="flex items-center justify-between mb-6">
+            <div className={CARD_CLASS + " p-4 sm:p-6"}>
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Repeat className="w-5 h-5 text-emerald-600" />
-                    Matches Overview
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Repeat className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 flex-shrink-0" />
+                    <span>Matches Overview</span>
                   </h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                     Platform-wide mentorship bridges
                   </p>
                 </div>
@@ -1094,25 +1094,25 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                    <div className="text-center p-3 sm:p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                      <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+                    <div className="text-center p-2.5 sm:p-3 lg:p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                      <div className="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                         {platformStats.activeMatches}
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         Active
                       </div>
                     </div>
-                    <div className="text-center p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    <div className="text-center p-2.5 sm:p-3 lg:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600 dark:text-blue-400">
                         {platformStats.completedMatches}
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         Completed
                       </div>
                     </div>
-                    <div className="text-center p-3 sm:p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                    <div className="text-center p-2.5 sm:p-3 lg:p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <div className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-white">
                         {platformStats.totalMatches}
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
@@ -1121,19 +1121,19 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   </div>
                   {platformStats.totalMatches > 0 && (
-                    <div className="h-32">
+                    <div className="w-full" style={{ height: '112px' }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={[
                               {
                                 name: "Active",
-                                value: platformStats.activeMatches,
+                                value: platformStats.activeMatches || 0,
                                 color: "#10b981",
                               },
                               {
                                 name: "Completed",
-                                value: platformStats.completedMatches,
+                                value: platformStats.completedMatches || 0,
                                 color: "#3b82f6",
                               },
                             ]}
@@ -1143,7 +1143,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             label={({ name, percent }) =>
                               `${name}: ${(percent * 100).toFixed(0)}%`
                             }
-                            outerRadius={40}
+                            outerRadius={45}
                             fill="#8884d8"
                             dataKey="value"
                           >
@@ -1151,7 +1151,16 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <Cell key="cell-1" fill="#3b82f6" />
                           </Pie>
                           <Tooltip />
-                          <Legend />
+                          <Legend 
+                            verticalAlign="bottom" 
+                            align="center"
+                            height={36}
+                            iconType="circle"
+                            wrapperStyle={{ 
+                              paddingTop: '8px'
+                            }}
+                            formatter={(value) => <span style={{ fontSize: '12px' }}>{value}</span>}
+                          />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -1161,12 +1170,12 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             {/* Goals Analytics */}
-            <div className={CARD_CLASS}>
-              <div className="flex items-center justify-between mb-6">
+            <div className={CARD_CLASS + " p-4 sm:p-6"}>
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Target className="w-5 h-5 text-purple-600" />
-                    Goals Overview
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Target className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
+                    <span>Goals Overview</span>
                   </h2>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     Goal tracking across all organizations
@@ -1180,25 +1189,25 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                    <div className="text-center p-3 sm:p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                      <div className="text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+                    <div className="text-center p-2.5 sm:p-3 lg:p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                      <div className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600 dark:text-purple-400">
                         {platformStats.completedGoals}
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         Completed
                       </div>
                     </div>
-                    <div className="text-center p-3 sm:p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                      <div className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">
+                    <div className="text-center p-2.5 sm:p-3 lg:p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <div className="text-lg sm:text-xl lg:text-2xl font-bold text-amber-600 dark:text-amber-400">
                         {platformStats.inProgressGoals}
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         In Progress
                       </div>
                     </div>
-                    <div className="text-center p-3 sm:p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                    <div className="text-center p-2.5 sm:p-3 lg:p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <div className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-white">
                         {platformStats.totalGoals}
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
@@ -1241,24 +1250,24 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Ratings & Reviews - Combined - Full Width */}
-          <div className={CARD_CLASS}>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Star className="w-5 h-5 text-amber-500" />
-                    Ratings & Reviews
+          <div className={CARD_CLASS + " p-4 sm:p-6"}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0 flex-1">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Star className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 flex-shrink-0" />
+                    <span>Ratings & Reviews</span>
                   </h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                     Platform-wide feedback metrics and approval management
                   </p>
                 </div>
-                <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full">
+                <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full w-fit">
                   Platform Operator
                 </span>
               </div>
               {allRatings.filter((r) => !r.isApproved).length > 0 && (
-                <span className="px-3 py-1 text-sm font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-full">
+                <span className="px-3 py-1 text-xs sm:text-sm font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-full w-fit">
                   {allRatings.filter((r) => !r.isApproved).length} Pending
                 </span>
               )}
@@ -1270,17 +1279,17 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="space-y-6">
                 {/* Metrics Section */}
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
-                    <div className="text-center p-3 sm:p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                      <div className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:gap-4">
+                    <div className="text-center p-2.5 sm:p-3 lg:p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <div className="text-lg sm:text-xl lg:text-2xl font-bold text-amber-600 dark:text-amber-400">
                         {platformStats.approvedRatings}
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         Approved
                       </div>
                     </div>
-                    <div className="text-center p-3 sm:p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                    <div className="text-center p-2.5 sm:p-3 lg:p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <div className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-white">
                         {platformStats.totalRatings}
                       </div>
                       <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
@@ -1289,14 +1298,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   </div>
                   {platformStats.approvedRatings > 0 && (
-                    <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="text-center p-3 sm:p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
                       <div className="flex items-center justify-center gap-2 mb-2">
-                        <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
-                        <div className="text-3xl font-bold text-amber-900 dark:text-amber-100">
+                        <Star className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 fill-amber-500 flex-shrink-0" />
+                        <div className="text-2xl sm:text-3xl font-bold text-amber-900 dark:text-amber-100">
                           {platformStats.avgRating.toFixed(1)}
                         </div>
                       </div>
-                      <div className="text-sm text-amber-700 dark:text-amber-300">
+                      <div className="text-xs sm:text-sm text-amber-700 dark:text-amber-300">
                         Average Rating
                       </div>
                     </div>
@@ -1304,14 +1313,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 {/* Pending Reviews Section */}
-                <div className="border-t border-slate-200 dark:border-slate-800 pt-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <AlertCircle className="w-5 h-5 text-amber-500" />
-                    <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                <div className="border-t border-slate-200 dark:border-slate-800 pt-4 sm:pt-6">
+                  <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 flex-shrink-0" />
+                    <h3 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">
                       Pending Reviews Approval
                     </h3>
                   </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-4">
                     Review and approve or reject ratings from all organizations
                     across the platform
                   </p>
@@ -1339,18 +1348,18 @@ const Dashboard: React.FC<DashboardProps> = ({
                           return (
                             <div
                               key={rating.id}
-                              className="p-4 border-2 border-amber-200 dark:border-amber-800 rounded-lg bg-amber-50/50 dark:bg-amber-900/10"
+                              className="p-3 sm:p-4 border-2 border-amber-200 dark:border-amber-800 rounded-lg bg-amber-50/50 dark:bg-amber-900/10"
                             >
-                              <div className="flex justify-between items-start gap-4">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Building className="w-4 h-4 text-blue-500" />
+                              <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-4">
+                                <div className="flex-1 min-w-0 w-full">
+                                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                    <Building className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500 flex-shrink-0" />
                                     <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
                                       {ratingOrg?.name ||
                                         "Unknown Organization"}
                                     </span>
                                   </div>
-                                  <p className="text-sm font-medium text-slate-900 dark:text-white mb-1">
+                                  <p className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white mb-1 break-words">
                                     <span className="font-semibold">
                                       {fromUser?.name || "Unknown User"}
                                     </span>
@@ -1361,11 +1370,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                                       {toUser?.name || "Unknown User"}
                                     </span>
                                   </p>
-                                  <div className="flex items-center gap-1 mt-1 mb-2">
+                                  <div className="flex items-center gap-1 mt-1 mb-2 flex-wrap">
                                     {[...Array(5)].map((_, i) => (
                                       <Star
                                         key={i}
-                                        className={`w-4 h-4 ${
+                                        className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${
                                           i < rating.score
                                             ? "text-amber-400 fill-amber-400"
                                             : "text-slate-300 dark:text-slate-600"
@@ -1377,7 +1386,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     </span>
                                   </div>
                                   {rating.comment && (
-                                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 italic line-clamp-3 bg-white dark:bg-slate-800 p-3 rounded border border-slate-200 dark:border-slate-700">
+                                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2 italic line-clamp-3 bg-white dark:bg-slate-800 p-2.5 sm:p-3 rounded border border-slate-200 dark:border-slate-700 break-words">
                                       "{rating.comment}"
                                     </p>
                                   )}
@@ -1386,10 +1395,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     {new Date(rating.date).toLocaleDateString()}
                                   </p>
                                 </div>
-                                <div className="flex flex-col gap-2 shrink-0">
+                                <div className="flex flex-row sm:flex-col gap-2 shrink-0 w-full sm:w-auto">
                                   <button
                                     onClick={() => onApproveRating(rating.id)}
-                                    className="p-2.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-600 transition-colors shadow-sm flex items-center justify-center gap-1"
+                                    className="flex-1 sm:flex-none p-2.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-600 transition-colors shadow-sm flex items-center justify-center gap-1 min-h-[44px] touch-manipulation"
                                     title="Approve Review"
                                   >
                                     <Check className="w-4 h-4" />
@@ -1400,7 +1409,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                   {onRejectRating && (
                                     <button
                                       onClick={() => onRejectRating(rating.id)}
-                                      className="p-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 dark:hover:bg-red-600 transition-colors shadow-sm flex items-center justify-center gap-1"
+                                      className="flex-1 sm:flex-none p-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 dark:hover:bg-red-600 transition-colors shadow-sm flex items-center justify-center gap-1 min-h-[44px] touch-manipulation"
                                       title="Reject Review"
                                     >
                                       <X className="w-4 h-4" />
@@ -1666,31 +1675,31 @@ const Dashboard: React.FC<DashboardProps> = ({
     return (
       <>
         {renderParticipantsModal()}
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500 px-2 sm:px-0">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
-            <div>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="min-w-0 flex-1">
               {programSettings?.programName && (
                 <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">
                   {programSettings.programName}
                 </div>
               )}
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h1 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 {organization?.logo && !orgLogoError ? (
                   <img
                     src={organization.logo}
                     alt={organization.name}
-                    className="w-6 h-6 object-contain"
+                    className="w-5 h-5 sm:w-6 sm:h-6 object-contain flex-shrink-0"
                     onError={() => {
                       setOrgLogoError(true);
                     }}
                   />
                 ) : (
-                  <Building className="w-6 h-6 text-blue-500" />
+                  <Building className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 flex-shrink-0" />
                 )}
-                {organization?.name || "Organization Dashboard"}
+                <span className="truncate">{organization?.name || "Organization Dashboard"}</span>
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                 Manage your organization, users, bridges, and resources
               </p>
             </div>
@@ -1708,21 +1717,21 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Organization Overview Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <div className={CARD_CLASS}>
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h3 className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+            <div className={CARD_CLASS + " p-3 sm:p-4"}>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <h3 className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium truncate">
                   Total Participants
                 </h3>
-                <Users className="text-emerald-500 w-4 h-4 sm:w-5 sm:h-5" />
+                <Users className="text-emerald-500 w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
               </div>
-              <p className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 dark:text-white">
                 {totalParticipants}
               </p>
-              <div className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1 sm:mt-2 flex items-center gap-2">
+              <div className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1 sm:mt-2 flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => setShowParticipantsModal("mentors")}
-                  className={`transition-colors ${
+                  className={`transition-colors min-h-[32px] touch-manipulation ${
                     mentorCount === 0
                       ? "cursor-not-allowed opacity-50"
                       : "hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
@@ -1734,7 +1743,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <span className="text-slate-300 dark:text-slate-600">•</span>
                 <button
                   onClick={() => setShowParticipantsModal("mentees")}
-                  className={`transition-colors ${
+                  className={`transition-colors min-h-[32px] touch-manipulation ${
                     menteeCount === 0
                       ? "cursor-not-allowed opacity-50"
                       : "hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
@@ -1746,31 +1755,31 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
-            <div className={CARD_CLASS}>
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h3 className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+            <div className={CARD_CLASS + " p-3 sm:p-4"}>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <h3 className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium truncate">
                   Active Bridges
                 </h3>
-                <Repeat className="text-blue-500 w-4 h-4 sm:w-5 sm:h-5" />
+                <Repeat className="text-blue-500 w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
               </div>
-              <p className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 dark:text-white">
                 {activeMatches}
               </p>
-              <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1 sm:mt-2">
+              <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1 sm:mt-2 break-words">
                 {activeMatches > 0
                   ? `${matchedParticipants} participants matched`
                   : "No active matches"}
               </p>
             </div>
 
-            <div className={CARD_CLASS}>
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h3 className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+            <div className={CARD_CLASS + " p-3 sm:p-4"}>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <h3 className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium truncate">
                   Pending Reviews
                 </h3>
-                <AlertCircle className="text-amber-500 w-4 h-4 sm:w-5 sm:h-5" />
+                <AlertCircle className="text-amber-500 w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
               </div>
-              <p className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 dark:text-white">
                 {pendingReviews}
               </p>
               <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 mt-1 sm:mt-2">
@@ -1780,36 +1789,36 @@ const Dashboard: React.FC<DashboardProps> = ({
 
             {!programSettings ? (
               <div
-                className={`${CARD_CLASS} border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10`}
+                className={`${CARD_CLASS} p-3 sm:p-4 border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-400 font-bold">
+                  <h3 className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-400 font-bold truncate">
                     Program Setup
                   </h3>
-                  <Layout className="text-emerald-500 w-4 h-4 sm:w-5 sm:h-5" />
+                  <Layout className="text-emerald-500 w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
                 </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mb-2 sm:mb-3">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mb-2 sm:mb-3 break-words">
                   Configure branding and signup forms.
                 </p>
                 <button
                   onClick={() => onNavigate("setup")}
-                  className="w-full py-1.5 sm:py-2 bg-emerald-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center"
+                  className="w-full py-2 sm:py-2 bg-emerald-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center min-h-[44px] touch-manipulation"
                 >
                   Configure <ArrowRight className="w-3 h-3 ml-1" />
                 </button>
               </div>
             ) : (
-              <div className={CARD_CLASS}>
+              <div className={CARD_CLASS + " p-3 sm:p-4"}>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  <h3 className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium truncate">
                     Program Status
                   </h3>
-                  <CheckCircle className="text-emerald-500 w-4 h-4 sm:w-5 sm:h-5" />
+                  <CheckCircle className="text-emerald-500 w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
                 </div>
-                <p className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white">
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 dark:text-white">
                   Active
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 sm:mt-2 flex items-center truncate">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 sm:mt-2 flex items-center min-w-0">
                   <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 mr-1.5 sm:mr-2 shrink-0"></span>
                   <span className="truncate">
                     {programSettings.programName}
@@ -1820,7 +1829,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Management Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
             {/* Manage Users */}
             {(isPlatformAdmin || isAdmin) && (
               <button
@@ -1832,23 +1841,23 @@ const Dashboard: React.FC<DashboardProps> = ({
                     onNavigate("participants");
                   }
                 }}
-                className={`${CARD_CLASS} text-left hover:shadow-lg transition-all cursor-pointer group`}
+                className={`${CARD_CLASS} p-4 sm:p-6 text-left hover:shadow-lg transition-all cursor-pointer group min-h-[120px] sm:min-h-0 touch-manipulation`}
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
-                    <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors flex-shrink-0">
+                    <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                     Manage Users
                   </h3>
                 </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3 sm:mb-4 break-words">
                   Add, edit, or remove users from your organization. Manage
                   roles and permissions.
                 </p>
-                <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium text-sm">
+                <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium text-xs sm:text-sm">
                   Go to User Management{" "}
-                  <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                  <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1 group-hover:translate-x-1 transition-transform flex-shrink-0" />
                 </div>
               </button>
             )}
@@ -1856,74 +1865,74 @@ const Dashboard: React.FC<DashboardProps> = ({
             {/* Manage Bridges & Matches */}
             <button
               onClick={() => onNavigate("matching")}
-              className={`${CARD_CLASS} text-left hover:shadow-lg transition-all cursor-pointer group`}
+              className={`${CARD_CLASS} p-4 sm:p-6 text-left hover:shadow-lg transition-all cursor-pointer group min-h-[120px] sm:min-h-0 touch-manipulation`}
             >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900/50 transition-colors">
-                  <Repeat className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900/50 transition-colors flex-shrink-0">
+                  <Repeat className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                   Manage Bridges
                 </h3>
               </div>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3 sm:mb-4 break-words">
                 Create and manage mentorship bridges between mentors and
                 mentees. View active matches.
               </p>
-              <div className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium text-sm">
+              <div className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium text-xs sm:text-sm">
                 Go to Matching{" "}
-                <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1 group-hover:translate-x-1 transition-transform flex-shrink-0" />
               </div>
             </button>
 
             {/* Manage Resources */}
             <button
               onClick={() => onNavigate("resources")}
-              className={`${CARD_CLASS} text-left hover:shadow-lg transition-all cursor-pointer group`}
+              className={`${CARD_CLASS} p-4 sm:p-6 text-left hover:shadow-lg transition-all cursor-pointer group min-h-[120px] sm:min-h-0 touch-manipulation`}
             >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors">
-                  <BookOpen className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors flex-shrink-0">
+                  <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                   Manage Resources
                 </h3>
               </div>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3 sm:mb-4 break-words">
                 Create and manage articles, guides, templates, and videos for
                 your organization.
               </p>
-              <div className="flex items-center text-purple-600 dark:text-purple-400 font-medium text-sm">
+              <div className="flex items-center text-purple-600 dark:text-purple-400 font-medium text-xs sm:text-sm">
                 Go to Resources{" "}
-                <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1 group-hover:translate-x-1 transition-transform flex-shrink-0" />
               </div>
             </button>
           </div>
 
           {/* Communities Section */}
-          <div className={CARD_CLASS}>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-indigo-500" />
-              Community Groups
+          <div className={CARD_CLASS + " p-4 sm:p-6"}>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-3 sm:mb-4 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500 flex-shrink-0" />
+              <span>Community Groups</span>
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-4 sm:mb-6">
               Access and monitor the main communities for mentors and mentees
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               {/* Mentors Circle */}
               <button
                 onClick={() => onNavigate("chat-mentors")}
-                className="p-6 border-2 border-indigo-200 dark:border-indigo-800 rounded-xl hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer group text-left"
+                className="p-4 sm:p-6 border-2 border-indigo-200 dark:border-indigo-800 rounded-xl hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer group text-left min-h-[120px] sm:min-h-0 touch-manipulation"
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                    <GraduationCap className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex-shrink-0">
+                    <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                     Mentors Circle
                   </h3>
                 </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3 sm:mb-4 break-words">
                   View and participate in the mentors community group chat
                 </p>
                 <div className="flex items-center justify-between">
@@ -1931,24 +1940,24 @@ const Dashboard: React.FC<DashboardProps> = ({
                     {mentorCount} {mentorCount === 1 ? "mentor" : "mentors"} in
                     group
                   </span>
-                  <ChevronRight className="w-5 h-5 text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform" />
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform flex-shrink-0" />
                 </div>
               </button>
 
               {/* Mentees Hub */}
               <button
                 onClick={() => onNavigate("chat-mentees")}
-                className="p-6 border-2 border-teal-200 dark:border-teal-800 rounded-xl hover:border-teal-400 dark:hover:border-teal-600 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-all cursor-pointer group text-left"
+                className="p-4 sm:p-6 border-2 border-teal-200 dark:border-teal-800 rounded-xl hover:border-teal-400 dark:hover:border-teal-600 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 transition-all cursor-pointer group text-left min-h-[120px] sm:min-h-0 touch-manipulation"
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
-                    <UserCheck className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                  <div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex-shrink-0">
+                    <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-teal-600 dark:text-teal-400" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                     Mentees Hub
                   </h3>
                 </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3 sm:mb-4 break-words">
                   View and participate in the mentees community group chat
                 </p>
                 <div className="flex items-center justify-between">
@@ -1956,7 +1965,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     {menteeCount} {menteeCount === 1 ? "mentee" : "mentees"} in
                     group
                   </span>
-                  <ChevronRight className="w-5 h-5 text-teal-600 dark:text-teal-400 group-hover:translate-x-1 transition-transform" />
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-teal-600 dark:text-teal-400 group-hover:translate-x-1 transition-transform flex-shrink-0" />
                 </div>
               </button>
             </div>

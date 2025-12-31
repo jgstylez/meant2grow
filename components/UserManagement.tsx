@@ -491,86 +491,86 @@ const UserManagement: React.FC<UserManagementProps> = ({
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500 px-2 sm:px-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Users className="w-6 h-6 text-emerald-600" />
-            User Management
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 flex-shrink-0" />
+            <span className="truncate">User Management</span>
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Manage all users and organizations across the platform
           </p>
         </div>
         {isPlatformAdmin && (
           <button
             onClick={() => setShowEmailModal(true)}
-            className={`${BUTTON_PRIMARY} flex items-center gap-2`}
+            className={`${BUTTON_PRIMARY} flex items-center gap-2 min-h-[44px] touch-manipulation w-full sm:w-auto`}
           >
             <Mail className="w-4 h-4" />
-            Email Org Admins
+            <span className="text-sm sm:text-base">Email Org Admins</span>
           </button>
         )}
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <div className={CARD_CLASS}>
-          <div className="text-sm text-slate-500 dark:text-slate-400">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div className={CARD_CLASS + " p-4 sm:p-6"}>
+          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
             Total Users
           </div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white">
+          <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
             {stats.totalUsers}
           </div>
         </div>
-        <div className={CARD_CLASS}>
-          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+        <div className={CARD_CLASS + " p-4 sm:p-6"}>
+          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
             <UserCheck className="w-3 h-3" /> Mentees
           </div>
-          <div className="text-2xl font-bold text-purple-600">
+          <div className="text-xl sm:text-2xl font-bold text-purple-600">
             {stats.mentees}
           </div>
         </div>
-        <div className={CARD_CLASS}>
-          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+        <div className={CARD_CLASS + " p-4 sm:p-6"}>
+          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
             <GraduationCap className="w-3 h-3" /> Mentors
           </div>
-          <div className="text-2xl font-bold text-emerald-600">
+          <div className="text-xl sm:text-2xl font-bold text-emerald-600">
             {stats.mentors}
           </div>
         </div>
-        <div className={CARD_CLASS}>
-          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+        <div className={CARD_CLASS + " p-4 sm:p-6"}>
+          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
             <Building className="w-3 h-3" /> Organizations
           </div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-white">
+          <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
             {stats.totalOrgs}
           </div>
         </div>
-        <div className={CARD_CLASS}>
-          <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+        <div className={CARD_CLASS + " p-4 sm:p-6"}>
+          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
             <Shield className="w-3 h-3" /> Org Admins
           </div>
-          <div className="text-2xl font-bold text-blue-600">
+          <div className="text-xl sm:text-2xl font-bold text-blue-600">
             {stats.orgAdmins}
         </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
         <button
           type="button"
           onClick={() => setActiveTab("users")}
-          className={`px-4 py-2 font-medium transition-colors cursor-pointer ${
+          className={`px-3 sm:px-4 py-2.5 sm:py-2 font-medium transition-colors cursor-pointer min-h-[44px] sm:min-h-0 flex items-center justify-center touch-manipulation whitespace-nowrap ${
             activeTab === "users"
               ? "text-emerald-600 border-b-2 border-emerald-600"
               : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
             }`}
         >
           <Users className="w-4 h-4 inline mr-2" />
-          Users ({users.length})
+          <span className="text-sm sm:text-base">Users ({users.length})</span>
         </button>
         <button
           type="button"
@@ -579,14 +579,14 @@ const UserManagement: React.FC<UserManagementProps> = ({
             e.stopPropagation();
             setActiveTab("organizations");
           }}
-          className={`px-4 py-2 font-medium transition-colors cursor-pointer ${
+          className={`px-3 sm:px-4 py-2.5 sm:py-2 font-medium transition-colors cursor-pointer min-h-[44px] sm:min-h-0 flex items-center justify-center touch-manipulation whitespace-nowrap ${
             activeTab === "organizations"
               ? "text-emerald-600 border-b-2 border-emerald-600"
               : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
             }`}
         >
           <Building className="w-4 h-4 inline mr-2" />
-          Organizations ({organizations.length})
+          <span className="text-sm sm:text-base">Organizations ({organizations.length})</span>
         </button>
       </div>
 
@@ -594,7 +594,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
       {activeTab === "users" && (
         <>
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col gap-3 sm:gap-4">
             <div className="flex-1 relative">
               <Search className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" />
               <input
@@ -602,49 +602,51 @@ const UserManagement: React.FC<UserManagementProps> = ({
                 placeholder="Search by name, email, or company..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={INPUT_CLASS + " pl-10"}
+                className={INPUT_CLASS + " pl-10 min-h-[44px]"}
               />
             </div>
-            <select
-              value={participantTypeFilter}
-              onChange={(e) =>
-                setParticipantTypeFilter(
-                  e.target.value as "MENTOR" | "MENTEE" | "ALL"
-                )
-              }
-              className={INPUT_CLASS + " w-full sm:w-40"}
-            >
-              <option value="ALL">All Participants</option>
-              <option value="MENTOR">Mentors Only</option>
-              <option value="MENTEE">Mentees Only</option>
-            </select>
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as Role | "ALL")}
-              className={INPUT_CLASS + " w-full sm:w-48"}
-            >
-              <option value="ALL">All Roles</option>
-              <option value={Role.ADMIN}>Organization Admin</option>
-              <option value={Role.MENTOR}>Mentor</option>
-              <option value={Role.MENTEE}>Mentee</option>
-            </select>
-            <select
-              value={orgFilter}
-              onChange={(e) => setOrgFilter(e.target.value)}
-              className={INPUT_CLASS + " w-full sm:w-64"}
-            >
-              <option value="ALL">All Organizations</option>
-              {organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-              <option value="platform">Platform</option>
-            </select>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <select
+                value={participantTypeFilter}
+                onChange={(e) =>
+                  setParticipantTypeFilter(
+                    e.target.value as "MENTOR" | "MENTEE" | "ALL"
+                  )
+                }
+                className={INPUT_CLASS + " min-h-[44px]"}
+              >
+                <option value="ALL">All Participants</option>
+                <option value="MENTOR">Mentors Only</option>
+                <option value="MENTEE">Mentees Only</option>
+              </select>
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value as Role | "ALL")}
+                className={INPUT_CLASS + " min-h-[44px]"}
+              >
+                <option value="ALL">All Roles</option>
+                <option value={Role.ADMIN}>Organization Admin</option>
+                <option value={Role.MENTOR}>Mentor</option>
+                <option value={Role.MENTEE}>Mentee</option>
+              </select>
+              <select
+                value={orgFilter}
+                onChange={(e) => setOrgFilter(e.target.value)}
+                className={INPUT_CLASS + " min-h-[44px]"}
+              >
+                <option value="ALL">All Organizations</option>
+                {organizations.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+                <option value="platform">Platform</option>
+              </select>
+            </div>
           </div>
 
           {/* Users List */}
-          <div className="space-y-3">
+          <div className="space-y-3 sm:space-y-3">
             {filteredUsers.length === 0 ? (
               <div className={CARD_CLASS + " text-center py-8"}>
                 <Users className="w-12 h-12 text-slate-400 mx-auto mb-2" />
@@ -657,24 +659,24 @@ const UserManagement: React.FC<UserManagementProps> = ({
                   key={user.id}
                     className={
                       CARD_CLASS +
-                      " cursor-pointer hover:shadow-md transition-shadow"
+                      " cursor-pointer hover:shadow-md transition-shadow p-4 sm:p-6"
                     }
                   onClick={() => setSelectedUser(user)}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4 flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
                       <img
                         src={user.avatar}
                         alt={user.name}
-                        className="w-12 h-12 rounded-full"
+                        className="w-12 h-12 sm:w-12 sm:h-12 rounded-full flex-shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-slate-900 dark:text-white">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-slate-900 dark:text-white truncate">
                             {user.name}
                           </h3>
                             <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${getRoleBadgeColor(
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${getRoleBadgeColor(
                                 user.role
                               )}`}
                             >
@@ -682,16 +684,18 @@ const UserManagement: React.FC<UserManagementProps> = ({
                             {user.role}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
-                          <span className="flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {user.email}
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4 text-sm text-slate-600 dark:text-slate-400">
+                          <span className="flex items-center gap-1 min-w-0">
+                            <Mail className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{user.email}</span>
                           </span>
-                          <span className="flex items-center gap-1">
-                            <Building className="w-3 h-3" />
-                            {getOrganizationName(user.organizationId)}
+                          <span className="flex items-center gap-1 min-w-0">
+                            <Building className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{getOrganizationName(user.organizationId)}</span>
                           </span>
-                            {user.company && <span>{user.company}</span>}
+                            {user.company && (
+                              <span className="truncate">{user.company}</span>
+                            )}
                         </div>
                         {expandedUsers.has(user.id) && (
                           <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 space-y-2 text-sm">
@@ -724,28 +728,28 @@ const UserManagement: React.FC<UserManagementProps> = ({
                       </div>
                     </div>
                       <div
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 sm:gap-2 flex-shrink-0"
                         onClick={(e) => e.stopPropagation()}
                       >
                       <button
                         onClick={() => toggleUserExpanded(user.id)}
-                        className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                        className="p-2.5 sm:p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center touch-manipulation"
                           title={
                             expandedUsers.has(user.id) ? "Collapse" : "Expand"
                           }
                         >
                           {expandedUsers.has(user.id) ? (
-                            <ChevronUp className="w-4 h-4" />
+                            <ChevronUp className="w-5 h-5 sm:w-4 sm:h-4" />
                           ) : (
-                            <ChevronDown className="w-4 h-4" />
+                            <ChevronDown className="w-5 h-5 sm:w-4 sm:h-4" />
                           )}
                       </button>
                       <button
                         onClick={() => setEditingUser(user)}
-                        className="p-2 text-blue-400 hover:text-blue-600"
+                        className="p-2.5 sm:p-2 text-blue-400 hover:text-blue-600 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center touch-manipulation"
                         title="Edit"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <Edit2 className="w-5 h-5 sm:w-4 sm:h-4" />
                       </button>
                       {isPlatformAdmin && user.id !== currentUser.id && (
                         <button
@@ -753,19 +757,19 @@ const UserManagement: React.FC<UserManagementProps> = ({
                             e.stopPropagation();
                             setImpersonateUser(user);
                           }}
-                          className="p-2 text-emerald-400 hover:text-emerald-600"
+                          className="p-2.5 sm:p-2 text-emerald-400 hover:text-emerald-600 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center touch-manipulation"
                           title="Login as this user"
                         >
-                          <LogIn className="w-4 h-4" />
+                          <LogIn className="w-5 h-5 sm:w-4 sm:h-4" />
                         </button>
                       )}
                       {user.id !== currentUser.id && (
                         <button
                           onClick={() => setShowDeleteConfirm(user.id)}
-                          className="p-2 text-red-400 hover:text-red-600"
+                          className="p-2.5 sm:p-2 text-red-400 hover:text-red-600 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center touch-manipulation"
                           title="Delete"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-5 h-5 sm:w-4 sm:h-4" />
                         </button>
                       )}
                     </div>
@@ -775,27 +779,28 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
                 {/* Users Pagination */}
                 {filteredUsers.length > usersPerPage && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-600 dark:text-slate-400">
-                        Items per page:
-                      </span>
-                      <select
-                        value={usersPerPage}
-                        onChange={(e) => {
-                          setUsersPerPage(Number(e.target.value));
-                          setUsersPage(1);
-                        }}
-                        className={INPUT_CLASS + " w-20 text-sm"}
-                      >
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                  <div className="flex flex-col gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    {/* Items per page - Mobile optimized */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                          Items per page:
+                        </span>
+                        <select
+                          value={usersPerPage}
+                          onChange={(e) => {
+                            setUsersPerPage(Number(e.target.value));
+                            setUsersPage(1);
+                          }}
+                          className="border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors w-16 sm:w-20 min-h-[36px] sm:min-h-[44px] flex-shrink-0"
+                        >
+                          <option value="10">10</option>
+                          <option value="25">25</option>
+                          <option value="50">50</option>
+                          <option value="100">100</option>
+                        </select>
+                      </div>
+                      <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 text-left">
                         Showing {(usersPage - 1) * usersPerPage + 1} to{" "}
                         {Math.min(
                           usersPage * usersPerPage,
@@ -803,60 +808,61 @@ const UserManagement: React.FC<UserManagementProps> = ({
                         )}{" "}
                         of {filteredUsers.length}
                       </span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() =>
-                            setUsersPage((p) => Math.max(1, p - 1))
-                          }
-                          disabled={usersPage === 1}
-                          className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          title="Previous page"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <div className="flex items-center gap-1">
-                          {Array.from(
-                            { length: Math.min(5, totalUsersPages) },
-                            (_, i) => {
-                              let pageNum;
-                              if (totalUsersPages <= 5) {
-                                pageNum = i + 1;
-                              } else if (usersPage <= 3) {
-                                pageNum = i + 1;
-                              } else if (usersPage >= totalUsersPages - 2) {
-                                pageNum = totalUsersPages - 4 + i;
-                              } else {
-                                pageNum = usersPage - 2 + i;
-                              }
-                              return (
-                                <button
-                                  key={pageNum}
-                                  onClick={() => setUsersPage(pageNum)}
-                                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                                    usersPage === pageNum
-                                      ? "bg-emerald-600 text-white"
-                                      : "border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                                  }`}
-                                >
-                                  {pageNum}
-                                </button>
-                              );
+                    </div>
+                    {/* Page controls - Mobile optimized */}
+                    <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto pb-2 sm:pb-0">
+                      <button
+                        onClick={() =>
+                          setUsersPage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={usersPage === 1}
+                        className="p-2.5 sm:p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation flex-shrink-0"
+                        title="Previous page"
+                      >
+                        <ChevronLeft className="w-5 h-5 sm:w-4 sm:h-4" />
+                      </button>
+                      <div className="flex items-center gap-1 overflow-x-auto">
+                        {Array.from(
+                          { length: Math.min(5, totalUsersPages) },
+                          (_, i) => {
+                            let pageNum;
+                            if (totalUsersPages <= 5) {
+                              pageNum = i + 1;
+                            } else if (usersPage <= 3) {
+                              pageNum = i + 1;
+                            } else if (usersPage >= totalUsersPages - 2) {
+                              pageNum = totalUsersPages - 4 + i;
+                            } else {
+                              pageNum = usersPage - 2 + i;
                             }
-                          )}
-                        </div>
-                        <button
-                          onClick={() =>
-                            setUsersPage((p) =>
-                              Math.min(totalUsersPages, p + 1)
-                            )
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => setUsersPage(pageNum)}
+                                className={`px-3.5 sm:px-3 py-2.5 sm:py-1 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-[36px] flex items-center justify-center touch-manipulation flex-shrink-0 ${
+                                  usersPage === pageNum
+                                    ? "bg-emerald-600 text-white"
+                                    : "border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
                           }
-                          disabled={usersPage === totalUsersPages}
-                          className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          title="Next page"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
+                        )}
                       </div>
+                      <button
+                        onClick={() =>
+                          setUsersPage((p) =>
+                            Math.min(totalUsersPages, p + 1)
+                          )
+                        }
+                        disabled={usersPage === totalUsersPages}
+                        className="p-2.5 sm:p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation flex-shrink-0"
+                        title="Next page"
+                      >
+                        <ChevronRight className="w-5 h-5 sm:w-4 sm:h-4" />
+                      </button>
                     </div>
                   </div>
                 )}
@@ -880,55 +886,138 @@ const UserManagement: React.FC<UserManagementProps> = ({
                 const orgUsers = users.filter(
                   (u) => u.organizationId === org.id
                 );
+                const isTrialing = org.subscriptionStatus === "trialing" && org.trialEnd;
+                const trialEndDate = isTrialing && org.trialEnd 
+                  ? new Date(org.trialEnd).toLocaleDateString()
+                  : null;
               return (
-                <div key={org.id} className={CARD_CLASS}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                          {org.name}
-                        </h3>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              org.subscriptionTier === "enterprise"
-                                ? "bg-purple-100 text-purple-800"
-                                : org.subscriptionTier === "business"
-                                ? "bg-purple-100 text-purple-800"
-                                : org.subscriptionTier === "professional"
-                                ? "bg-blue-100 text-blue-800"
-                                : org.subscriptionTier === "starter"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-slate-100 text-slate-800"
-                            }`}
-                          >
-                          {org.subscriptionTier.toUpperCase()}
-                        </span>
+                <div key={org.id} className={CARD_CLASS + " p-4 sm:p-6"}>
+                  <div className="flex flex-col gap-4">
+                    {/* Header Row */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                          <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white break-words">
+                            {org.name}
+                          </h3>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs font-medium w-fit ${
+                                org.subscriptionTier === "enterprise"
+                                  ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                  : org.subscriptionTier === "business"
+                                  ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                  : org.subscriptionTier === "professional"
+                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                  : org.subscriptionTier === "starter"
+                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                  : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
+                              }`}
+                            >
+                              {org.subscriptionTier.toUpperCase()}
+                            </span>
+                            {org.subscriptionStatus && (
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  org.subscriptionStatus === "active"
+                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                    : org.subscriptionStatus === "trialing"
+                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                                    : org.subscriptionStatus === "past_due"
+                                    ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
+                                    : org.subscriptionStatus === "canceled"
+                                    ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                                    : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
+                                }`}
+                              >
+                                {org.subscriptionStatus === "past_due" ? "PAST DUE" : org.subscriptionStatus.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 dark:text-slate-400 mb-2">
-                          <span>
-                            <strong>Code:</strong> {org.organizationCode}
+                      <button
+                        onClick={() => setShowDeleteConfirm(`org-${org.id}`)}
+                        className="p-2.5 sm:p-2 text-red-400 hover:text-red-600 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center touch-manipulation flex-shrink-0"
+                        title="Delete Organization"
+                      >
+                        <Trash2 className="w-5 h-5 sm:w-4 sm:h-4" />
+                      </button>
+                    </div>
+
+                    {/* Organization Details */}
+                    <div className="space-y-3">
+                      {/* Primary Info */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 block mb-1">
+                            Organization Code
                           </span>
-                          <span>
-                            <strong>Users:</strong> {orgUsers.length}
+                          <span className="text-sm sm:text-base font-mono font-semibold text-slate-900 dark:text-white">
+                            {org.organizationCode}
                           </span>
-                          <span>
-                            <strong>Created:</strong>{" "}
+                        </div>
+                        <div>
+                          <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 block mb-1">
+                            Total Users
+                          </span>
+                          <span className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">
+                            {orgUsers.length}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Secondary Info */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 block mb-1">
+                            Created
+                          </span>
+                          <span className="text-sm sm:text-base text-slate-700 dark:text-slate-300">
                             {new Date(org.createdAt).toLocaleDateString()}
                           </span>
+                        </div>
+                        {org.billingInterval && (
+                          <div>
+                            <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 block mb-1">
+                              Billing
+                            </span>
+                            <span className="text-sm sm:text-base text-slate-700 dark:text-slate-300 capitalize">
+                              {org.billingInterval}
+                            </span>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Domain */}
                       {org.domain && (
-                        <div className="text-sm text-slate-600 dark:text-slate-400">
-                          <strong>Domain:</strong> {org.domain}
+                        <div>
+                          <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 block mb-1">
+                            Domain
+                          </span>
+                          <span className="text-sm sm:text-base text-slate-700 dark:text-slate-300 break-all">
+                            {org.domain}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Trial Information */}
+                      {isTrialing && trialEndDate && (
+                        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 block mb-1">
+                                Trial Period
+                              </span>
+                              <span className="text-xs text-amber-700 dark:text-amber-400">
+                                Trial ends on {trialEndDate}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
-                    <button
-                      onClick={() => setShowDeleteConfirm(`org-${org.id}`)}
-                      className="p-2 text-red-400 hover:text-red-600"
-                      title="Delete Organization"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
               );
@@ -936,81 +1025,83 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
               {/* Organizations Pagination */}
               {organizations.length > orgsPerPage && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-600 dark:text-slate-400">
-                      Items per page:
-                    </span>
-                    <select
-                      value={orgsPerPage}
-                      onChange={(e) => {
-                        setOrgsPerPage(Number(e.target.value));
-                        setOrgsPage(1);
-                      }}
-                      className={INPUT_CLASS + " w-20 text-sm"}
-                    >
-                      <option value="10">10</option>
-                      <option value="25">25</option>
-                      <option value="50">50</option>
-                      <option value="100">100</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                <div className="flex flex-col gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                  {/* Items per page - Mobile optimized */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                        Items per page:
+                      </span>
+                      <select
+                        value={orgsPerPage}
+                        onChange={(e) => {
+                          setOrgsPerPage(Number(e.target.value));
+                          setOrgsPage(1);
+                        }}
+                        className="border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors w-16 sm:w-20 min-h-[36px] sm:min-h-[44px] flex-shrink-0"
+                      >
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                      </select>
+                    </div>
+                    <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 text-left">
                       Showing {(orgsPage - 1) * orgsPerPage + 1} to{" "}
                       {Math.min(orgsPage * orgsPerPage, organizations.length)}{" "}
                       of {organizations.length}
                     </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setOrgsPage((p) => Math.max(1, p - 1))}
-                        disabled={orgsPage === 1}
-                        className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Previous page"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <div className="flex items-center gap-1">
-                        {Array.from(
-                          { length: Math.min(5, totalOrgsPages) },
-                          (_, i) => {
-                            let pageNum;
-                            if (totalOrgsPages <= 5) {
-                              pageNum = i + 1;
-                            } else if (orgsPage <= 3) {
-                              pageNum = i + 1;
-                            } else if (orgsPage >= totalOrgsPages - 2) {
-                              pageNum = totalOrgsPages - 4 + i;
-                            } else {
-                              pageNum = orgsPage - 2 + i;
-                            }
-                            return (
-                              <button
-                                key={pageNum}
-                                onClick={() => setOrgsPage(pageNum)}
-                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                                  orgsPage === pageNum
-                                    ? "bg-emerald-600 text-white"
-                                    : "border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                                }`}
-                              >
-                                {pageNum}
-                              </button>
-                            );
+                  </div>
+                  {/* Page controls - Mobile optimized */}
+                  <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto pb-2 sm:pb-0">
+                    <button
+                      onClick={() => setOrgsPage((p) => Math.max(1, p - 1))}
+                      disabled={orgsPage === 1}
+                      className="p-2.5 sm:p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation flex-shrink-0"
+                      title="Previous page"
+                    >
+                      <ChevronLeft className="w-5 h-5 sm:w-4 sm:h-4" />
+                    </button>
+                    <div className="flex items-center gap-1 overflow-x-auto">
+                      {Array.from(
+                        { length: Math.min(5, totalOrgsPages) },
+                        (_, i) => {
+                          let pageNum;
+                          if (totalOrgsPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (orgsPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (orgsPage >= totalOrgsPages - 2) {
+                            pageNum = totalOrgsPages - 4 + i;
+                          } else {
+                            pageNum = orgsPage - 2 + i;
                           }
-                        )}
-                      </div>
-                      <button
-                        onClick={() =>
-                          setOrgsPage((p) => Math.min(totalOrgsPages, p + 1))
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setOrgsPage(pageNum)}
+                              className={`px-3.5 sm:px-3 py-2.5 sm:py-1 rounded-lg text-sm font-medium transition-colors min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-[36px] flex items-center justify-center touch-manipulation flex-shrink-0 ${
+                                orgsPage === pageNum
+                                  ? "bg-emerald-600 text-white"
+                                  : "border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
                         }
-                        disabled={orgsPage === totalOrgsPages}
-                        className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Next page"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
+                      )}
                     </div>
+                    <button
+                      onClick={() =>
+                        setOrgsPage((p) => Math.min(totalOrgsPages, p + 1))
+                      }
+                      disabled={orgsPage === totalOrgsPages}
+                      className="p-2.5 sm:p-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation flex-shrink-0"
+                      title="Next page"
+                    >
+                      <ChevronRight className="w-5 h-5 sm:w-4 sm:h-4" />
+                    </button>
                   </div>
                 </div>
               )}
@@ -1054,33 +1145,34 @@ const UserManagement: React.FC<UserManagementProps> = ({
             className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-2xl w-full h-full sm:h-auto mx-0 sm:mx-4 max-h-[100vh] sm:max-h-[90vh] overflow-y-auto border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-start mb-4 sm:mb-6">
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+            {/* Header */}
+            <div className="flex justify-between items-start mb-4 sm:mb-6 pb-4 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white">
                 User Profile
               </h3>
               <button
                 onClick={() => setSelectedUser(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation flex-shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-5 sm:space-y-6 flex-1 overflow-y-auto">
               {/* Header Section */}
-              <div className="flex items-start gap-6 pb-6 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 pb-5 sm:pb-6 border-b border-slate-200 dark:border-slate-700">
                 <img
                   src={selectedUser.avatar}
                   alt={selectedUser.name}
-                  className="w-24 h-24 rounded-full border-4 border-slate-200 dark:border-slate-700"
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-3 sm:border-4 border-slate-200 dark:border-slate-700 flex-shrink-0"
                 />
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h4 className="text-2xl font-bold text-slate-900 dark:text-white">
+                <div className="flex-1 text-center sm:text-left min-w-0 w-full">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                    <h4 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white break-words">
                       {selectedUser.name}
                     </h4>
                     <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${getRoleBadgeColor(
+                      className={`px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium flex items-center justify-center sm:justify-start gap-1 w-fit mx-auto sm:mx-0 ${getRoleBadgeColor(
                         selectedUser.role
                       )}`}
                     >
@@ -1088,28 +1180,32 @@ const UserManagement: React.FC<UserManagementProps> = ({
                       {selectedUser.role}
                     </span>
                   </div>
-                  <p className="text-lg text-slate-600 dark:text-slate-400 mb-1">
-                    {selectedUser.title}
-                  </p>
-                  <p className="text-slate-500 dark:text-slate-500">
-                    {selectedUser.company}
-                  </p>
+                  {selectedUser.title && (
+                    <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400 mb-1 break-words">
+                      {selectedUser.title}
+                    </p>
+                  )}
+                  {selectedUser.company && (
+                    <p className="text-sm sm:text-base text-slate-500 dark:text-slate-500 break-words">
+                      {selectedUser.company}
+                    </p>
+                  )}
                 </div>
               </div>
 
               {/* Contact Information */}
               <div>
-                <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                <h5 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
                   Contact Information
                 </h5>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                    <Mail className="w-4 h-4 text-slate-400" />
-                    <span>{selectedUser.email}</span>
+                <div className="space-y-2.5 sm:space-y-2">
+                  <div className="flex items-start gap-2.5 sm:gap-2 text-sm sm:text-base text-slate-700 dark:text-slate-300">
+                    <Mail className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                    <span className="break-words">{selectedUser.email}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                    <Building className="w-4 h-4 text-slate-400" />
-                    <span>
+                  <div className="flex items-start gap-2.5 sm:gap-2 text-sm sm:text-base text-slate-700 dark:text-slate-300">
+                    <Building className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                    <span className="break-words">
                       {getOrganizationName(selectedUser.organizationId)}
                     </span>
                   </div>
@@ -1119,10 +1215,10 @@ const UserManagement: React.FC<UserManagementProps> = ({
               {/* Bio */}
               {selectedUser.bio && (
                 <div>
-                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                  <h5 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
                     Bio
                   </h5>
-                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                  <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 leading-relaxed break-words">
                     {selectedUser.bio}
                   </p>
                 </div>
@@ -1131,14 +1227,14 @@ const UserManagement: React.FC<UserManagementProps> = ({
               {/* Skills */}
               {selectedUser.skills && selectedUser.skills.length > 0 && (
                 <div>
-                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                  <h5 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
                     Skills
                   </h5>
                   <div className="flex flex-wrap gap-2">
                     {selectedUser.skills.map((skill, idx) => (
                       <span
                         key={idx}
-                        className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 rounded-full text-sm"
+                        className="px-2.5 sm:px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 rounded-full text-xs sm:text-sm"
                       >
                         {skill}
                       </span>
@@ -1150,18 +1246,18 @@ const UserManagement: React.FC<UserManagementProps> = ({
               {/* Total Hours Committed (for mentors) */}
               {selectedUser.role === Role.MENTOR && (
                 <div>
-                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                  <h5 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
                     Mentorship Commitment
                   </h5>
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                    <span className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                       {(selectedUser.totalHoursCommitted || 0).toFixed(1)}
                     </span>
-                    <span className="text-slate-600 dark:text-slate-400">
+                    <span className="text-sm sm:text-base text-slate-600 dark:text-slate-400">
                       hours committed
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
                     Total hours from scheduled appointments
                   </p>
                 </div>
@@ -1170,14 +1266,14 @@ const UserManagement: React.FC<UserManagementProps> = ({
               {/* Goals (for mentees) */}
               {selectedUser.goals && selectedUser.goals.length > 0 && (
                 <div>
-                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                  <h5 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
                     Goals
                   </h5>
                   <div className="flex flex-wrap gap-2">
                     {selectedUser.goals.map((goal, idx) => (
                       <span
                         key={idx}
-                        className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full text-sm"
+                        className="px-2.5 sm:px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full text-xs sm:text-sm"
                       >
                         {goal}
                       </span>
@@ -1188,23 +1284,23 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
               {/* Account Information */}
               <div>
-                <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                <h5 className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
                   Account Information
                 </h5>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400">
+                    <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 block mb-1">
                       User ID:
                     </span>
-                    <p className="text-slate-700 dark:text-slate-300 font-mono text-xs mt-1">
+                    <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-mono break-all">
                       {selectedUser.id}
                     </p>
                   </div>
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400">
+                    <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 block mb-1">
                       Created:
                     </span>
-                    <p className="text-slate-700 dark:text-slate-300 mt-1">
+                    <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300">
                       {new Date(selectedUser.createdAt).toLocaleDateString()}
                     </p>
                   </div>
@@ -1212,13 +1308,13 @@ const UserManagement: React.FC<UserManagementProps> = ({
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-4 sm:pt-4 border-t border-slate-200 dark:border-slate-700 mt-auto">
                 <button
                   onClick={() => {
                     setEditingUser(selectedUser);
                     setSelectedUser(null);
                   }}
-                  className={BUTTON_PRIMARY + " flex-1"}
+                  className={`${BUTTON_PRIMARY} flex-1 min-h-[44px] touch-manipulation`}
                 >
                   <Edit2 className="w-4 h-4 inline mr-2" />
                   Edit User
@@ -1229,7 +1325,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
                       setSelectedUser(null);
                       setImpersonateUser(selectedUser);
                     }}
-                    className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-2.5 sm:py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex items-center justify-center gap-2 min-h-[44px] touch-manipulation text-sm sm:text-base"
                   >
                     <LogIn className="w-4 h-4" />
                     Login as User
@@ -1241,9 +1337,9 @@ const UserManagement: React.FC<UserManagementProps> = ({
                       setShowDeleteConfirm(selectedUser.id);
                       setSelectedUser(null);
                     }}
-                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                    className="flex-1 px-4 py-2.5 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center justify-center gap-2 min-h-[44px] touch-manipulation text-sm sm:text-base"
                   >
-                    <Trash2 className="w-4 h-4 inline mr-2" />
+                    <Trash2 className="w-4 h-4" />
                     Delete User
                   </button>
                 )}
