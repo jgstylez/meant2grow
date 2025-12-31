@@ -45,6 +45,7 @@ import {
   updateInvitation,
   getUser,
   updateUser,
+  incrementMentorHours,
   updateOrganization,
   createBlogPost,
   updateBlogPost,
@@ -684,16 +685,11 @@ const App: React.FC = () => {
       }
 
       // Update mentor's total hours committed if this event has a mentorId
+      // Use atomic increment to prevent race conditions
       if (event.mentorId) {
         try {
-          const mentor = await getUser(event.mentorId);
-          if (mentor) {
-            const hoursToAdd = parseDurationToHours(event.duration);
-            const currentHours = mentor.totalHoursCommitted || 0;
-            await updateUser(event.mentorId, {
-              totalHoursCommitted: currentHours + hoursToAdd,
-            });
-          }
+          const hoursToAdd = parseDurationToHours(event.duration);
+          await incrementMentorHours(event.mentorId, hoursToAdd);
         } catch (error) {
           console.error("Error updating mentor hours:", error);
           // Don't fail the event creation if hours update fails
@@ -751,6 +747,7 @@ const App: React.FC = () => {
       const originalEvent = await getCalendarEvent(eventId);
       
       // Update mentor hours if duration or mentorId changed
+      // Use atomic increments to prevent race conditions
       if (originalEvent && (updates.duration || updates.mentorId !== undefined)) {
         const oldMentorId = originalEvent.mentorId;
         const newMentorId = updates.mentorId !== undefined ? updates.mentorId : oldMentorId;
@@ -761,45 +758,27 @@ const App: React.FC = () => {
 
         // If mentorId changed, adjust both mentors' hours
         if (oldMentorId !== newMentorId) {
-          // Subtract old hours from old mentor
+          // Subtract old hours from old mentor (atomic)
           if (oldMentorId) {
             try {
-              const oldMentor = await getUser(oldMentorId);
-              if (oldMentor) {
-                const currentHours = oldMentor.totalHoursCommitted || 0;
-                await updateUser(oldMentorId, {
-                  totalHoursCommitted: Math.max(0, currentHours - oldHours),
-                });
-              }
+              await incrementMentorHours(oldMentorId, -oldHours);
             } catch (error) {
               console.error("Error updating old mentor hours:", error);
             }
           }
-          // Add new hours to new mentor
+          // Add new hours to new mentor (atomic)
           if (newMentorId) {
             try {
-              const newMentor = await getUser(newMentorId);
-              if (newMentor) {
-                const currentHours = newMentor.totalHoursCommitted || 0;
-                await updateUser(newMentorId, {
-                  totalHoursCommitted: currentHours + newHours,
-                });
-              }
+              await incrementMentorHours(newMentorId, newHours);
             } catch (error) {
               console.error("Error updating new mentor hours:", error);
             }
           }
         } else if (oldMentorId && oldHours !== newHours) {
-          // Same mentor, but duration changed - adjust hours
+          // Same mentor, but duration changed - adjust hours (atomic)
           try {
-            const mentor = await getUser(oldMentorId);
-            if (mentor) {
-              const currentHours = mentor.totalHoursCommitted || 0;
-              const hourDifference = newHours - oldHours;
-              await updateUser(oldMentorId, {
-                totalHoursCommitted: Math.max(0, currentHours + hourDifference),
-              });
-            }
+            const hourDifference = newHours - oldHours;
+            await incrementMentorHours(oldMentorId, hourDifference);
           } catch (error) {
             console.error("Error updating mentor hours:", error);
           }
@@ -823,18 +802,13 @@ const App: React.FC = () => {
       if (!currentUser) throw new Error("User must be logged in");
 
       // Get event before deleting to update mentor hours
+      // Use atomic increment to prevent race conditions
       const event = await getCalendarEvent(eventId);
       
       if (event && event.mentorId) {
         try {
-          const mentor = await getUser(event.mentorId);
-          if (mentor) {
-            const hoursToSubtract = parseDurationToHours(event.duration);
-            const currentHours = mentor.totalHoursCommitted || 0;
-            await updateUser(event.mentorId, {
-              totalHoursCommitted: Math.max(0, currentHours - hoursToSubtract),
-            });
-          }
+          const hoursToSubtract = parseDurationToHours(event.duration);
+          await incrementMentorHours(event.mentorId, -hoursToSubtract);
         } catch (error) {
           console.error("Error updating mentor hours on delete:", error);
           // Don't fail the deletion if hours update fails
@@ -1208,7 +1182,7 @@ const App: React.FC = () => {
             fallback={<LoadingSpinner message="Loading platform operator management..." />}
           >
             <ErrorBoundary title="Platform Operator Management Error">
-              <PlatformOperatorManagement currentUser={currentUser} />
+              <PlatformOperatorManagement currentUser={userForPlatformOpCheck} />
             </ErrorBoundary>
           </Suspense>
         );
@@ -1248,6 +1222,7 @@ const App: React.FC = () => {
             return <div className="p-8 text-center">Access denied.</div>;
           }
           // Use the memoized userManagementTab calculated at component level
+          // Pass userForAccessCheck (originalOperator when impersonating) so component access control works correctly
           return (
             <Suspense
               fallback={<LoadingSpinner message="Loading user management..." />}
@@ -1255,7 +1230,7 @@ const App: React.FC = () => {
               <ErrorBoundary title="User Management Error">
                 <UserManagement
                   key={`user-mgmt-${userManagementTab}`}
-                  currentUser={currentUser}
+                  currentUser={userForAccessCheck}
                   onNavigate={setCurrentPage}
                   initialTab={userManagementTab}
                 />

@@ -61,6 +61,7 @@ import {
   getApprovedPrivateMessagePartners,
   getUser,
   updateUser,
+  incrementMentorHours,
 } from "../services/database";
 import { Unsubscribe } from "../services/database";
 import { logger } from "../services/logger";
@@ -1947,17 +1948,12 @@ const Chat: React.FC<ChatProps> = ({
       }
 
       // Update mentor's total hours committed if this event has a mentorId
+      // Use atomic increment to prevent race conditions
       const mentorIdForEvent = currentUser.role === Role.MENTOR ? currentUser.id : undefined;
       if (mentorIdForEvent) {
         try {
-          const mentor = await getUser(mentorIdForEvent);
-          if (mentor) {
-            const hoursToAdd = parseDurationToHours(meetingDuration);
-            const currentHours = mentor.totalHoursCommitted || 0;
-            await updateUser(mentorIdForEvent, {
-              totalHoursCommitted: currentHours + hoursToAdd,
-            });
-          }
+          const hoursToAdd = parseDurationToHours(meetingDuration);
+          await incrementMentorHours(mentorIdForEvent, hoursToAdd);
         } catch (error) {
           console.error("Error updating mentor hours:", error);
           // Don't fail the event creation if hours update fails

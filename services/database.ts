@@ -17,7 +17,8 @@ import {
   DocumentSnapshot,
   startAfter,
   QueryDocumentSnapshot,
-  Unsubscribe
+  Unsubscribe,
+  increment
 } from 'firebase/firestore';
 
 // Helper function to safely convert Firestore Timestamp to ISO string
@@ -255,6 +256,19 @@ export const getUsersByOrganization = async (organizationId: string): Promise<Us
 export const updateUser = async (userId: string, updates: Partial<User>): Promise<void> => {
   const userRef = doc(db, 'users', userId);
   await updateDoc(userRef, updates);
+};
+
+/**
+ * Atomically increment or decrement a mentor's totalHoursCommitted.
+ * Uses Firestore's increment() operation to prevent race conditions.
+ * @param userId - The mentor's user ID
+ * @param hoursDelta - The number of hours to add (positive) or subtract (negative)
+ */
+export const incrementMentorHours = async (userId: string, hoursDelta: number): Promise<void> => {
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, {
+    totalHoursCommitted: increment(hoursDelta)
+  });
 };
 
 export const deleteUser = async (userId: string): Promise<void> => {
