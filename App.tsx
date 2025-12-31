@@ -193,6 +193,7 @@ const App: React.FC = () => {
   // Impersonation state - track original operator for access control
   const [originalOperator, setOriginalOperator] = useState<User | null>(null);
   const [isImpersonating, setIsImpersonating] = useState(false);
+  const [originalOperatorLoading, setOriginalOperatorLoading] = useState(false);
 
   // Load published blog posts for public pages
   useEffect(() => {
@@ -221,16 +222,34 @@ const App: React.FC = () => {
     setIsImpersonating(impersonating);
     
     if (impersonating && originalOperatorId) {
+      // Set loading state before async operation
+      setOriginalOperatorLoading(true);
       // Load original operator's data for access control
       getUser(originalOperatorId).then((operator) => {
         if (operator) {
           setOriginalOperator(operator);
+        } else {
+          console.error('Original operator not found');
+          // If operator not found, exit impersonation for security
+          localStorage.removeItem('isImpersonating');
+          localStorage.removeItem('originalOperatorId');
+          localStorage.removeItem('originalOrganizationId');
+          setIsImpersonating(false);
         }
+        setOriginalOperatorLoading(false);
       }).catch((error) => {
         console.error('Error loading original operator:', error);
+        // On error, exit impersonation for security
+        localStorage.removeItem('isImpersonating');
+        localStorage.removeItem('originalOperatorId');
+        localStorage.removeItem('originalOrganizationId');
+        setIsImpersonating(false);
+        setOriginalOperator(null);
+        setOriginalOperatorLoading(false);
       });
     } else {
       setOriginalOperator(null);
+      setOriginalOperatorLoading(false);
     }
   }, []);
 
@@ -1165,8 +1184,9 @@ const App: React.FC = () => {
         );
       case "platform-operator-management":
         // Check platform admin access - handle both enum and string role representations
-        // If impersonating, use original operator's role for access control
-        const userForPlatformOpCheck = isImpersonating && originalOperator ? originalOperator : currentUser;
+        // If impersonating, MUST use original operator's role for access control
+        // originalOperator is guaranteed to be loaded at this point due to loading check above
+        const userForPlatformOpCheck = isImpersonating ? originalOperator : currentUser;
         if (!userForPlatformOpCheck) {
           return <div className="p-8 text-center">Access denied.</div>;
         }
@@ -1209,8 +1229,9 @@ const App: React.FC = () => {
         }
         if (currentPage.startsWith("user-management")) {
           // Check platform admin access - handle both enum and string role representations
-          // If impersonating, use original operator's role for access control
-          const userForAccessCheck = isImpersonating && originalOperator ? originalOperator : currentUser;
+          // If impersonating, MUST use original operator's role for access control
+          // originalOperator is guaranteed to be loaded at this point due to loading check above
+          const userForAccessCheck = isImpersonating ? originalOperator : currentUser;
           if (!userForAccessCheck) {
             return <div className="p-8 text-center">Access denied.</div>;
           }
@@ -1356,6 +1377,43 @@ const App: React.FC = () => {
     );
   }
 
+  // Block rendering until originalOperator is loaded when impersonating
+  // This prevents access control checks from using the impersonated user's role
+  if (isImpersonating && originalOperatorLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">
+            Verifying access permissions...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // If impersonating but originalOperator failed to load or is missing, deny access
+  if (isImpersonating && !originalOperator) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-900">
+        <div className="text-center max-w-md mx-auto p-8">
+          <div className="text-red-600 dark:text-red-400 mb-4 text-lg font-semibold">
+            Access Verification Failed
+          </div>
+          <p className="text-slate-600 dark:text-slate-400 mb-6">
+            Unable to verify your access permissions. Please log out and try again.
+          </p>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+          >
+            Log Out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-900">
@@ -1413,6 +1471,7 @@ const App: React.FC = () => {
     <>
       <Layout
         currentUser={currentUser}
+        originalOperator={isImpersonating ? originalOperator : null}
         users={users}
         currentPage={currentPage.split(":")[0]}
         onNavigate={handleNavigate}

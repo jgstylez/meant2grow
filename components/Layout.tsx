@@ -28,6 +28,7 @@ import { PWAInstallBanner } from "./PWAInstallBanner";
 interface LayoutProps {
   children: React.ReactNode;
   currentUser: User;
+  originalOperator?: User | null; // Original operator when impersonating (for access control)
   users?: User[];
   onNavigate: (page: string) => void;
   currentPage: string;
@@ -49,6 +50,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({
   children,
   currentUser,
+  originalOperator = null,
   users = [],
   onNavigate,
   currentPage,
@@ -113,48 +115,44 @@ const Layout: React.FC<LayoutProps> = ({
     return roleString;
   };
 
+  // Determine which user to use for role checks
+  // When impersonating, use originalOperator for access control (navigation visibility, etc.)
+  // but currentUser for display purposes
+  const isImpersonating = originalOperator !== null;
+  const userForRoleChecks = isImpersonating && originalOperator ? originalOperator : currentUser;
+  
   // Role checks - handle both enum and string values for robustness
-  const userRoleString = String(currentUser.role);
+  // Use originalOperator's role when impersonating to ensure correct access control
+  const userRoleString = String(userForRoleChecks.role);
 
   // Check platform admin first (must come before other checks)
   const isPlatformAdmin =
-    currentUser.role === Role.PLATFORM_ADMIN ||
+    userForRoleChecks.role === Role.PLATFORM_ADMIN ||
     userRoleString === "PLATFORM_ADMIN" ||
     userRoleString === "PLATFORM_OPERATOR";
 
   // Check organization admin (must come after platform admin check)
   const isAdmin =
     !isPlatformAdmin &&
-    (currentUser.role === Role.ADMIN ||
+    (userForRoleChecks.role === Role.ADMIN ||
       userRoleString === "ORGANIZATION_ADMIN" ||
       userRoleString === "ADMIN");
 
   const isMentor =
     !isPlatformAdmin &&
     !isAdmin &&
-    (currentUser.role === Role.MENTOR || userRoleString === "MENTOR");
+    (userForRoleChecks.role === Role.MENTOR || userRoleString === "MENTOR");
 
   const isMentee =
     !isPlatformAdmin &&
     !isAdmin &&
     !isMentor &&
-    (currentUser.role === Role.MENTEE || userRoleString === "MENTEE");
+    (userForRoleChecks.role === Role.MENTEE || userRoleString === "MENTEE");
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const brandColor = programSettings?.accentColor || "#10b981"; // Default Emerald
   const programName = programSettings?.programName || "Meant2Grow";
   const customLogo = programSettings?.logo;
-
-  // Check if impersonating
-  const [isImpersonating, setIsImpersonating] = useState(false);
-  const [originalOperatorId, setOriginalOperatorId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const impersonating = localStorage.getItem('isImpersonating') === 'true';
-    const originalId = localStorage.getItem('originalOperatorId');
-    setIsImpersonating(impersonating);
-    setOriginalOperatorId(originalId);
-  }, []);
 
   const handleExitImpersonation = () => {
     const originalId = localStorage.getItem('originalOperatorId');

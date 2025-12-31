@@ -1248,7 +1248,7 @@ const Chat: React.FC<ChatProps> = ({
         unsubscribeMessagesRef.current[activeChatId]();
       }
     };
-  }, [activeChatId, organizationId, currentUser, users, MOCK_GROUPS]);
+  }, [activeChatId, organizationId, currentUser, users, MOCK_GROUPS, matches, approvedPrivateMessagePartners]);
 
   // Cleanup all subscriptions and timeouts on unmount
   useEffect(() => {
