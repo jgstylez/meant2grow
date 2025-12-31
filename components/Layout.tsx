@@ -626,6 +626,7 @@ const Layout: React.FC<LayoutProps> = ({
                 </p>
                 <NavItem page="participants" icon={Users} label="Users" />
                 <NavItem page="matching" icon={Repeat} label="Bridges" />
+                <NavItem page="referrals" icon={UserPlus} label="Referrals" />
               </div>
             )}
 

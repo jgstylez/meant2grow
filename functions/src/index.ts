@@ -95,7 +95,21 @@ export const authGoogle = functions.onRequest(
         isNewOrg,
         orgName,
         role: requestedRole,
+        // Explicitly reject impersonation-related parameters to prevent confusion with invitation tokens
+        isImpersonating,
+        originalOperatorId,
+        originalOrganizationId,
+        impersonateUserId,
       } = req.body;
+
+      // Security: Explicitly reject any impersonation-related parameters
+      // Impersonation is a client-side feature only and should never be sent to backend
+      if (isImpersonating || originalOperatorId || originalOrganizationId || impersonateUserId) {
+        res.status(400).json({ 
+          error: "Impersonation parameters are not allowed in authentication requests. Impersonation is a client-side feature only." 
+        });
+        return;
+      }
 
       if (!googleId || !email || !name) {
         res.status(400).json({ error: "Missing required fields" });
@@ -183,6 +197,15 @@ export const authGoogle = functions.onRequest(
 
       // If joining existing organization via invitation token (preferred)
       if (invitationToken) {
+        // Security: Ensure invitation tokens are ONLY used for actual invitations
+        // Reject if token format looks suspicious (e.g., user IDs that might be confused with impersonation)
+        if (invitationToken.length < 20) {
+          res.status(400).json({ 
+            error: "Invalid invitation token format. Invitation tokens must be at least 20 characters long." 
+          });
+          return;
+        }
+
         // Look up invitation by token
         const invitationSnapshot = await db
           .collection("invitations")

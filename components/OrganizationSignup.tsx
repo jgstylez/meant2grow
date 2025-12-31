@@ -18,6 +18,7 @@ import {
   getInvitationByEmail,
   updateInvitation,
   getOrganization,
+  subscribeToOrganization,
 } from "../services/database";
 import { Role, User, Invitation, Organization } from "../types";
 
@@ -57,6 +58,9 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
 
   // Load organization from URL params (invitation token or orgCode)
   useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+    let ignore = false; // Flag to prevent state updates after unmount
+
     const loadOrganization = async () => {
       setLoadingOrg(true);
       const urlParams = new URLSearchParams(window.location.search);
@@ -64,15 +68,18 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
       const orgCode = urlParams.get("orgCode");
 
       try {
+        let organizationId: string | null = null;
+
         if (inviteToken) {
           setInvitationToken(inviteToken);
           // Load invitation
           const inv = await getInvitationByToken(inviteToken);
-          if (inv) {
+          if (inv && !ignore) {
             setInvitation(inv);
+            organizationId = inv.organizationId;
             // Load organization for branding
             const org = await getOrganization(inv.organizationId);
-            if (org) {
+            if (org && !ignore) {
               setOrganization(org);
               // Pre-fill email if available
               setFormData((prev) => ({ ...prev, email: inv.email }));
@@ -81,33 +88,56 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
                 inv.role === Role.MENTOR ? "MENTOR" : "MENTEE"
               );
               setParticipantSignupStep("create-account");
-            } else {
+            } else if (!ignore) {
               setError("Invalid invitation: Organization not found");
             }
-          } else {
+          } else if (!ignore) {
             setError("Invalid or expired invitation link");
           }
         } else if (orgCode) {
           // Load organization by code
           const org = await getOrganizationByCode(orgCode.toUpperCase());
-          if (org) {
+          if (org && !ignore) {
+            organizationId = org.id;
             setOrganization(org);
             setFormData((prev) => ({ ...prev, orgCode: orgCode.toUpperCase() }));
-          } else {
+          } else if (!ignore) {
             setError("Invalid organization code. Please check and try again.");
           }
-        } else {
+        } else if (!ignore) {
           setError("No organization identifier found. Please use an invitation link or organization code.");
         }
+
+        // Set up real-time listener for organization updates (to catch accent color changes)
+        if (organizationId && !ignore) {
+          unsubscribe = subscribeToOrganization(organizationId, (updatedOrg) => {
+            // Only update if component is still mounted
+            if (!ignore && updatedOrg) {
+              setOrganization(updatedOrg);
+            }
+          });
+        }
       } catch (err: any) {
-        console.error("Error loading organization:", err);
-        setError(err.message || "Failed to load organization");
+        if (!ignore) {
+          console.error("Error loading organization:", err);
+          setError(err.message || "Failed to load organization");
+        }
       } finally {
-        setLoadingOrg(false);
+        if (!ignore) {
+          setLoadingOrg(false);
+        }
       }
     };
 
     loadOrganization();
+
+    // Cleanup: unsubscribe from real-time updates and prevent state updates
+    return () => {
+      ignore = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   // Initialize Google Auth when component mounts
@@ -428,7 +458,22 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
         className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center text-white p-12"
         style={{ backgroundColor: accentColor }}
       >
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1556761175-5973dc0f32e7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center opacity-20"></div>
+        {/* Background image with accent color overlay */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ 
+            backgroundImage: `url('https://images.unsplash.com/photo-1556761175-5973dc0f32e7?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')`,
+            opacity: 0.15,
+          }}
+        ></div>
+        {/* Accent color gradient overlay - adapts to program's selected color */}
+        <div 
+          className="absolute inset-0"
+          style={{ 
+            background: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor} 50%, ${accentColor} 100%)`,
+            opacity: 0.85,
+          }}
+        ></div>
         <div className="relative z-10 max-w-lg">
           <div className="flex items-center space-x-2 mb-8">
             {orgLogo ? (
