@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { User, Role, Invitation } from '../types';
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
-import { ArrowLeft, Send, Mail, UserPlus, Upload, FileText, CheckCircle, Clock, X, Eye, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Send, Mail, UserPlus, Upload, FileText, CheckCircle, Clock, X, Eye, Copy, Check, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { createInvitation, getInvitation } from '../services/database';
 
 interface ReferralsProps {
   currentUser: User;
@@ -9,11 +10,16 @@ interface ReferralsProps {
   onSendInvite: (invite: any) => void;
   existingInvitations: Invitation[];
   organizationCode?: string;
+  organizationId?: string;
 }
 
-const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendInvite, existingInvitations, organizationCode }) => {
+const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendInvite, existingInvitations, organizationCode, organizationId }) => {
   const [activeTab, setActiveTab] = useState<'invite' | 'bulk' | 'track'>('invite');
   const [copied, setCopied] = useState(false);
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [orgSignupLink, setOrgSignupLink] = useState<string | null>(null);
   
   // Single Invite State
   const [formData, setFormData] = useState({
@@ -64,6 +70,70 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
       navigator.clipboard.writeText(organizationCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleGenerateLink = async () => {
+    if (!formData.email || !organizationId) {
+      return;
+    }
+
+    setIsGeneratingLink(true);
+    try {
+      // Create invitation to get the link
+      const invitationId = await createInvitation({
+        organizationId,
+        name: `${formData.firstName} ${formData.lastName}`.trim() || "Test User",
+        email: formData.email.toLowerCase(),
+        role: formData.role.toUpperCase() as Role,
+        status: "Pending",
+        sentDate: new Date().toISOString().split("T")[0],
+        inviterId: currentUser.id,
+      });
+
+      // Get the created invitation to retrieve the link
+      const createdInvitation = await getInvitation(invitationId);
+      if (createdInvitation?.invitationLink) {
+        setGeneratedLink(createdInvitation.invitationLink);
+      }
+    } catch (error) {
+      console.error("Error generating link:", error);
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  const handleCopyGeneratedLink = async () => {
+    if (generatedLink) {
+      try {
+        await navigator.clipboard.writeText(generatedLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy link:', err);
+      }
+    }
+  };
+
+  const handleGenerateOrgSignupLink = () => {
+    if (organizationCode) {
+      const appUrl = typeof window !== 'undefined' 
+        ? window.location.origin 
+        : (import.meta.env.VITE_APP_URL || 'https://meant2grow.com');
+      const link = `${appUrl}/?orgCode=${organizationCode}`;
+      setOrgSignupLink(link);
+    }
+  };
+
+  const handleCopyOrgSignupLink = async () => {
+    if (orgSignupLink) {
+      try {
+        await navigator.clipboard.writeText(orgSignupLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy link:', err);
+      }
     }
   };
 
@@ -130,9 +200,9 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                     <UserPlus className="w-5 h-5 mr-2" /> Organization Invite Code
                   </h3>
                   <p className="text-emerald-50 text-sm mb-4">
-                    Share this code with colleagues to let them join your organization directly.
+                    Share this code with colleagues to let them join your organization directly. They'll be able to choose their own role (Mentor or Mentee).
                   </p>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 mb-4">
                     <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 font-mono text-2xl font-bold tracking-wider">
                       {organizationCode}
                     </div>
@@ -152,6 +222,45 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                         </>
                       )}
                     </button>
+                  </div>
+                  
+                  {/* Organization Signup Link */}
+                  <div className="mt-4 pt-4 border-t border-white/20">
+                    <p className="text-emerald-50 text-sm mb-3">
+                      Or generate a direct signup link (users choose their own role):
+                    </p>
+                    {orgSignupLink ? (
+                      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 flex items-center gap-2">
+                        <a
+                          href={orgSignupLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-white hover:text-emerald-100 underline flex-1 truncate"
+                          title={orgSignupLink}
+                        >
+                          {orgSignupLink.length > 50 ? `${orgSignupLink.substring(0, 50)}...` : orgSignupLink}
+                        </a>
+                        <button
+                          onClick={handleCopyOrgSignupLink}
+                          className="text-white hover:text-emerald-100 transition-colors"
+                          title="Copy link"
+                        >
+                          {copied ? (
+                            <Check className="w-4 h-4 text-emerald-200" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleGenerateOrgSignupLink}
+                        className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
+                      >
+                        <LinkIcon className="w-4 h-4" />
+                        Generate Signup Link
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -226,7 +335,53 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                               />
                           </div>
                           
+                          {/* Generated Link Display */}
+                          {generatedLink && (
+                              <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                                  <div className="flex items-start justify-between mb-2">
+                                      <div className="flex items-center gap-2">
+                                          <LinkIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                          <label className="block text-xs font-semibold text-emerald-700 dark:text-emerald-300 uppercase">Invitation Link</label>
+                                      </div>
+                                      <button
+                                          onClick={handleCopyGeneratedLink}
+                                          className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors"
+                                          title="Copy link"
+                                      >
+                                          {copied ? (
+                                              <Check className="w-5 h-5 text-emerald-600" />
+                                          ) : (
+                                              <Copy className="w-5 h-5" />
+                                          )}
+                                      </button>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                      <a
+                                          href={generatedLink}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 flex-1 truncate"
+                                          title={generatedLink}
+                                      >
+                                          {generatedLink}
+                                          <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                                      </a>
+                                  </div>
+                                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2">
+                                      Click the link above to test it, or copy it to share manually.
+                                  </p>
+                              </div>
+                          )}
+
                           <div className="flex items-center justify-end gap-3">
+                              <button 
+                                  onClick={handleGenerateLink} 
+                                  disabled={!formData.email || isGeneratingLink || !organizationId} 
+                                  className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center disabled:opacity-50"
+                              >
+                                  <LinkIcon className="w-4 h-4 mr-2" /> 
+                                  {isGeneratingLink ? 'Generating...' : 'Generate Link'}
+                              </button>
                               <button onClick={() => setShowPreview(true)} disabled={!formData.email} className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center disabled:opacity-50">
                                   <Eye className="w-4 h-4 mr-2" /> Preview
                               </button>
@@ -297,41 +452,86 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                               <th className="px-6 py-4">Role</th>
                               <th className="px-6 py-4">Status</th>
                               <th className="px-6 py-4">Sent Date</th>
+                              <th className="px-6 py-4">Invitation Link</th>
                               <th className="px-6 py-4 text-right">Action</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {existingInvitations.map(inv => (
-                              <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                  <td className="px-6 py-4">
-                                      <div className="font-medium text-slate-900 dark:text-white">{inv.name}</div>
-                                      <div className="text-xs text-slate-500">{inv.email}</div>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                      <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-xs text-slate-600 dark:text-slate-300">{inv.role}</span>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                          inv.status === 'Accepted' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
-                                          inv.status === 'Pending' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
-                                          'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                                      }`}>
-                                          {inv.status === 'Accepted' && <CheckCircle className="w-3 h-3 mr-1" />}
-                                          {inv.status === 'Pending' && <Clock className="w-3 h-3 mr-1" />}
-                                          {inv.status}
-                                      </span>
-                                  </td>
-                                  <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{inv.sentDate}</td>
-                                  <td className="px-6 py-4 text-right">
-                                      {inv.status === 'Pending' && (
-                                          <button className="text-emerald-600 hover:text-emerald-700 text-xs font-medium hover:underline">Resend</button>
-                                      )}
-                                  </td>
-                              </tr>
-                          ))}
+                          {existingInvitations.map(inv => {
+                              const handleCopyLink = async () => {
+                                  if (inv.invitationLink) {
+                                      try {
+                                          await navigator.clipboard.writeText(inv.invitationLink);
+                                          setCopiedLinkId(inv.id);
+                                          setTimeout(() => setCopiedLinkId(null), 2000);
+                                      } catch (err) {
+                                          console.error('Failed to copy link:', err);
+                                      }
+                                  }
+                              };
+                              
+                              return (
+                                  <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                      <td className="px-6 py-4">
+                                          <div className="font-medium text-slate-900 dark:text-white">{inv.name}</div>
+                                          <div className="text-xs text-slate-500">{inv.email}</div>
+                                      </td>
+                                      <td className="px-6 py-4">
+                                          <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded text-xs text-slate-600 dark:text-slate-300">{inv.role}</span>
+                                      </td>
+                                      <td className="px-6 py-4">
+                                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                              inv.status === 'Accepted' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
+                                              inv.status === 'Pending' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' :
+                                              'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                          }`}>
+                                              {inv.status === 'Accepted' && <CheckCircle className="w-3 h-3 mr-1" />}
+                                              {inv.status === 'Pending' && <Clock className="w-3 h-3 mr-1" />}
+                                              {inv.status}
+                                          </span>
+                                      </td>
+                                      <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{inv.sentDate}</td>
+                                      <td className="px-6 py-4">
+                                          {inv.invitationLink ? (
+                                              <div className="flex items-center gap-2">
+                                                  <a
+                                                      href={inv.invitationLink}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:underline truncate max-w-xs"
+                                                      title={inv.invitationLink}
+                                                  >
+                                                      {inv.invitationLink.length > 40 
+                                                          ? `${inv.invitationLink.substring(0, 40)}...` 
+                                                          : inv.invitationLink}
+                                                  </a>
+                                                  <button
+                                                      onClick={handleCopyLink}
+                                                      className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                                                      title="Copy link"
+                                                  >
+                                                      {copiedLinkId === inv.id ? (
+                                                          <Check className="w-4 h-4 text-emerald-600" />
+                                                      ) : (
+                                                          <Copy className="w-4 h-4" />
+                                                      )}
+                                                  </button>
+                                              </div>
+                                          ) : (
+                                              <span className="text-xs text-slate-400 italic">No link available</span>
+                                          )}
+                                      </td>
+                                      <td className="px-6 py-4 text-right">
+                                          {inv.status === 'Pending' && (
+                                              <button className="text-emerald-600 hover:text-emerald-700 text-xs font-medium hover:underline">Resend</button>
+                                          )}
+                                      </td>
+                                  </tr>
+                              );
+                          })}
                           {existingInvitations.length === 0 && (
                               <tr>
-                                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500 italic">No invitations sent yet.</td>
+                                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500 italic">No invitations sent yet.</td>
                               </tr>
                           )}
                       </tbody>

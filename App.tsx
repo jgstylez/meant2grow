@@ -2,6 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from "react";
 import Layout from "./components/Layout";
 import LandingPage from "./components/LandingPage";
 import Authentication from "./components/Authentication";
+import OrganizationSignup from "./components/OrganizationSignup";
 import PublicPages from "./components/PublicPages";
 import {
   Role,
@@ -109,6 +110,7 @@ const LoadingSpinner: React.FC<{ message?: string }> = ({
 type PublicRoute =
   | "landing"
   | "auth"
+  | "org-signup"
   | "pricing"
   | "legal"
   | "enterprise"
@@ -132,12 +134,32 @@ const getInitialAuthState = () => {
     lastPage === "mentee-onboarding" ||
     lastPage === "setup";
 
+  // Check URL params for org-signup route
+  let initialPublicRoute: PublicRoute | "hidden" = "landing";
+  if (typeof window !== "undefined") {
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteToken = urlParams.get("invite");
+    const orgCode = urlParams.get("orgCode");
+    
+    // If there's an invite token or orgCode, show org-signup page
+    // This works even if user is authenticated (for testing links)
+    if (inviteToken || orgCode) {
+      initialPublicRoute = "org-signup";
+      // Clear auth if user clicks invite link (they're signing up as someone else)
+      if (isAuthenticated) {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("organizationId");
+        localStorage.removeItem("userId");
+      }
+    }
+  }
+
   return {
     userId: storedUserId,
     organizationId: storedOrgId,
     publicRoute: isAuthenticated
       ? ("hidden" as const)
-      : ("landing" as PublicRoute),
+      : initialPublicRoute,
     // Only restore lastPage if authenticated and it's not an onboarding page
     currentPage:
       isAuthenticated && lastPage && !isOnboardingPage ? lastPage : "dashboard",
@@ -269,6 +291,29 @@ const App: React.FC = () => {
 
   // Note: Authentication state is now restored synchronously during initialization
   // via getInitialAuthState() to prevent flash of landing page on refresh
+
+  // Check URL params for org-signup route (invitation token or orgCode)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteToken = urlParams.get("invite");
+    const orgCode = urlParams.get("orgCode");
+    
+    if (inviteToken || orgCode) {
+      // If there's an invite token or orgCode, show org-signup page
+      if (publicRoute === "hidden") {
+        // User is authenticated but clicked invite link - clear auth and show signup
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("organizationId");
+        localStorage.removeItem("userId");
+        setUserId(null);
+        setOrganizationId(null);
+        setCurrentUser(null);
+        setPublicRoute("org-signup");
+      } else if (publicRoute !== "org-signup") {
+        setPublicRoute("org-signup");
+      }
+    }
+  }, [publicRoute]);
 
   // Restore Firebase Auth session on app load if Google ID token exists
   useEffect(() => {
@@ -1164,6 +1209,7 @@ const App: React.FC = () => {
                 onSendInvite={handleSendInvite}
                 existingInvitations={invitations}
                 organizationCode={organization?.organizationCode}
+                organizationId={organizationId || undefined}
               />
             </ErrorBoundary>
           </Suspense>
@@ -1300,6 +1346,7 @@ const App: React.FC = () => {
     const validPublicRoutes = [
       "landing",
       "auth",
+      "org-signup",
       "pricing",
       "legal",
       "enterprise",
@@ -1338,6 +1385,25 @@ const App: React.FC = () => {
             }}
             onNavigate={handlePublicNavigate}
             initialMode={authInitialMode}
+          />
+        </CommonLayout>
+      );
+    }
+
+    if (publicRoute === "org-signup") {
+      return (
+        <CommonLayout>
+          <OrganizationSignup
+            onLogin={(isNewOrg, isParticipant, participantRole) => {
+              const role =
+                participantRole === "MENTOR"
+                  ? Role.MENTOR
+                  : participantRole === "MENTEE"
+                  ? Role.MENTEE
+                  : undefined;
+              handleLogin(isNewOrg, isParticipant, role);
+            }}
+            onNavigate={handlePublicNavigate}
           />
         </CommonLayout>
       );

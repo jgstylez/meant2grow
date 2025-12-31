@@ -18,8 +18,8 @@ import {
   startAfter,
   QueryDocumentSnapshot,
   Unsubscribe,
-  increment
-} from 'firebase/firestore';
+  increment,
+} from "firebase/firestore";
 
 // Helper function to safely convert Firestore Timestamp to ISO string
 const convertTimestamp = (value: any): string => {
@@ -27,11 +27,11 @@ const convertTimestamp = (value: any): string => {
     return new Date().toISOString();
   }
   // If it's already a string, return it
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     return value;
   }
   // If it's a Firestore Timestamp, convert it
-  if (value && typeof value.toDate === 'function') {
+  if (value && typeof value.toDate === "function") {
     return value.toDate().toISOString();
   }
   // If it's a Date object, convert it
@@ -44,13 +44,34 @@ const convertTimestamp = (value: any): string => {
 
 // Export Unsubscribe type for use in hooks
 export type { Unsubscribe };
-import { db } from './firebase';
-import { User, Match, Goal, Milestone, Rating, Resource, CalendarEvent, Notification, Invitation, Organization, ProgramSettings, ChatMessage, ChatGroup, BlogPost, DiscussionGuide, CareerTemplate, TrainingVideo, PrivateMessageRequest } from '../types';
+import { db } from "./firebase";
+import {
+  User,
+  Match,
+  Goal,
+  Milestone,
+  Rating,
+  Resource,
+  CalendarEvent,
+  Notification,
+  Invitation,
+  Organization,
+  ProgramSettings,
+  ChatMessage,
+  ChatGroup,
+  BlogPost,
+  DiscussionGuide,
+  CareerTemplate,
+  TrainingVideo,
+  PrivateMessageRequest,
+} from "../types";
 
 // ==================== ORGANIZATION OPERATIONS ====================
 
-export const createOrganization = async (orgData: Omit<Organization, 'id' | 'createdAt' | 'organizationCode'>): Promise<string> => {
-  const orgRef = doc(collection(db, 'organizations'));
+export const createOrganization = async (
+  orgData: Omit<Organization, "id" | "createdAt" | "organizationCode">
+): Promise<string> => {
+  const orgRef = doc(collection(db, "organizations"));
   const organizationCode = generateOrganizationCode();
 
   await setDoc(orgRef, {
@@ -62,8 +83,10 @@ export const createOrganization = async (orgData: Omit<Organization, 'id' | 'cre
   return orgRef.id;
 };
 
-export const getOrganization = async (organizationId: string): Promise<Organization | null> => {
-  const orgRef = doc(db, 'organizations', organizationId);
+export const getOrganization = async (
+  organizationId: string
+): Promise<Organization | null> => {
+  const orgRef = doc(db, "organizations", organizationId);
   const orgSnap = await getDoc(orgRef);
 
   if (!orgSnap.exists()) {
@@ -77,10 +100,12 @@ export const getOrganization = async (organizationId: string): Promise<Organizat
   } as Organization;
 };
 
-export const getOrganizationByCode = async (code: string): Promise<Organization | null> => {
+export const getOrganizationByCode = async (
+  code: string
+): Promise<Organization | null> => {
   const q = query(
-    collection(db, 'organizations'),
-    where('organizationCode', '==', code)
+    collection(db, "organizations"),
+    where("organizationCode", "==", code)
   );
   const snapshot = await getDocs(q);
 
@@ -96,8 +121,11 @@ export const getOrganizationByCode = async (code: string): Promise<Organization 
   } as Organization;
 };
 
-export const updateOrganization = async (organizationId: string, updates: Partial<Organization>): Promise<void> => {
-  const orgRef = doc(db, 'organizations', organizationId);
+export const updateOrganization = async (
+  organizationId: string,
+  updates: Partial<Organization>
+): Promise<void> => {
+  const orgRef = doc(db, "organizations", organizationId);
   await updateDoc(orgRef, updates);
 };
 
@@ -105,20 +133,25 @@ export const getAllOrganizations = async (): Promise<Organization[]> => {
   try {
     // Try with orderBy first, but fallback to no orderBy if index missing
     let q = query(
-      collection(db, 'organizations'),
-      orderBy('createdAt', 'desc')
+      collection(db, "organizations"),
+      orderBy("createdAt", "desc")
     );
     let snapshot;
     try {
       snapshot = await getDocs(q);
     } catch (error: any) {
       // If index missing, try without orderBy
-      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
-        console.warn('Index missing for organizations createdAt, fetching without orderBy');
-        q = query(collection(db, 'organizations'));
+      if (
+        error?.code === "failed-precondition" ||
+        error?.message?.includes("index")
+      ) {
+        console.warn(
+          "Index missing for organizations createdAt, fetching without orderBy"
+        );
+        q = query(collection(db, "organizations"));
         snapshot = await getDocs(q);
         // Sort in memory
-        const docs = snapshot.docs.map(doc => ({
+        const docs = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
           createdAt: convertTimestamp(doc.data().createdAt),
@@ -133,26 +166,30 @@ export const getAllOrganizations = async (): Promise<Organization[]> => {
       }
     }
 
-    return snapshot.docs.map(doc => ({
+    return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: convertTimestamp(doc.data().createdAt),
     })) as Organization[];
   } catch (error) {
-    console.error('Error in getAllOrganizations:', error);
+    console.error("Error in getAllOrganizations:", error);
     throw error;
   }
 };
 
-export const deleteOrganization = async (organizationId: string): Promise<void> => {
-  const orgRef = doc(db, 'organizations', organizationId);
+export const deleteOrganization = async (
+  organizationId: string
+): Promise<void> => {
+  const orgRef = doc(db, "organizations", organizationId);
   await deleteDoc(orgRef);
 };
 
 // ==================== USER OPERATIONS ====================
 
-export const createUser = async (userData: Omit<User, 'id' | 'createdAt'>): Promise<string> => {
-  const userRef = doc(collection(db, 'users'));
+export const createUser = async (
+  userData: Omit<User, "id" | "createdAt">
+): Promise<string> => {
+  const userRef = doc(collection(db, "users"));
   await setDoc(userRef, {
     ...userData,
     createdAt: Timestamp.now(),
@@ -161,7 +198,7 @@ export const createUser = async (userData: Omit<User, 'id' | 'createdAt'>): Prom
 };
 
 export const getUser = async (userId: string): Promise<User | null> => {
-  const userRef = doc(db, 'users', userId);
+  const userRef = doc(db, "users", userId);
   const userSnap = await getDoc(userRef);
 
   if (!userSnap.exists()) {
@@ -176,11 +213,14 @@ export const getUser = async (userId: string): Promise<User | null> => {
   } as User;
 };
 
-export const getUserByEmail = async (email: string, organizationId: string): Promise<User | null> => {
+export const getUserByEmail = async (
+  email: string,
+  organizationId: string
+): Promise<User | null> => {
   const q = query(
-    collection(db, 'users'),
-    where('email', '==', email),
-    where('organizationId', '==', organizationId)
+    collection(db, "users"),
+    where("email", "==", email),
+    where("organizationId", "==", organizationId)
   );
   const snapshot = await getDocs(q);
 
@@ -199,8 +239,8 @@ export const getUserByEmail = async (email: string, organizationId: string): Pro
 
 export const findUserByEmail = async (email: string): Promise<User | null> => {
   const q = query(
-    collection(db, 'users'),
-    where('email', '==', email),
+    collection(db, "users"),
+    where("email", "==", email),
     firestoreLimit(1)
   );
   const snapshot = await getDocs(q);
@@ -218,11 +258,14 @@ export const findUserByEmail = async (email: string): Promise<User | null> => {
   } as User;
 };
 
-export const getUserByGoogleId = async (googleId: string, organizationId: string): Promise<User | null> => {
+export const getUserByGoogleId = async (
+  googleId: string,
+  organizationId: string
+): Promise<User | null> => {
   const q = query(
-    collection(db, 'users'),
-    where('googleId', '==', googleId),
-    where('organizationId', '==', organizationId)
+    collection(db, "users"),
+    where("googleId", "==", googleId),
+    where("organizationId", "==", organizationId)
   );
   const snapshot = await getDocs(q);
 
@@ -238,23 +281,28 @@ export const getUserByGoogleId = async (googleId: string, organizationId: string
   } as User;
 };
 
-export const getUsersByOrganization = async (organizationId: string): Promise<User[]> => {
+export const getUsersByOrganization = async (
+  organizationId: string
+): Promise<User[]> => {
   const q = query(
-    collection(db, 'users'),
-    where('organizationId', '==', organizationId),
-    orderBy('createdAt', 'desc')
+    collection(db, "users"),
+    where("organizationId", "==", organizationId),
+    orderBy("createdAt", "desc")
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
   })) as User[];
 };
 
-export const updateUser = async (userId: string, updates: Partial<User>): Promise<void> => {
-  const userRef = doc(db, 'users', userId);
+export const updateUser = async (
+  userId: string,
+  updates: Partial<User>
+): Promise<void> => {
+  const userRef = doc(db, "users", userId);
   await updateDoc(userRef, updates);
 };
 
@@ -264,36 +312,41 @@ export const updateUser = async (userId: string, updates: Partial<User>): Promis
  * @param userId - The mentor's user ID
  * @param hoursDelta - The number of hours to add (positive) or subtract (negative)
  */
-export const incrementMentorHours = async (userId: string, hoursDelta: number): Promise<void> => {
-  const userRef = doc(db, 'users', userId);
+export const incrementMentorHours = async (
+  userId: string,
+  hoursDelta: number
+): Promise<void> => {
+  const userRef = doc(db, "users", userId);
   await updateDoc(userRef, {
-    totalHoursCommitted: increment(hoursDelta)
+    totalHoursCommitted: increment(hoursDelta),
   });
 };
 
 export const deleteUser = async (userId: string): Promise<void> => {
-  const userRef = doc(db, 'users', userId);
+  const userRef = doc(db, "users", userId);
   await deleteDoc(userRef);
 };
 
 export const getAllUsers = async (): Promise<User[]> => {
   try {
     // Try with orderBy first, but fallback to no orderBy if index missing
-    let q = query(
-      collection(db, 'users'),
-      orderBy('createdAt', 'desc')
-    );
+    let q = query(collection(db, "users"), orderBy("createdAt", "desc"));
     let snapshot;
     try {
       snapshot = await getDocs(q);
     } catch (error: any) {
       // If index missing, try without orderBy
-      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
-        console.warn('Index missing for users createdAt, fetching without orderBy');
-        q = query(collection(db, 'users'));
+      if (
+        error?.code === "failed-precondition" ||
+        error?.message?.includes("index")
+      ) {
+        console.warn(
+          "Index missing for users createdAt, fetching without orderBy"
+        );
+        q = query(collection(db, "users"));
         snapshot = await getDocs(q);
         // Sort in memory
-        const docs = snapshot.docs.map(doc => ({
+        const docs = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
           createdAt: convertTimestamp(doc.data().createdAt),
@@ -308,76 +361,88 @@ export const getAllUsers = async (): Promise<User[]> => {
       }
     }
 
-    return snapshot.docs.map(doc => ({
+    return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: convertTimestamp(doc.data().createdAt),
     })) as User[];
   } catch (error) {
-    console.error('Error in getAllUsers:', error);
+    console.error("Error in getAllUsers:", error);
     throw error;
   }
 };
 
 // ==================== MATCH OPERATIONS ====================
 
-export const createMatch = async (matchData: Omit<Match, 'id'>): Promise<string> => {
-  const matchRef = doc(collection(db, 'matches'));
+export const createMatch = async (
+  matchData: Omit<Match, "id">
+): Promise<string> => {
+  const matchRef = doc(collection(db, "matches"));
   await setDoc(matchRef, matchData);
   return matchRef.id;
 };
 
-export const getMatchesByOrganization = async (organizationId: string): Promise<Match[]> => {
+export const getMatchesByOrganization = async (
+  organizationId: string
+): Promise<Match[]> => {
   const q = query(
-    collection(db, 'matches'),
-    where('organizationId', '==', organizationId),
-    orderBy('startDate', 'desc')
+    collection(db, "matches"),
+    where("organizationId", "==", organizationId),
+    orderBy("startDate", "desc")
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Match[];
 };
 
-export const getMatchesByUser = async (userId: string, organizationId: string): Promise<Match[]> => {
+export const getMatchesByUser = async (
+  userId: string,
+  organizationId: string
+): Promise<Match[]> => {
   const q = query(
-    collection(db, 'matches'),
-    where('organizationId', '==', organizationId),
-    where('mentorId', '==', userId)
+    collection(db, "matches"),
+    where("organizationId", "==", organizationId),
+    where("mentorId", "==", userId)
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Match[];
 };
 
-export const updateMatch = async (matchId: string, updates: Partial<Match>): Promise<void> => {
-  const matchRef = doc(db, 'matches', matchId);
+export const updateMatch = async (
+  matchId: string,
+  updates: Partial<Match>
+): Promise<void> => {
+  const matchRef = doc(db, "matches", matchId);
   await updateDoc(matchRef, updates);
 };
 
 // Get all matches across all organizations (for platform admin)
 export const getAllMatches = async (): Promise<Match[]> => {
   try {
-    let q = query(
-      collection(db, 'matches'),
-      orderBy('startDate', 'desc')
-    );
+    let q = query(collection(db, "matches"), orderBy("startDate", "desc"));
     let snapshot;
     try {
       snapshot = await getDocs(q);
     } catch (error: any) {
       // If index missing, try without orderBy
-      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
-        console.warn('Index missing for matches startDate, fetching without orderBy');
-        q = query(collection(db, 'matches'));
+      if (
+        error?.code === "failed-precondition" ||
+        error?.message?.includes("index")
+      ) {
+        console.warn(
+          "Index missing for matches startDate, fetching without orderBy"
+        );
+        q = query(collection(db, "matches"));
         snapshot = await getDocs(q);
         // Sort in memory
-        const docs = snapshot.docs.map(doc => ({
+        const docs = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as Match[];
@@ -391,81 +456,93 @@ export const getAllMatches = async (): Promise<Match[]> => {
       }
     }
 
-    return snapshot.docs.map(doc => ({
+    return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Match[];
   } catch (error) {
-    console.error('Error in getAllMatches:', error);
+    console.error("Error in getAllMatches:", error);
     throw error;
   }
 };
 
 // ==================== GOAL OPERATIONS ====================
 
-export const createGoal = async (goalData: Omit<Goal, 'id'>): Promise<string> => {
-  const goalRef = doc(collection(db, 'goals'));
+export const createGoal = async (
+  goalData: Omit<Goal, "id">
+): Promise<string> => {
+  const goalRef = doc(collection(db, "goals"));
   await setDoc(goalRef, goalData);
   return goalRef.id;
 };
 
-export const getGoalsByOrganization = async (organizationId: string): Promise<Goal[]> => {
+export const getGoalsByOrganization = async (
+  organizationId: string
+): Promise<Goal[]> => {
   const q = query(
-    collection(db, 'goals'),
-    where('organizationId', '==', organizationId),
-    orderBy('dueDate', 'asc')
+    collection(db, "goals"),
+    where("organizationId", "==", organizationId),
+    orderBy("dueDate", "asc")
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Goal[];
 };
 
-export const getGoalsByUser = async (userId: string, organizationId: string): Promise<Goal[]> => {
+export const getGoalsByUser = async (
+  userId: string,
+  organizationId: string
+): Promise<Goal[]> => {
   const q = query(
-    collection(db, 'goals'),
-    where('organizationId', '==', organizationId),
-    where('userId', '==', userId),
-    orderBy('dueDate', 'asc')
+    collection(db, "goals"),
+    where("organizationId", "==", organizationId),
+    where("userId", "==", userId),
+    orderBy("dueDate", "asc")
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Goal[];
 };
 
-export const updateGoal = async (goalId: string, updates: Partial<Goal>): Promise<void> => {
-  const goalRef = doc(db, 'goals', goalId);
+export const updateGoal = async (
+  goalId: string,
+  updates: Partial<Goal>
+): Promise<void> => {
+  const goalRef = doc(db, "goals", goalId);
   await updateDoc(goalRef, updates);
 };
 
 export const deleteGoal = async (goalId: string): Promise<void> => {
-  const goalRef = doc(db, 'goals', goalId);
+  const goalRef = doc(db, "goals", goalId);
   await deleteDoc(goalRef);
 };
 
 // Get all goals across all organizations (for platform admin)
 export const getAllGoals = async (): Promise<Goal[]> => {
   try {
-    let q = query(
-      collection(db, 'goals'),
-      orderBy('dueDate', 'asc')
-    );
+    let q = query(collection(db, "goals"), orderBy("dueDate", "asc"));
     let snapshot;
     try {
       snapshot = await getDocs(q);
     } catch (error: any) {
       // If index missing, try without orderBy
-      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
-        console.warn('Index missing for goals dueDate, fetching without orderBy');
-        q = query(collection(db, 'goals'));
+      if (
+        error?.code === "failed-precondition" ||
+        error?.message?.includes("index")
+      ) {
+        console.warn(
+          "Index missing for goals dueDate, fetching without orderBy"
+        );
+        q = query(collection(db, "goals"));
         snapshot = await getDocs(q);
         // Sort in memory
-        const docs = snapshot.docs.map(doc => ({
+        const docs = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as Goal[];
@@ -479,32 +556,36 @@ export const getAllGoals = async (): Promise<Goal[]> => {
       }
     }
 
-    return snapshot.docs.map(doc => ({
+    return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Goal[];
   } catch (error) {
-    console.error('Error in getAllGoals:', error);
+    console.error("Error in getAllGoals:", error);
     throw error;
   }
 };
 
 // ==================== MILESTONE OPERATIONS ====================
 
-export const createMilestone = async (milestoneData: Omit<Milestone, 'id'>): Promise<string> => {
-  const milestoneRef = doc(collection(db, 'milestones'));
+export const createMilestone = async (
+  milestoneData: Omit<Milestone, "id">
+): Promise<string> => {
+  const milestoneRef = doc(collection(db, "milestones"));
   await setDoc(milestoneRef, milestoneData);
   return milestoneRef.id;
 };
 
-export const getMilestonesByGoal = async (goalId: string): Promise<Milestone[]> => {
+export const getMilestonesByGoal = async (
+  goalId: string
+): Promise<Milestone[]> => {
   const q = query(
-    collection(db, 'milestones'),
-    where('goalId', '==', goalId),
-    orderBy('dueDate', 'asc')
+    collection(db, "milestones"),
+    where("goalId", "==", goalId),
+    orderBy("dueDate", "asc")
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Milestone[];
@@ -514,12 +595,12 @@ export const updateMilestone = async (
   milestoneId: string,
   updates: Partial<Milestone>
 ): Promise<void> => {
-  const milestoneRef = doc(db, 'milestones', milestoneId);
+  const milestoneRef = doc(db, "milestones", milestoneId);
   await updateDoc(milestoneRef, updates);
 };
 
 export const deleteMilestone = async (milestoneId: string): Promise<void> => {
-  const milestoneRef = doc(db, 'milestones', milestoneId);
+  const milestoneRef = doc(db, "milestones", milestoneId);
   await deleteDoc(milestoneRef);
 };
 
@@ -528,73 +609,86 @@ export const subscribeToMilestones = (
   callback: (milestones: Milestone[]) => void
 ): (() => void) => {
   const q = query(
-    collection(db, 'milestones'),
-    where('goalId', '==', goalId),
-    orderBy('dueDate', 'asc')
+    collection(db, "milestones"),
+    where("goalId", "==", goalId),
+    orderBy("dueDate", "asc")
   );
-  
-  return onSnapshot(q, (snapshot) => {
-    const milestones = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Milestone[];
-    callback(milestones);
-  }, (error) => {
-    console.error('Error subscribing to milestones:', error);
-    callback([]);
-  });
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const milestones = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Milestone[];
+      callback(milestones);
+    },
+    (error) => {
+      console.error("Error subscribing to milestones:", error);
+      callback([]);
+    }
+  );
 };
 
 // ==================== RATING OPERATIONS ====================
 
-export const createRating = async (ratingData: Omit<Rating, 'id'>): Promise<string> => {
-  const ratingRef = doc(collection(db, 'ratings'));
+export const createRating = async (
+  ratingData: Omit<Rating, "id">
+): Promise<string> => {
+  const ratingRef = doc(collection(db, "ratings"));
   await setDoc(ratingRef, ratingData);
   return ratingRef.id;
 };
 
-export const getRatingsByOrganization = async (organizationId: string): Promise<Rating[]> => {
+export const getRatingsByOrganization = async (
+  organizationId: string
+): Promise<Rating[]> => {
   const q = query(
-    collection(db, 'ratings'),
-    where('organizationId', '==', organizationId),
-    orderBy('date', 'desc')
+    collection(db, "ratings"),
+    where("organizationId", "==", organizationId),
+    orderBy("date", "desc")
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Rating[];
 };
 
-export const updateRating = async (ratingId: string, updates: Partial<Rating>): Promise<void> => {
-  const ratingRef = doc(db, 'ratings', ratingId);
+export const updateRating = async (
+  ratingId: string,
+  updates: Partial<Rating>
+): Promise<void> => {
+  const ratingRef = doc(db, "ratings", ratingId);
   await updateDoc(ratingRef, updates);
 };
 
 export const deleteRating = async (ratingId: string): Promise<void> => {
-  const ratingRef = doc(db, 'ratings', ratingId);
+  const ratingRef = doc(db, "ratings", ratingId);
   await deleteDoc(ratingRef);
 };
 
 // Get all ratings across all organizations (for platform admin)
 export const getAllRatings = async (): Promise<Rating[]> => {
   try {
-    let q = query(
-      collection(db, 'ratings'),
-      orderBy('date', 'desc')
-    );
+    let q = query(collection(db, "ratings"), orderBy("date", "desc"));
     let snapshot;
     try {
       snapshot = await getDocs(q);
     } catch (error: any) {
       // If index missing, try without orderBy
-      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
-        console.warn('Index missing for ratings date, fetching without orderBy');
-        q = query(collection(db, 'ratings'));
+      if (
+        error?.code === "failed-precondition" ||
+        error?.message?.includes("index")
+      ) {
+        console.warn(
+          "Index missing for ratings date, fetching without orderBy"
+        );
+        q = query(collection(db, "ratings"));
         snapshot = await getDocs(q);
         // Sort in memory
-        const docs = snapshot.docs.map(doc => ({
+        const docs = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as Rating[];
@@ -608,20 +702,22 @@ export const getAllRatings = async (): Promise<Rating[]> => {
       }
     }
 
-    return snapshot.docs.map(doc => ({
+    return snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Rating[];
   } catch (error) {
-    console.error('Error in getAllRatings:', error);
+    console.error("Error in getAllRatings:", error);
     throw error;
   }
 };
 
 // ==================== RESOURCE OPERATIONS ====================
 
-export const createResource = async (resourceData: Omit<Resource, 'id' | 'createdAt'>): Promise<string> => {
-  const resourceRef = doc(collection(db, 'resources'));
+export const createResource = async (
+  resourceData: Omit<Resource, "id" | "createdAt">
+): Promise<string> => {
+  const resourceRef = doc(collection(db, "resources"));
   await setDoc(resourceRef, {
     ...resourceData,
     createdAt: Timestamp.now(),
@@ -629,15 +725,17 @@ export const createResource = async (resourceData: Omit<Resource, 'id' | 'create
   return resourceRef.id;
 };
 
-export const getResourcesByOrganization = async (organizationId: string): Promise<Resource[]> => {
+export const getResourcesByOrganization = async (
+  organizationId: string
+): Promise<Resource[]> => {
   const q = query(
-    collection(db, 'resources'),
-    where('organizationId', '==', organizationId),
-    orderBy('createdAt', 'desc')
+    collection(db, "resources"),
+    where("organizationId", "==", organizationId),
+    orderBy("createdAt", "desc")
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
@@ -645,15 +743,17 @@ export const getResourcesByOrganization = async (organizationId: string): Promis
 };
 
 export const deleteResource = async (resourceId: string): Promise<void> => {
-  const resourceRef = doc(db, 'resources', resourceId);
+  const resourceRef = doc(db, "resources", resourceId);
   await deleteDoc(resourceRef);
 };
 
 // ==================== BLOG POST OPERATIONS ====================
 // Blog posts are platform-wide (no organizationId)
 
-export const createBlogPost = async (postData: Omit<BlogPost, 'id' | 'createdAt'>): Promise<string> => {
-  const postRef = doc(collection(db, 'blogPosts'));
+export const createBlogPost = async (
+  postData: Omit<BlogPost, "id" | "createdAt">
+): Promise<string> => {
+  const postRef = doc(collection(db, "blogPosts"));
   await setDoc(postRef, {
     ...postData,
     createdAt: Timestamp.now(),
@@ -661,42 +761,46 @@ export const createBlogPost = async (postData: Omit<BlogPost, 'id' | 'createdAt'
   return postRef.id;
 };
 
-export const getBlogPosts = async (publishedOnly: boolean = false): Promise<BlogPost[]> => {
-  let q = query(
-    collection(db, 'blogPosts'),
-    orderBy('createdAt', 'desc')
-  );
-  
+export const getBlogPosts = async (
+  publishedOnly: boolean = false
+): Promise<BlogPost[]> => {
+  let q = query(collection(db, "blogPosts"), orderBy("createdAt", "desc"));
+
   if (publishedOnly) {
     q = query(
-      collection(db, 'blogPosts'),
-      where('published', '==', true),
-      orderBy('createdAt', 'desc')
+      collection(db, "blogPosts"),
+      where("published", "==", true),
+      orderBy("createdAt", "desc")
     );
   }
-  
+
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
   })) as BlogPost[];
 };
 
-export const updateBlogPost = async (postId: string, updates: Partial<BlogPost>): Promise<void> => {
-  const postRef = doc(db, 'blogPosts', postId);
+export const updateBlogPost = async (
+  postId: string,
+  updates: Partial<BlogPost>
+): Promise<void> => {
+  const postRef = doc(db, "blogPosts", postId);
   await updateDoc(postRef, updates);
 };
 
 export const deleteBlogPost = async (postId: string): Promise<void> => {
-  const postRef = doc(db, 'blogPosts', postId);
+  const postRef = doc(db, "blogPosts", postId);
   await deleteDoc(postRef);
 };
 
 // ==================== DISCUSSION GUIDE OPERATIONS ====================
 
-export const createDiscussionGuide = async (guideData: Omit<DiscussionGuide, 'id' | 'createdAt'>): Promise<string> => {
-  const guideRef = doc(collection(db, 'discussionGuides'));
+export const createDiscussionGuide = async (
+  guideData: Omit<DiscussionGuide, "id" | "createdAt">
+): Promise<string> => {
+  const guideRef = doc(collection(db, "discussionGuides"));
   await setDoc(guideRef, {
     ...guideData,
     createdAt: Timestamp.now(),
@@ -704,57 +808,64 @@ export const createDiscussionGuide = async (guideData: Omit<DiscussionGuide, 'id
   return guideRef.id;
 };
 
-export const getDiscussionGuides = async (organizationId?: string): Promise<DiscussionGuide[]> => {
+export const getDiscussionGuides = async (
+  organizationId?: string
+): Promise<DiscussionGuide[]> => {
   // Get platform guides (isPlatform = true) and optionally org-specific guides
   const platformQuery = query(
-    collection(db, 'discussionGuides'),
-    where('isPlatform', '==', true),
-    orderBy('createdAt', 'desc')
+    collection(db, "discussionGuides"),
+    where("isPlatform", "==", true),
+    orderBy("createdAt", "desc")
   );
-  
+
   const platformSnapshot = await getDocs(platformQuery);
-  const platformGuides = platformSnapshot.docs.map(doc => ({
+  const platformGuides = platformSnapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
   })) as DiscussionGuide[];
-  
+
   if (!organizationId) {
     return platformGuides;
   }
-  
+
   // Also get organization-specific guides
   const orgQuery = query(
-    collection(db, 'discussionGuides'),
-    where('isPlatform', '==', false),
-    where('organizationId', '==', organizationId),
-    orderBy('createdAt', 'desc')
+    collection(db, "discussionGuides"),
+    where("isPlatform", "==", false),
+    where("organizationId", "==", organizationId),
+    orderBy("createdAt", "desc")
   );
-  
+
   const orgSnapshot = await getDocs(orgQuery);
-  const orgGuides = orgSnapshot.docs.map(doc => ({
+  const orgGuides = orgSnapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
   })) as DiscussionGuide[];
-  
+
   return [...platformGuides, ...orgGuides];
 };
 
-export const updateDiscussionGuide = async (guideId: string, updates: Partial<DiscussionGuide>): Promise<void> => {
-  const guideRef = doc(db, 'discussionGuides', guideId);
+export const updateDiscussionGuide = async (
+  guideId: string,
+  updates: Partial<DiscussionGuide>
+): Promise<void> => {
+  const guideRef = doc(db, "discussionGuides", guideId);
   await updateDoc(guideRef, updates);
 };
 
 export const deleteDiscussionGuide = async (guideId: string): Promise<void> => {
-  const guideRef = doc(db, 'discussionGuides', guideId);
+  const guideRef = doc(db, "discussionGuides", guideId);
   await deleteDoc(guideRef);
 };
 
 // ==================== CAREER TEMPLATE OPERATIONS ====================
 
-export const createCareerTemplate = async (templateData: Omit<CareerTemplate, 'id' | 'createdAt'>): Promise<string> => {
-  const templateRef = doc(collection(db, 'careerTemplates'));
+export const createCareerTemplate = async (
+  templateData: Omit<CareerTemplate, "id" | "createdAt">
+): Promise<string> => {
+  const templateRef = doc(collection(db, "careerTemplates"));
   await setDoc(templateRef, {
     ...templateData,
     createdAt: Timestamp.now(),
@@ -762,57 +873,66 @@ export const createCareerTemplate = async (templateData: Omit<CareerTemplate, 'i
   return templateRef.id;
 };
 
-export const getCareerTemplates = async (organizationId?: string): Promise<CareerTemplate[]> => {
+export const getCareerTemplates = async (
+  organizationId?: string
+): Promise<CareerTemplate[]> => {
   // Get platform templates (isPlatform = true) and optionally org-specific templates
   const platformQuery = query(
-    collection(db, 'careerTemplates'),
-    where('isPlatform', '==', true),
-    orderBy('createdAt', 'desc')
+    collection(db, "careerTemplates"),
+    where("isPlatform", "==", true),
+    orderBy("createdAt", "desc")
   );
-  
+
   const platformSnapshot = await getDocs(platformQuery);
-  const platformTemplates = platformSnapshot.docs.map(doc => ({
+  const platformTemplates = platformSnapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
   })) as CareerTemplate[];
-  
+
   if (!organizationId) {
     return platformTemplates;
   }
-  
+
   // Also get organization-specific templates
   const orgQuery = query(
-    collection(db, 'careerTemplates'),
-    where('isPlatform', '==', false),
-    where('organizationId', '==', organizationId),
-    orderBy('createdAt', 'desc')
+    collection(db, "careerTemplates"),
+    where("isPlatform", "==", false),
+    where("organizationId", "==", organizationId),
+    orderBy("createdAt", "desc")
   );
-  
+
   const orgSnapshot = await getDocs(orgQuery);
-  const orgTemplates = orgSnapshot.docs.map(doc => ({
+  const orgTemplates = orgSnapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
   })) as CareerTemplate[];
-  
+
   return [...platformTemplates, ...orgTemplates];
 };
 
-export const updateCareerTemplate = async (templateId: string, updates: Partial<CareerTemplate>): Promise<void> => {
-  const templateRef = doc(db, 'careerTemplates', templateId);
+export const updateCareerTemplate = async (
+  templateId: string,
+  updates: Partial<CareerTemplate>
+): Promise<void> => {
+  const templateRef = doc(db, "careerTemplates", templateId);
   await updateDoc(templateRef, updates);
 };
 
-export const deleteCareerTemplate = async (templateId: string): Promise<void> => {
-  const templateRef = doc(db, 'careerTemplates', templateId);
+export const deleteCareerTemplate = async (
+  templateId: string
+): Promise<void> => {
+  const templateRef = doc(db, "careerTemplates", templateId);
   await deleteDoc(templateRef);
 };
 
 // ==================== TRAINING VIDEO OPERATIONS ====================
 
-export const createTrainingVideo = async (videoData: Omit<TrainingVideo, 'id' | 'createdAt'>): Promise<string> => {
-  const videoRef = doc(collection(db, 'trainingVideos'));
+export const createTrainingVideo = async (
+  videoData: Omit<TrainingVideo, "id" | "createdAt">
+): Promise<string> => {
+  const videoRef = doc(collection(db, "trainingVideos"));
   await setDoc(videoRef, {
     ...videoData,
     createdAt: Timestamp.now(),
@@ -820,57 +940,64 @@ export const createTrainingVideo = async (videoData: Omit<TrainingVideo, 'id' | 
   return videoRef.id;
 };
 
-export const getTrainingVideos = async (organizationId?: string): Promise<TrainingVideo[]> => {
+export const getTrainingVideos = async (
+  organizationId?: string
+): Promise<TrainingVideo[]> => {
   // Get platform videos (isPlatform = true) and optionally org-specific videos
   const platformQuery = query(
-    collection(db, 'trainingVideos'),
-    where('isPlatform', '==', true),
-    orderBy('createdAt', 'desc')
+    collection(db, "trainingVideos"),
+    where("isPlatform", "==", true),
+    orderBy("createdAt", "desc")
   );
-  
+
   const platformSnapshot = await getDocs(platformQuery);
-  const platformVideos = platformSnapshot.docs.map(doc => ({
+  const platformVideos = platformSnapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
   })) as TrainingVideo[];
-  
+
   if (!organizationId) {
     return platformVideos;
   }
-  
+
   // Also get organization-specific videos
   const orgQuery = query(
-    collection(db, 'trainingVideos'),
-    where('isPlatform', '==', false),
-    where('organizationId', '==', organizationId),
-    orderBy('createdAt', 'desc')
+    collection(db, "trainingVideos"),
+    where("isPlatform", "==", false),
+    where("organizationId", "==", organizationId),
+    orderBy("createdAt", "desc")
   );
-  
+
   const orgSnapshot = await getDocs(orgQuery);
-  const orgVideos = orgSnapshot.docs.map(doc => ({
+  const orgVideos = orgSnapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
   })) as TrainingVideo[];
-  
+
   return [...platformVideos, ...orgVideos];
 };
 
-export const updateTrainingVideo = async (videoId: string, updates: Partial<TrainingVideo>): Promise<void> => {
-  const videoRef = doc(db, 'trainingVideos', videoId);
+export const updateTrainingVideo = async (
+  videoId: string,
+  updates: Partial<TrainingVideo>
+): Promise<void> => {
+  const videoRef = doc(db, "trainingVideos", videoId);
   await updateDoc(videoRef, updates);
 };
 
 export const deleteTrainingVideo = async (videoId: string): Promise<void> => {
-  const videoRef = doc(db, 'trainingVideos', videoId);
+  const videoRef = doc(db, "trainingVideos", videoId);
   await deleteDoc(videoRef);
 };
 
 // ==================== CALENDAR EVENT OPERATIONS ====================
 
-export const createCalendarEvent = async (eventData: Omit<CalendarEvent, 'id' | 'createdAt'>): Promise<string> => {
-  const eventRef = doc(collection(db, 'calendarEvents'));
+export const createCalendarEvent = async (
+  eventData: Omit<CalendarEvent, "id" | "createdAt">
+): Promise<string> => {
+  const eventRef = doc(collection(db, "calendarEvents"));
   // Filter out undefined values - Firestore doesn't allow them
   const cleanData = Object.fromEntries(
     Object.entries(eventData).filter(([_, value]) => value !== undefined)
@@ -882,49 +1009,58 @@ export const createCalendarEvent = async (eventData: Omit<CalendarEvent, 'id' | 
   return eventRef.id;
 };
 
-export const getCalendarEventsByOrganization = async (organizationId: string, startDate?: string, endDate?: string): Promise<CalendarEvent[]> => {
+export const getCalendarEventsByOrganization = async (
+  organizationId: string,
+  startDate?: string,
+  endDate?: string
+): Promise<CalendarEvent[]> => {
   let q = query(
-    collection(db, 'calendarEvents'),
-    where('organizationId', '==', organizationId),
-    orderBy('date', 'asc')
+    collection(db, "calendarEvents"),
+    where("organizationId", "==", organizationId),
+    orderBy("date", "asc")
   );
 
   if (startDate) {
-    q = query(q, where('date', '>=', startDate));
+    q = query(q, where("date", ">=", startDate));
   }
 
   const snapshot = await getDocs(q);
 
-  let events = snapshot.docs.map(doc => ({
+  let events = snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
   })) as CalendarEvent[];
 
   if (endDate) {
-    events = events.filter(e => e.date <= endDate);
+    events = events.filter((e) => e.date <= endDate);
   }
 
   return events;
 };
 
-export const getCalendarEventsByUser = async (userId: string, organizationId: string): Promise<CalendarEvent[]> => {
+export const getCalendarEventsByUser = async (
+  userId: string,
+  organizationId: string
+): Promise<CalendarEvent[]> => {
   const q = query(
-    collection(db, 'calendarEvents'),
-    where('organizationId', '==', organizationId),
-    where('mentorId', '==', userId)
+    collection(db, "calendarEvents"),
+    where("organizationId", "==", organizationId),
+    where("mentorId", "==", userId)
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
   })) as CalendarEvent[];
 };
 
-export const getCalendarEvent = async (eventId: string): Promise<CalendarEvent | null> => {
-  const eventRef = doc(db, 'calendarEvents', eventId);
+export const getCalendarEvent = async (
+  eventId: string
+): Promise<CalendarEvent | null> => {
+  const eventRef = doc(db, "calendarEvents", eventId);
   const eventSnap = await getDoc(eventRef);
 
   if (!eventSnap.exists()) {
@@ -939,27 +1075,30 @@ export const getCalendarEvent = async (eventId: string): Promise<CalendarEvent |
   } as CalendarEvent;
 };
 
-export const updateCalendarEvent = async (eventId: string, updates: Partial<CalendarEvent>): Promise<void> => {
-  const eventRef = doc(db, 'calendarEvents', eventId);
+export const updateCalendarEvent = async (
+  eventId: string,
+  updates: Partial<CalendarEvent>
+): Promise<void> => {
+  const eventRef = doc(db, "calendarEvents", eventId);
   await updateDoc(eventRef, updates);
 };
 
 export const deleteCalendarEvent = async (eventId: string): Promise<void> => {
-  const eventRef = doc(db, 'calendarEvents', eventId);
+  const eventRef = doc(db, "calendarEvents", eventId);
   await deleteDoc(eventRef);
 };
 
 // Get all calendar events across all organizations (for platform admin)
-export const getAllCalendarEvents = async (startDate?: string, endDate?: string): Promise<CalendarEvent[]> => {
+export const getAllCalendarEvents = async (
+  startDate?: string,
+  endDate?: string
+): Promise<CalendarEvent[]> => {
   try {
     // Try with orderBy first, but fallback to no orderBy if index missing
-    let q = query(
-      collection(db, 'calendarEvents'),
-      orderBy('date', 'asc')
-    );
+    let q = query(collection(db, "calendarEvents"), orderBy("date", "asc"));
 
     if (startDate) {
-      q = query(q, where('date', '>=', startDate));
+      q = query(q, where("date", ">=", startDate));
     }
 
     let snapshot;
@@ -968,12 +1107,17 @@ export const getAllCalendarEvents = async (startDate?: string, endDate?: string)
       snapshot = await getDocs(q);
     } catch (error: any) {
       // If index missing, try without orderBy
-      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
-        console.warn('Index missing for calendarEvents date, fetching without orderBy');
+      if (
+        error?.code === "failed-precondition" ||
+        error?.message?.includes("index")
+      ) {
+        console.warn(
+          "Index missing for calendarEvents date, fetching without orderBy"
+        );
         hasOrderBy = false; // Mark that we're not using orderBy
-        q = query(collection(db, 'calendarEvents'));
+        q = query(collection(db, "calendarEvents"));
         if (startDate) {
-          q = query(q, where('date', '>=', startDate));
+          q = query(q, where("date", ">=", startDate));
         }
         snapshot = await getDocs(q);
       } else {
@@ -981,7 +1125,7 @@ export const getAllCalendarEvents = async (startDate?: string, endDate?: string)
       }
     }
 
-    let events = snapshot.docs.map(doc => ({
+    let events = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: convertTimestamp(doc.data().createdAt),
@@ -997,27 +1141,29 @@ export const getAllCalendarEvents = async (startDate?: string, endDate?: string)
     }
 
     if (endDate) {
-      events = events.filter(e => e.date <= endDate);
+      events = events.filter((e) => e.date <= endDate);
     }
 
     // Filter to only include past events (completed meetings) with a mentorId
     const now = new Date();
-    events = events.filter(e => {
+    events = events.filter((e) => {
       const eventDate = new Date(`${e.date}T${e.startTime}`);
       return eventDate < now && e.mentorId; // Only include events with a mentor
     });
 
     return events;
   } catch (error) {
-    console.error('Error in getAllCalendarEvents:', error);
+    console.error("Error in getAllCalendarEvents:", error);
     throw error;
   }
 };
 
 // ==================== NOTIFICATION OPERATIONS ====================
 
-export const createNotification = async (notificationData: Omit<Notification, 'id'>): Promise<string> => {
-  const notificationRef = doc(collection(db, 'notifications'));
+export const createNotification = async (
+  notificationData: Omit<Notification, "id">
+): Promise<string> => {
+  const notificationRef = doc(collection(db, "notifications"));
   await setDoc(notificationRef, {
     ...notificationData,
     timestamp: Timestamp.now(),
@@ -1025,30 +1171,39 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
   return notificationRef.id;
 };
 
-export const getNotificationsByUser = async (userId: string, organizationId: string): Promise<Notification[]> => {
+export const getNotificationsByUser = async (
+  userId: string,
+  organizationId: string
+): Promise<Notification[]> => {
   const q = query(
-    collection(db, 'notifications'),
-    where('organizationId', '==', organizationId),
-    where('userId', '==', userId),
-    orderBy('timestamp', 'desc'),
+    collection(db, "notifications"),
+    where("organizationId", "==", organizationId),
+    where("userId", "==", userId),
+    orderBy("timestamp", "desc"),
     firestoreLimit(50)
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
-    timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
+    timestamp:
+      doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
   })) as Notification[];
 };
 
-export const updateNotification = async (notificationId: string, updates: Partial<Notification>): Promise<void> => {
-  const notificationRef = doc(db, 'notifications', notificationId);
+export const updateNotification = async (
+  notificationId: string,
+  updates: Partial<Notification>
+): Promise<void> => {
+  const notificationRef = doc(db, "notifications", notificationId);
   await updateDoc(notificationRef, updates);
 };
 
-export const deleteNotification = async (notificationId: string): Promise<void> => {
-  const notificationRef = doc(db, 'notifications', notificationId);
+export const deleteNotification = async (
+  notificationId: string
+): Promise<void> => {
+  const notificationRef = doc(db, "notifications", notificationId);
   await deleteDoc(notificationRef);
 };
 
@@ -1058,8 +1213,8 @@ export const deleteNotification = async (notificationId: string): Promise<void> 
  * Generates a unique invitation token
  */
 const generateInvitationToken = (): string => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let token = '';
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let token = "";
   for (let i = 0; i < 32; i++) {
     token += chars.charAt(Math.floor(Math.random() * chars.length));
   }
@@ -1069,17 +1224,26 @@ const generateInvitationToken = (): string => {
 /**
  * Creates an invitation with auto-generated token and link
  */
-export const createInvitation = async (invitationData: Omit<Invitation, 'id' | 'token' | 'invitationLink'>): Promise<string> => {
+export const createInvitation = async (
+  invitationData: Omit<Invitation, "id" | "token" | "invitationLink">
+): Promise<string> => {
   const token = generateInvitationToken();
-  const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-  const invitationLink = `${appUrl}/auth?invite=${token}`;
-  
-  const invitationRef = doc(collection(db, 'invitations'));
+  // Always use current browser origin when available - this adapts to whatever port/domain is being used
+  // Only fallback to VITE_APP_URL or default when window is not available (server-side)
+  const appUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : import.meta.env.VITE_APP_URL || "https://meant2grow.com";
+  const invitationLink = `${appUrl}/?invite=${token}`;
+
+  const invitationRef = doc(collection(db, "invitations"));
   await setDoc(invitationRef, {
     ...invitationData,
     token,
     invitationLink,
-    expiresAt: invitationData.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default 30 days
+    expiresAt:
+      invitationData.expiresAt ||
+      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default 30 days
   });
   return invitationRef.id;
 };
@@ -1087,8 +1251,10 @@ export const createInvitation = async (invitationData: Omit<Invitation, 'id' | '
 /**
  * Gets invitation by ID
  */
-export const getInvitation = async (invitationId: string): Promise<Invitation | null> => {
-  const invitationRef = doc(db, 'invitations', invitationId);
+export const getInvitation = async (
+  invitationId: string
+): Promise<Invitation | null> => {
+  const invitationRef = doc(db, "invitations", invitationId);
   const invitationSnap = await getDoc(invitationRef);
 
   if (!invitationSnap.exists()) {
@@ -1107,11 +1273,13 @@ export const getInvitation = async (invitationId: string): Promise<Invitation | 
 /**
  * Gets invitation by token
  */
-export const getInvitationByToken = async (token: string): Promise<Invitation | null> => {
+export const getInvitationByToken = async (
+  token: string
+): Promise<Invitation | null> => {
   const q = query(
-    collection(db, 'invitations'),
-    where('token', '==', token),
-    where('status', '==', 'Pending')
+    collection(db, "invitations"),
+    where("token", "==", token),
+    where("status", "==", "Pending")
   );
   const snapshot = await getDocs(q);
 
@@ -1121,15 +1289,16 @@ export const getInvitationByToken = async (token: string): Promise<Invitation | 
 
   const invitationDoc = snapshot.docs[0];
   const data = invitationDoc.data();
-  
+
   // Check expiration
   if (data.expiresAt) {
-    const expiresAt = typeof data.expiresAt === 'string' 
-      ? new Date(data.expiresAt) 
-      : data.expiresAt.toDate();
+    const expiresAt =
+      typeof data.expiresAt === "string"
+        ? new Date(data.expiresAt)
+        : data.expiresAt.toDate();
     if (expiresAt < new Date()) {
       // Mark as expired
-      await updateInvitation(invitationDoc.id, { status: 'Expired' });
+      await updateInvitation(invitationDoc.id, { status: "Expired" });
       return null;
     }
   }
@@ -1145,12 +1314,15 @@ export const getInvitationByToken = async (token: string): Promise<Invitation | 
 /**
  * Gets invitation by email and organization
  */
-export const getInvitationByEmail = async (email: string, organizationId: string): Promise<Invitation | null> => {
+export const getInvitationByEmail = async (
+  email: string,
+  organizationId: string
+): Promise<Invitation | null> => {
   const q = query(
-    collection(db, 'invitations'),
-    where('email', '==', email.toLowerCase()),
-    where('organizationId', '==', organizationId),
-    where('status', '==', 'Pending')
+    collection(db, "invitations"),
+    where("email", "==", email.toLowerCase()),
+    where("organizationId", "==", organizationId),
+    where("status", "==", "Pending")
   );
   const snapshot = await getDocs(q);
 
@@ -1160,14 +1332,15 @@ export const getInvitationByEmail = async (email: string, organizationId: string
 
   const invitationDoc = snapshot.docs[0];
   const data = invitationDoc.data();
-  
+
   // Check expiration
   if (data.expiresAt) {
-    const expiresAt = typeof data.expiresAt === 'string' 
-      ? new Date(data.expiresAt) 
-      : data.expiresAt.toDate();
+    const expiresAt =
+      typeof data.expiresAt === "string"
+        ? new Date(data.expiresAt)
+        : data.expiresAt.toDate();
     if (expiresAt < new Date()) {
-      await updateInvitation(invitationDoc.id, { status: 'Expired' });
+      await updateInvitation(invitationDoc.id, { status: "Expired" });
       return null;
     }
   }
@@ -1180,24 +1353,31 @@ export const getInvitationByEmail = async (email: string, organizationId: string
   } as Invitation;
 };
 
-export const getInvitationsByOrganization = async (organizationId: string): Promise<Invitation[]> => {
+export const getInvitationsByOrganization = async (
+  organizationId: string
+): Promise<Invitation[]> => {
   const q = query(
-    collection(db, 'invitations'),
-    where('organizationId', '==', organizationId),
-    orderBy('sentDate', 'desc')
+    collection(db, "invitations"),
+    where("organizationId", "==", organizationId),
+    orderBy("sentDate", "desc")
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     sentDate: convertTimestamp(doc.data().sentDate),
-    expiresAt: doc.data().expiresAt ? convertTimestamp(doc.data().expiresAt) : undefined,
+    expiresAt: doc.data().expiresAt
+      ? convertTimestamp(doc.data().expiresAt)
+      : undefined,
   })) as Invitation[];
 };
 
-export const updateInvitation = async (invitationId: string, updates: Partial<Invitation>): Promise<void> => {
-  const invitationRef = doc(db, 'invitations', invitationId);
+export const updateInvitation = async (
+  invitationId: string,
+  updates: Partial<Invitation>
+): Promise<void> => {
+  const invitationRef = doc(db, "invitations", invitationId);
   await updateDoc(invitationRef, updates);
 };
 
@@ -1207,7 +1387,7 @@ export const subscribeToUser = (
   userId: string,
   callback: (user: User | null) => void
 ): Unsubscribe => {
-  const userRef = doc(db, 'users', userId);
+  const userRef = doc(db, "users", userId);
   return onSnapshot(userRef, (snap: DocumentSnapshot) => {
     if (snap.exists()) {
       callback({
@@ -1225,7 +1405,7 @@ export const subscribeToOrganization = (
   organizationId: string,
   callback: (org: Organization | null) => void
 ): Unsubscribe => {
-  const orgRef = doc(db, 'organizations', organizationId);
+  const orgRef = doc(db, "organizations", organizationId);
   return onSnapshot(orgRef, (snap: DocumentSnapshot) => {
     if (snap.exists()) {
       callback({
@@ -1245,16 +1425,16 @@ export const subscribeToUsersByOrganization = (
   pageSize: number = 50
 ): Unsubscribe => {
   const q = query(
-    collection(db, 'users'),
-    where('organizationId', '==', organizationId),
-    orderBy('createdAt', 'desc'),
+    collection(db, "users"),
+    where("organizationId", "==", organizationId),
+    orderBy("createdAt", "desc"),
     firestoreLimit(pageSize)
   );
 
   return onSnapshot(
     q,
     (snapshot: QuerySnapshot) => {
-      const users = snapshot.docs.map(doc => ({
+      const users = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
         createdAt: convertTimestamp(doc.data().createdAt),
@@ -1262,8 +1442,8 @@ export const subscribeToUsersByOrganization = (
       callback(users);
     },
     (error) => {
-      console.error('Error subscribing to users:', error);
-      console.error('OrganizationId:', organizationId);
+      console.error("Error subscribing to users:", error);
+      console.error("OrganizationId:", organizationId);
     }
   );
 };
@@ -1274,14 +1454,14 @@ export const subscribeToMatchesByOrganization = (
   pageSize: number = 50
 ): Unsubscribe => {
   const q = query(
-    collection(db, 'matches'),
-    where('organizationId', '==', organizationId),
-    orderBy('startDate', 'desc'),
+    collection(db, "matches"),
+    where("organizationId", "==", organizationId),
+    orderBy("startDate", "desc"),
     firestoreLimit(pageSize)
   );
 
   return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const matches = snapshot.docs.map(doc => ({
+    const matches = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Match[];
@@ -1295,14 +1475,14 @@ export const subscribeToGoalsByOrganization = (
   pageSize: number = 50
 ): Unsubscribe => {
   const q = query(
-    collection(db, 'goals'),
-    where('organizationId', '==', organizationId),
-    orderBy('dueDate', 'asc'),
+    collection(db, "goals"),
+    where("organizationId", "==", organizationId),
+    orderBy("dueDate", "asc"),
     firestoreLimit(pageSize)
   );
 
   return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const goals = snapshot.docs.map(doc => ({
+    const goals = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Goal[];
@@ -1316,14 +1496,14 @@ export const subscribeToRatingsByOrganization = (
   pageSize: number = 50
 ): Unsubscribe => {
   const q = query(
-    collection(db, 'ratings'),
-    where('organizationId', '==', organizationId),
-    orderBy('date', 'desc'),
+    collection(db, "ratings"),
+    where("organizationId", "==", organizationId),
+    orderBy("date", "desc"),
     firestoreLimit(pageSize)
   );
 
   return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const ratings = snapshot.docs.map(doc => ({
+    const ratings = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Rating[];
@@ -1337,14 +1517,14 @@ export const subscribeToResourcesByOrganization = (
   pageSize: number = 50
 ): Unsubscribe => {
   const q = query(
-    collection(db, 'resources'),
-    where('organizationId', '==', organizationId),
-    orderBy('createdAt', 'desc'),
+    collection(db, "resources"),
+    where("organizationId", "==", organizationId),
+    orderBy("createdAt", "desc"),
     firestoreLimit(pageSize)
   );
 
   return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const resources = snapshot.docs.map(doc => ({
+    const resources = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: convertTimestamp(doc.data().createdAt),
@@ -1359,14 +1539,14 @@ export const subscribeToCalendarEventsByOrganization = (
   pageSize: number = 100
 ): Unsubscribe => {
   const q = query(
-    collection(db, 'calendarEvents'),
-    where('organizationId', '==', organizationId),
-    orderBy('date', 'asc'),
+    collection(db, "calendarEvents"),
+    where("organizationId", "==", organizationId),
+    orderBy("date", "asc"),
     firestoreLimit(pageSize)
   );
 
   return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const events = snapshot.docs.map(doc => ({
+    const events = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: convertTimestamp(doc.data().createdAt),
@@ -1382,18 +1562,20 @@ export const subscribeToNotificationsByUser = (
   pageSize: number = 50
 ): Unsubscribe => {
   const q = query(
-    collection(db, 'notifications'),
-    where('organizationId', '==', organizationId),
-    where('userId', '==', userId),
-    orderBy('timestamp', 'desc'),
+    collection(db, "notifications"),
+    where("organizationId", "==", organizationId),
+    where("userId", "==", userId),
+    orderBy("timestamp", "desc"),
     firestoreLimit(pageSize)
   );
 
   return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const notifications = snapshot.docs.map(doc => ({
+    const notifications = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-      timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
+      timestamp:
+        doc.data().timestamp?.toDate().toISOString() ||
+        new Date().toISOString(),
     })) as Notification[];
     callback(notifications);
   });
@@ -1405,14 +1587,14 @@ export const subscribeToInvitationsByOrganization = (
   pageSize: number = 50
 ): Unsubscribe => {
   const q = query(
-    collection(db, 'invitations'),
-    where('organizationId', '==', organizationId),
-    orderBy('sentDate', 'desc'),
+    collection(db, "invitations"),
+    where("organizationId", "==", organizationId),
+    orderBy("sentDate", "desc"),
     firestoreLimit(pageSize)
   );
 
   return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const invitations = snapshot.docs.map(doc => ({
+    const invitations = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Invitation[];
@@ -1424,17 +1606,14 @@ export const subscribeToBlogPosts = (
   callback: (posts: BlogPost[]) => void,
   publishedOnly: boolean = false
 ): Unsubscribe => {
-  let q = query(
-    collection(db, 'blogPosts'),
-    orderBy('createdAt', 'desc')
-  );
+  let q = query(collection(db, "blogPosts"), orderBy("createdAt", "desc"));
 
   if (publishedOnly) {
-    q = query(q, where('published', '==', true));
+    q = query(q, where("published", "==", true));
   }
 
   return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const posts = snapshot.docs.map(doc => ({
+    const posts = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: convertTimestamp(doc.data().createdAt),
@@ -1451,22 +1630,29 @@ export const subscribeToDiscussionGuides = (
   // However, for simplicity and to match the 'get' implementation, we can use one query if we want all
   // But Firestore doesn't support 'OR' queries easily for (isPlatform == true OR organizationId == X)
   // So we just listen to all and filter in memory, or use two listeners.
-  
-  // Let's use one listener for all and filter if it's not too many, 
+
+  // Let's use one listener for all and filter if it's not too many,
   // or better, just listen to the collection and filter.
-  const q = query(collection(db, 'discussionGuides'), orderBy('createdAt', 'desc'));
-  
+  const q = query(
+    collection(db, "discussionGuides"),
+    orderBy("createdAt", "desc")
+  );
+
   return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const allGuides = snapshot.docs.map(doc => ({
+    const allGuides = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: convertTimestamp(doc.data().createdAt),
     })) as DiscussionGuide[];
-    
+
     if (!organizationId) {
-      callback(allGuides.filter(g => g.isPlatform));
+      callback(allGuides.filter((g) => g.isPlatform));
     } else {
-      callback(allGuides.filter(g => g.isPlatform || g.organizationId === organizationId));
+      callback(
+        allGuides.filter(
+          (g) => g.isPlatform || g.organizationId === organizationId
+        )
+      );
     }
   });
 };
@@ -1475,19 +1661,26 @@ export const subscribeToCareerTemplates = (
   organizationId: string | undefined,
   callback: (templates: CareerTemplate[]) => void
 ): Unsubscribe => {
-  const q = query(collection(db, 'careerTemplates'), orderBy('createdAt', 'desc'));
-  
+  const q = query(
+    collection(db, "careerTemplates"),
+    orderBy("createdAt", "desc")
+  );
+
   return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const allTemplates = snapshot.docs.map(doc => ({
+    const allTemplates = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: convertTimestamp(doc.data().createdAt),
     })) as CareerTemplate[];
-    
+
     if (!organizationId) {
-      callback(allTemplates.filter(t => t.isPlatform));
+      callback(allTemplates.filter((t) => t.isPlatform));
     } else {
-      callback(allTemplates.filter(t => t.isPlatform || t.organizationId === organizationId));
+      callback(
+        allTemplates.filter(
+          (t) => t.isPlatform || t.organizationId === organizationId
+        )
+      );
     }
   });
 };
@@ -1496,19 +1689,26 @@ export const subscribeToTrainingVideos = (
   organizationId: string | undefined,
   callback: (videos: TrainingVideo[]) => void
 ): Unsubscribe => {
-  const q = query(collection(db, 'trainingVideos'), orderBy('createdAt', 'desc'));
-  
+  const q = query(
+    collection(db, "trainingVideos"),
+    orderBy("createdAt", "desc")
+  );
+
   return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const allVideos = snapshot.docs.map(doc => ({
+    const allVideos = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: convertTimestamp(doc.data().createdAt),
     })) as TrainingVideo[];
-    
+
     if (!organizationId) {
-      callback(allVideos.filter(v => v.isPlatform));
+      callback(allVideos.filter((v) => v.isPlatform));
     } else {
-      callback(allVideos.filter(v => v.isPlatform || v.organizationId === organizationId));
+      callback(
+        allVideos.filter(
+          (v) => v.isPlatform || v.organizationId === organizationId
+        )
+      );
     }
   });
 };
@@ -1532,9 +1732,9 @@ export const getUsersByOrganizationPaginated = async (
 ): Promise<PaginatedResult<User>> => {
   const pageSize = options.pageSize || 20;
   let q = query(
-    collection(db, 'users'),
-    where('organizationId', '==', organizationId),
-    orderBy('createdAt', 'desc'),
+    collection(db, "users"),
+    where("organizationId", "==", organizationId),
+    orderBy("createdAt", "desc"),
     firestoreLimit(pageSize + 1) // Fetch one extra to check if there's more
   );
 
@@ -1545,7 +1745,7 @@ export const getUsersByOrganizationPaginated = async (
   const snapshot = await getDocs(q);
   const docs = snapshot.docs;
   const hasMore = docs.length > pageSize;
-  const data = (hasMore ? docs.slice(0, pageSize) : docs).map(doc => ({
+  const data = (hasMore ? docs.slice(0, pageSize) : docs).map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
@@ -1564,9 +1764,9 @@ export const getMatchesByOrganizationPaginated = async (
 ): Promise<PaginatedResult<Match>> => {
   const pageSize = options.pageSize || 20;
   let q = query(
-    collection(db, 'matches'),
-    where('organizationId', '==', organizationId),
-    orderBy('startDate', 'desc'),
+    collection(db, "matches"),
+    where("organizationId", "==", organizationId),
+    orderBy("startDate", "desc"),
     firestoreLimit(pageSize + 1)
   );
 
@@ -1577,7 +1777,7 @@ export const getMatchesByOrganizationPaginated = async (
   const snapshot = await getDocs(q);
   const docs = snapshot.docs;
   const hasMore = docs.length > pageSize;
-  const data = (hasMore ? docs.slice(0, pageSize) : docs).map(doc => ({
+  const data = (hasMore ? docs.slice(0, pageSize) : docs).map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Match[];
@@ -1591,52 +1791,62 @@ export const getMatchesByOrganizationPaginated = async (
 
 // ==================== CHAT MESSAGE OPERATIONS ====================
 
-export const createChatMessage = async (messageData: Omit<ChatMessage, 'id' | 'createdAt'>): Promise<string> => {
-  const messageRef = doc(collection(db, 'chatMessages'));
-  
+export const createChatMessage = async (
+  messageData: Omit<ChatMessage, "id" | "createdAt">
+): Promise<string> => {
+  const messageRef = doc(collection(db, "chatMessages"));
+
   // Remove undefined values as Firestore doesn't support them
   const cleanData: Record<string, any> = {
     ...messageData,
     createdAt: Timestamp.now(),
     timestamp: Timestamp.now(),
   };
-  
+
   // Remove undefined fields
-  Object.keys(cleanData).forEach(key => {
+  Object.keys(cleanData).forEach((key) => {
     if (cleanData[key] === undefined) {
       delete cleanData[key];
     }
   });
-  
+
   await setDoc(messageRef, cleanData);
   return messageRef.id;
 };
 
-export const getChatMessages = async (chatId: string, organizationId: string, limit: number = 50): Promise<ChatMessage[]> => {
+export const getChatMessages = async (
+  chatId: string,
+  organizationId: string,
+  limit: number = 50
+): Promise<ChatMessage[]> => {
   const q = query(
-    collection(db, 'chatMessages'),
-    where('organizationId', '==', organizationId),
-    where('chatId', '==', chatId),
-    orderBy('timestamp', 'desc'),
+    collection(db, "chatMessages"),
+    where("organizationId", "==", organizationId),
+    where("chatId", "==", chatId),
+    orderBy("timestamp", "desc"),
     firestoreLimit(limit)
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
-    timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
+    timestamp:
+      doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
     createdAt: convertTimestamp(doc.data().createdAt),
   })) as ChatMessage[];
 };
 
-export const updateChatMessage = async (messageId: string, updates: Partial<ChatMessage>): Promise<void> => {
-  const messageRef = doc(db, 'chatMessages', messageId);
+export const updateChatMessage = async (
+  messageId: string,
+  updates: Partial<ChatMessage>
+): Promise<void> => {
+  const messageRef = doc(db, "chatMessages", messageId);
   await updateDoc(messageRef, updates);
 };
 
 export const deleteChatMessage = async (messageId: string): Promise<void> => {
-  const messageRef = doc(db, 'chatMessages', messageId);
+  const messageRef = doc(db, "chatMessages", messageId);
   await deleteDoc(messageRef);
 };
 
@@ -1647,10 +1857,10 @@ export const subscribeToChatMessages = (
   pageSize: number = 50
 ): Unsubscribe => {
   const q = query(
-    collection(db, 'chatMessages'),
-    where('organizationId', '==', organizationId),
-    where('chatId', '==', chatId),
-    orderBy('timestamp', 'desc'),
+    collection(db, "chatMessages"),
+    where("organizationId", "==", organizationId),
+    where("chatId", "==", chatId),
+    orderBy("timestamp", "desc"),
     firestoreLimit(pageSize)
   );
 
@@ -1662,11 +1872,13 @@ export const subscribeToChatMessages = (
       q,
       (snapshot: QuerySnapshot) => {
         if (isUnsubscribed) return;
-        
-        const messages = snapshot.docs.map(doc => ({
+
+        const messages = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-          timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
+          timestamp:
+            doc.data().timestamp?.toDate().toISOString() ||
+            new Date().toISOString(),
           createdAt: convertTimestamp(doc.data().createdAt),
         })) as ChatMessage[];
         // Reverse to show oldest first
@@ -1674,14 +1886,14 @@ export const subscribeToChatMessages = (
       },
       (error) => {
         if (isUnsubscribed) return;
-        console.error('Error subscribing to chat messages:', error);
-        console.error('ChatId:', chatId, 'OrganizationId:', organizationId);
+        console.error("Error subscribing to chat messages:", error);
+        console.error("ChatId:", chatId, "OrganizationId:", organizationId);
         // Call callback with empty array on error to prevent UI from hanging
         callback([]);
       }
     );
   } catch (error) {
-    console.error('Error creating chat messages subscription:', error);
+    console.error("Error creating chat messages subscription:", error);
     throw error;
   }
 
@@ -1692,7 +1904,7 @@ export const subscribeToChatMessages = (
       try {
         unsubscribe();
       } catch (error) {
-        console.error('Error unsubscribing from chat messages:', error);
+        console.error("Error unsubscribing from chat messages:", error);
       }
       unsubscribe = null;
     }
@@ -1713,22 +1925,22 @@ export const subscribeToDMMessages = (
 ): Unsubscribe => {
   // Query 1: Messages sent TO the partner (chatId = partnerId)
   const q1 = query(
-    collection(db, 'chatMessages'),
-    where('organizationId', '==', organizationId),
-    where('chatId', '==', partnerId),
-    where('chatType', '==', 'dm'),
-    orderBy('timestamp', 'desc'),
+    collection(db, "chatMessages"),
+    where("organizationId", "==", organizationId),
+    where("chatId", "==", partnerId),
+    where("chatType", "==", "dm"),
+    orderBy("timestamp", "desc"),
     firestoreLimit(pageSize)
   );
 
   // Query 2: Messages sent TO the current user BY the partner (chatId = currentUserId, senderId = partnerId)
   const q2 = query(
-    collection(db, 'chatMessages'),
-    where('organizationId', '==', organizationId),
-    where('chatId', '==', currentUserId),
-    where('chatType', '==', 'dm'),
-    where('senderId', '==', partnerId),
-    orderBy('timestamp', 'desc'),
+    collection(db, "chatMessages"),
+    where("organizationId", "==", organizationId),
+    where("chatId", "==", currentUserId),
+    where("chatType", "==", "dm"),
+    where("senderId", "==", partnerId),
+    orderBy("timestamp", "desc"),
     firestoreLimit(pageSize)
   );
 
@@ -1741,7 +1953,7 @@ export const subscribeToDMMessages = (
   const mergeAndCallback = () => {
     // Don't call callback if already unsubscribed
     if (isUnsubscribed) return;
-    
+
     const mergedMessages = Array.from(messagesMap.values());
     // Sort by timestamp descending, then reverse to show oldest first
     mergedMessages.sort((a, b) => {
@@ -1754,94 +1966,113 @@ export const subscribeToDMMessages = (
 
   // Validate inputs before creating listeners
   if (!partnerId || !currentUserId || !organizationId) {
-    console.error('Invalid parameters for subscribeToDMMessages:', { partnerId, currentUserId, organizationId });
+    console.error("Invalid parameters for subscribeToDMMessages:", {
+      partnerId,
+      currentUserId,
+      organizationId,
+    });
     callback([]);
     return () => {}; // Return no-op unsubscribe
   }
 
   try {
     // Create first listener
-    unsubscribe1 = onSnapshot(
-      q1,
-      {
-        next: (snapshot: QuerySnapshot) => {
-          if (isUnsubscribed) return;
-          
-          // Use docChanges() to handle added, modified, and removed documents
-          snapshot.docChanges().forEach(change => {
-            if (change.type === 'removed') {
-              // Remove deleted messages from the map
-              messagesMap.delete(change.doc.id);
-            } else if (change.type === 'added' || change.type === 'modified') {
-              // Add or update messages in the map
-              const message = {
-                id: change.doc.id,
-                ...change.doc.data(),
-                timestamp: change.doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
-                createdAt: convertTimestamp(change.doc.data().createdAt),
-              } as ChatMessage;
-              messagesMap.set(change.doc.id, message);
-            }
-          });
-          mergeAndCallback();
-        },
-        error: (error) => {
-          if (isUnsubscribed) return;
-          console.error('Error subscribing to DM messages (query 1):', error);
-          console.error('PartnerId:', partnerId, 'CurrentUserId:', currentUserId, 'OrganizationId:', organizationId);
-          // Call callback with empty array on error to prevent UI from hanging
-          callback([]);
-        }
-      }
-    );
+    unsubscribe1 = onSnapshot(q1, {
+      next: (snapshot: QuerySnapshot) => {
+        if (isUnsubscribed) return;
+
+        // Use docChanges() to handle added, modified, and removed documents
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "removed") {
+            // Remove deleted messages from the map
+            messagesMap.delete(change.doc.id);
+          } else if (change.type === "added" || change.type === "modified") {
+            // Add or update messages in the map
+            const message = {
+              id: change.doc.id,
+              ...change.doc.data(),
+              timestamp:
+                change.doc.data().timestamp?.toDate().toISOString() ||
+                new Date().toISOString(),
+              createdAt: convertTimestamp(change.doc.data().createdAt),
+            } as ChatMessage;
+            messagesMap.set(change.doc.id, message);
+          }
+        });
+        mergeAndCallback();
+      },
+      error: (error) => {
+        if (isUnsubscribed) return;
+        console.error("Error subscribing to DM messages (query 1):", error);
+        console.error(
+          "PartnerId:",
+          partnerId,
+          "CurrentUserId:",
+          currentUserId,
+          "OrganizationId:",
+          organizationId
+        );
+        // Call callback with empty array on error to prevent UI from hanging
+        callback([]);
+      },
+    });
 
     // Small delay to ensure first listener is fully initialized before creating second
     // This prevents Firestore internal state corruption
     secondListenerTimeoutId = setTimeout(() => {
       if (isUnsubscribed) return;
-      
+
       try {
-        unsubscribe2 = onSnapshot(
-          q2,
-          {
-            next: (snapshot: QuerySnapshot) => {
-              if (isUnsubscribed) return;
-              
-              // Use docChanges() to handle added, modified, and removed documents
-              snapshot.docChanges().forEach(change => {
-                if (change.type === 'removed') {
-                  // Remove deleted messages from the map
-                  messagesMap.delete(change.doc.id);
-                } else if (change.type === 'added' || change.type === 'modified') {
-                  // Add or update messages in the map
-                  const message = {
-                    id: change.doc.id,
-                    ...change.doc.data(),
-                    timestamp: change.doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
-                    createdAt: convertTimestamp(change.doc.data().createdAt),
-                  } as ChatMessage;
-                  messagesMap.set(change.doc.id, message);
-                }
-              });
-              mergeAndCallback();
-            },
-            error: (error) => {
-              if (isUnsubscribed) return;
-              console.error('Error subscribing to DM messages (query 2):', error);
-              console.error('PartnerId:', partnerId, 'CurrentUserId:', currentUserId, 'OrganizationId:', organizationId);
-              // Call callback with empty array on error to prevent UI from hanging
-              callback([]);
-            }
-          }
-        );
+        unsubscribe2 = onSnapshot(q2, {
+          next: (snapshot: QuerySnapshot) => {
+            if (isUnsubscribed) return;
+
+            // Use docChanges() to handle added, modified, and removed documents
+            snapshot.docChanges().forEach((change) => {
+              if (change.type === "removed") {
+                // Remove deleted messages from the map
+                messagesMap.delete(change.doc.id);
+              } else if (
+                change.type === "added" ||
+                change.type === "modified"
+              ) {
+                // Add or update messages in the map
+                const message = {
+                  id: change.doc.id,
+                  ...change.doc.data(),
+                  timestamp:
+                    change.doc.data().timestamp?.toDate().toISOString() ||
+                    new Date().toISOString(),
+                  createdAt: convertTimestamp(change.doc.data().createdAt),
+                } as ChatMessage;
+                messagesMap.set(change.doc.id, message);
+              }
+            });
+            mergeAndCallback();
+          },
+          error: (error) => {
+            if (isUnsubscribed) return;
+            console.error("Error subscribing to DM messages (query 2):", error);
+            console.error(
+              "PartnerId:",
+              partnerId,
+              "CurrentUserId:",
+              currentUserId,
+              "OrganizationId:",
+              organizationId
+            );
+            // Call callback with empty array on error to prevent UI from hanging
+            callback([]);
+          },
+        });
       } catch (error) {
-        console.error('Error creating second DM listener:', error);
+        console.error("Error creating second DM listener:", error);
         // Clean up first listener if second fails
         if (unsubscribe1) {
           try {
             unsubscribe1();
           } catch (cleanupError) {
-            console.error('Error cleaning up first listener:', cleanupError);
+            console.error("Error cleaning up first listener:", cleanupError);
           }
         }
         callback([]);
@@ -1849,19 +2080,19 @@ export const subscribeToDMMessages = (
     }, 50); // 50ms delay to ensure sequential initialization
   } catch (error) {
     // If listener creation fails, clean up what was created
-    console.error('Error creating first DM listener:', error);
+    console.error("Error creating first DM listener:", error);
     if (unsubscribe1) {
       try {
         unsubscribe1();
       } catch (cleanupError) {
-        console.error('Error cleaning up first listener:', cleanupError);
+        console.error("Error cleaning up first listener:", cleanupError);
       }
     }
     if (unsubscribe2) {
       try {
         unsubscribe2();
       } catch (cleanupError) {
-        console.error('Error cleaning up second listener:', cleanupError);
+        console.error("Error cleaning up second listener:", cleanupError);
       }
     }
     callback([]);
@@ -1870,13 +2101,13 @@ export const subscribeToDMMessages = (
   // Return cleanup function that unsubscribes from both queries
   return () => {
     isUnsubscribed = true;
-    
+
     // Clear the timeout if second listener hasn't been created yet
     if (secondListenerTimeoutId) {
       clearTimeout(secondListenerTimeoutId);
       secondListenerTimeoutId = null;
     }
-    
+
     try {
       if (unsubscribe1) {
         unsubscribe1();
@@ -1887,18 +2118,21 @@ export const subscribeToDMMessages = (
         unsubscribe2 = null;
       }
     } catch (error) {
-      console.error('Error unsubscribing from DM messages:', error);
+      console.error("Error unsubscribing from DM messages:", error);
     }
   };
 };
 
 // ==================== CHAT GROUP OPERATIONS ====================
 
-export const createChatGroup = async (groupData: Omit<ChatGroup, 'id' | 'createdAt'>, customId?: string): Promise<string> => {
-  const groupRef = customId 
-    ? doc(db, 'chatGroups', customId)
-    : doc(collection(db, 'chatGroups'));
-  
+export const createChatGroup = async (
+  groupData: Omit<ChatGroup, "id" | "createdAt">,
+  customId?: string
+): Promise<string> => {
+  const groupRef = customId
+    ? doc(db, "chatGroups", customId)
+    : doc(collection(db, "chatGroups"));
+
   await setDoc(groupRef, {
     ...groupData,
     createdAt: Timestamp.now(),
@@ -1906,15 +2140,17 @@ export const createChatGroup = async (groupData: Omit<ChatGroup, 'id' | 'created
   return groupRef.id;
 };
 
-export const getChatGroupsByOrganization = async (organizationId: string): Promise<ChatGroup[]> => {
+export const getChatGroupsByOrganization = async (
+  organizationId: string
+): Promise<ChatGroup[]> => {
   const q = query(
-    collection(db, 'chatGroups'),
-    where('organizationId', '==', organizationId),
-    orderBy('createdAt', 'desc')
+    collection(db, "chatGroups"),
+    where("organizationId", "==", organizationId),
+    orderBy("createdAt", "desc")
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
@@ -1926,23 +2162,23 @@ export const subscribeToChatGroups = (
   callback: (groups: ChatGroup[]) => void
 ): Unsubscribe => {
   const q = query(
-    collection(db, 'chatGroups'),
-    where('organizationId', '==', organizationId),
-    orderBy('createdAt', 'desc')
+    collection(db, "chatGroups"),
+    where("organizationId", "==", organizationId),
+    orderBy("createdAt", "desc")
   );
 
   return onSnapshot(
     q,
     (snapshot: QuerySnapshot) => {
-      const groups = snapshot.docs.map(doc => ({
+      const groups = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
         createdAt: convertTimestamp(doc.data().createdAt),
       })) as ChatGroup[];
-      console.log('[subscribeToChatGroups] Received groups', {
+      console.log("[subscribeToChatGroups] Received groups", {
         count: groups.length,
-        groupIds: groups.map(g => g.id),
-        groupDetails: groups.map(g => ({
+        groupIds: groups.map((g) => g.id),
+        groupDetails: groups.map((g) => ({
           id: g.id,
           name: g.name,
           members: g.members?.length || 0,
@@ -1953,25 +2189,30 @@ export const subscribeToChatGroups = (
       callback(groups);
     },
     (error) => {
-      console.error('Error subscribing to chat groups:', error);
-      console.error('OrganizationId:', organizationId);
-      console.error('Error code:', (error as any)?.code);
-      console.error('Error message:', (error as any)?.message);
+      console.error("Error subscribing to chat groups:", error);
+      console.error("OrganizationId:", organizationId);
+      console.error("Error code:", (error as any)?.code);
+      console.error("Error message:", (error as any)?.message);
       // Call callback with empty array on error to prevent UI from hanging
       callback([]);
     }
   );
 };
 
-export const updateChatGroup = async (groupId: string, updates: Partial<ChatGroup>): Promise<void> => {
-  const groupRef = doc(db, 'chatGroups', groupId);
+export const updateChatGroup = async (
+  groupId: string,
+  updates: Partial<ChatGroup>
+): Promise<void> => {
+  const groupRef = doc(db, "chatGroups", groupId);
   await updateDoc(groupRef, updates);
 };
 
 // ==================== PRIVATE MESSAGE REQUEST OPERATIONS ====================
 
-export const createPrivateMessageRequest = async (requestData: Omit<PrivateMessageRequest, 'id' | 'createdAt'>): Promise<string> => {
-  const requestRef = doc(collection(db, 'privateMessageRequests'));
+export const createPrivateMessageRequest = async (
+  requestData: Omit<PrivateMessageRequest, "id" | "createdAt">
+): Promise<string> => {
+  const requestRef = doc(collection(db, "privateMessageRequests"));
   await setDoc(requestRef, {
     ...requestData,
     createdAt: Timestamp.now(),
@@ -1979,28 +2220,37 @@ export const createPrivateMessageRequest = async (requestData: Omit<PrivateMessa
   return requestRef.id;
 };
 
-export const getPrivateMessageRequestsByUser = async (userId: string, organizationId: string): Promise<PrivateMessageRequest[]> => {
+export const getPrivateMessageRequestsByUser = async (
+  userId: string,
+  organizationId: string
+): Promise<PrivateMessageRequest[]> => {
   const q = query(
-    collection(db, 'privateMessageRequests'),
-    where('organizationId', '==', organizationId),
-    where('recipientId', '==', userId),
-    where('status', '==', 'pending')
+    collection(db, "privateMessageRequests"),
+    where("organizationId", "==", organizationId),
+    where("recipientId", "==", userId),
+    where("status", "==", "pending")
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
-    respondedAt: doc.data().respondedAt ? convertTimestamp(doc.data().respondedAt) : undefined,
+    respondedAt: doc.data().respondedAt
+      ? convertTimestamp(doc.data().respondedAt)
+      : undefined,
   })) as PrivateMessageRequest[];
 };
 
-export const getPrivateMessageRequest = async (requesterId: string, recipientId: string, organizationId: string): Promise<PrivateMessageRequest | null> => {
+export const getPrivateMessageRequest = async (
+  requesterId: string,
+  recipientId: string,
+  organizationId: string
+): Promise<PrivateMessageRequest | null> => {
   const q = query(
-    collection(db, 'privateMessageRequests'),
-    where('organizationId', '==', organizationId),
-    where('requesterId', '==', requesterId),
-    where('recipientId', '==', recipientId)
+    collection(db, "privateMessageRequests"),
+    where("organizationId", "==", organizationId),
+    where("requesterId", "==", requesterId),
+    where("recipientId", "==", recipientId)
   );
   const snapshot = await getDocs(q);
   if (snapshot.empty) return null;
@@ -2009,12 +2259,17 @@ export const getPrivateMessageRequest = async (requesterId: string, recipientId:
     id: doc.id,
     ...doc.data(),
     createdAt: convertTimestamp(doc.data().createdAt),
-    respondedAt: doc.data().respondedAt ? convertTimestamp(doc.data().respondedAt) : undefined,
+    respondedAt: doc.data().respondedAt
+      ? convertTimestamp(doc.data().respondedAt)
+      : undefined,
   } as PrivateMessageRequest;
 };
 
-export const updatePrivateMessageRequest = async (requestId: string, updates: Partial<PrivateMessageRequest>): Promise<void> => {
-  const requestRef = doc(db, 'privateMessageRequests', requestId);
+export const updatePrivateMessageRequest = async (
+  requestId: string,
+  updates: Partial<PrivateMessageRequest>
+): Promise<void> => {
+  const requestRef = doc(db, "privateMessageRequests", requestId);
   const updateData: any = { ...updates };
   if (updates.respondedAt) {
     updateData.respondedAt = Timestamp.now();
@@ -2028,68 +2283,72 @@ export const subscribeToPrivateMessageRequests = (
   callback: (requests: PrivateMessageRequest[]) => void
 ): Unsubscribe => {
   const q = query(
-    collection(db, 'privateMessageRequests'),
-    where('organizationId', '==', organizationId),
-    where('recipientId', '==', userId),
-    where('status', '==', 'pending')
+    collection(db, "privateMessageRequests"),
+    where("organizationId", "==", organizationId),
+    where("recipientId", "==", userId),
+    where("status", "==", "pending")
   );
 
   return onSnapshot(
     q,
     (snapshot: QuerySnapshot) => {
-      const requests = snapshot.docs.map(doc => ({
+      const requests = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
         createdAt: convertTimestamp(doc.data().createdAt),
-        respondedAt: doc.data().respondedAt ? convertTimestamp(doc.data().respondedAt) : undefined,
+        respondedAt: doc.data().respondedAt
+          ? convertTimestamp(doc.data().respondedAt)
+          : undefined,
       })) as PrivateMessageRequest[];
       callback(requests);
     },
     (error) => {
-      console.error('Error subscribing to private message requests:', error);
+      console.error("Error subscribing to private message requests:", error);
       callback([]);
     }
   );
 };
 
-export const getApprovedPrivateMessagePartners = async (userId: string, organizationId: string): Promise<string[]> => {
+export const getApprovedPrivateMessagePartners = async (
+  userId: string,
+  organizationId: string
+): Promise<string[]> => {
   // Get all approved requests where user is either requester or recipient
   const q1 = query(
-    collection(db, 'privateMessageRequests'),
-    where('organizationId', '==', organizationId),
-    where('requesterId', '==', userId),
-    where('status', '==', 'approved')
+    collection(db, "privateMessageRequests"),
+    where("organizationId", "==", organizationId),
+    where("requesterId", "==", userId),
+    where("status", "==", "approved")
   );
   const q2 = query(
-    collection(db, 'privateMessageRequests'),
-    where('organizationId', '==', organizationId),
-    where('recipientId', '==', userId),
-    where('status', '==', 'approved')
+    collection(db, "privateMessageRequests"),
+    where("organizationId", "==", organizationId),
+    where("recipientId", "==", userId),
+    where("status", "==", "approved")
   );
-  
+
   const [snapshot1, snapshot2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-  
+
   const partnerIds = new Set<string>();
-  snapshot1.docs.forEach(doc => {
+  snapshot1.docs.forEach((doc) => {
     const data = doc.data();
     partnerIds.add(data.recipientId);
   });
-  snapshot2.docs.forEach(doc => {
+  snapshot2.docs.forEach((doc) => {
     const data = doc.data();
     partnerIds.add(data.requesterId);
   });
-  
+
   return Array.from(partnerIds);
 };
 
 // ==================== HELPER FUNCTIONS ====================
 
 const generateOrganizationCode = (): string => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars
-  let code = '';
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Removed confusing chars
+  let code = "";
   for (let i = 0; i < 6; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
 };
-

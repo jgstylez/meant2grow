@@ -5,9 +5,10 @@ import {
     Users, Settings, Bell, Shield, Calendar, ToggleRight, ToggleLeft, Moon, CheckCircle, Save,
     Key, Smartphone, Globe, LogOut, Trash2, Download, History, AlertTriangle, Check,
     CreditCard, ArrowUp, ArrowDown, X, FileText, Smile, Meh, Frown, Zap, Coffee, Heart, AlertCircle,
-    UserPlus, Crown, Edit2
+    UserPlus, Crown, Edit2, Palette, Upload, Layout
 } from 'lucide-react';
 import { createUser, getUserByEmail, updateUser, getUsersByOrganization, getOrganization } from '../services/database';
+import { uploadFile, generateUniquePath } from '../services/storage';
 import { query, collection, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { createCheckoutSession, getBillingData, openBillingPortal, PRICING_TIERS, type BillingData } from '../services/flowglad';
@@ -46,6 +47,7 @@ interface SettingsViewProps {
 
 const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initialTab, organizationId, programSettings, onUpdateOrganization, matches = [] }) => {
     const [activeTab, setActiveTab] = useState(initialTab || 'profile');
+    const [isUploadingLogo, setIsUploadingLogo] = useState(false);
     
     // Robust role checks - handle both enum values and raw string values from database
     // Use useMemo to ensure proper initialization order
@@ -350,6 +352,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
         { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'security', label: 'Security', icon: Shield },
         { id: 'calendar', label: 'Sync Calendar', icon: Calendar },
+        ...(isOrgAdmin ? [{ id: 'program', label: 'Program', icon: Layout }] : []),
         { id: 'billing', label: 'Billing', icon: CreditCard }
     ];
 
@@ -994,6 +997,227 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                     </p>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {activeTab === 'program' && isOrgAdmin && programSettings && organizationId && onUpdateOrganization && (
+                        <div className="space-y-4 sm:space-y-6 animate-in fade-in">
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-4 sm:mb-6">Program Settings</h2>
+                            
+                            {/* Program Name */}
+                            <div className={CARD_CLASS}>
+                                <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center">
+                                    <Layout className="w-5 h-5 mr-2 text-emerald-600" /> Program Name
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Program Name</label>
+                                        <input
+                                            className={INPUT_CLASS}
+                                            value={programSettings.programName}
+                                            onChange={async (e) => {
+                                                if (onUpdateOrganization && organizationId) {
+                                                    try {
+                                                        await onUpdateOrganization(organizationId, {
+                                                            programSettings: {
+                                                                ...programSettings,
+                                                                programName: e.target.value
+                                                            }
+                                                        });
+                                                        setShowSuccess(true);
+                                                        setTimeout(() => setShowSuccess(false), 3000);
+                                                    } catch (error) {
+                                                        console.error('Error updating program name:', error);
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        This name appears in the top left corner and throughout the platform.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Accent Color */}
+                            <div className={CARD_CLASS}>
+                                <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center">
+                                    <Palette className="w-5 h-5 mr-2 text-emerald-600" /> Brand Color
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Accent Color</label>
+                                        <div className="flex flex-wrap gap-3">
+                                            {[
+                                                { name: 'Emerald', hex: '#10b981', tailwind: 'bg-emerald-500' },
+                                                { name: 'Blue', hex: '#3b82f6', tailwind: 'bg-blue-500' },
+                                                { name: 'Indigo', hex: '#6366f1', tailwind: 'bg-indigo-500' },
+                                                { name: 'Violet', hex: '#8b5cf6', tailwind: 'bg-violet-500' },
+                                                { name: 'Rose', hex: '#f43f5e', tailwind: 'bg-rose-500' },
+                                                { name: 'Amber', hex: '#f59e0b', tailwind: 'bg-amber-500' },
+                                                { name: 'Slate', hex: '#64748b', tailwind: 'bg-slate-500' },
+                                            ].map(color => (
+                                                <button
+                                                    key={color.name}
+                                                    onClick={async () => {
+                                                        if (onUpdateOrganization && organizationId) {
+                                                            try {
+                                                                await onUpdateOrganization(organizationId, {
+                                                                    programSettings: {
+                                                                        ...programSettings,
+                                                                        accentColor: color.hex
+                                                                    }
+                                                                });
+                                                                setShowSuccess(true);
+                                                                setTimeout(() => setShowSuccess(false), 3000);
+                                                            } catch (error) {
+                                                                console.error('Error updating accent color:', error);
+                                                            }
+                                                        }
+                                                    }}
+                                                    className={`w-10 h-10 rounded-full ${color.tailwind} transition-transform hover:scale-110 focus:outline-none ring-offset-2 dark:ring-offset-slate-900 ${
+                                                        programSettings.accentColor === color.hex 
+                                                            ? 'ring-2 ring-slate-900 dark:ring-white scale-110' 
+                                                            : ''
+                                                    }`}
+                                                    title={color.name}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        This color is used for buttons, links, and accent elements throughout the platform.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Program Logo */}
+                            <div className={CARD_CLASS}>
+                                <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center">
+                                    <Upload className="w-5 h-5 mr-2 text-emerald-600" /> Program Logo
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Logo</label>
+                                        <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 dark:border-slate-700 border-dashed rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer relative group">
+                                            <div className="space-y-1 text-center">
+                                                {programSettings.logo ? (
+                                                    <img src={programSettings.logo} alt="Logo" className="mx-auto h-16 object-contain mb-2" />
+                                                ) : (
+                                                    <Upload className="mx-auto h-12 w-12 text-slate-400" />
+                                                )}
+                                                <div className="flex text-sm text-slate-600 dark:text-slate-400 justify-center">
+                                                    <label htmlFor="program-logo-upload" className="relative cursor-pointer rounded-md font-medium text-emerald-600 hover:text-emerald-500">
+                                                        <span>{programSettings.logo ? 'Change logo' : 'Upload a file'}</span>
+                                                        <input 
+                                                            id="program-logo-upload" 
+                                                            name="program-logo-upload" 
+                                                            type="file" 
+                                                            className="sr-only" 
+                                                            onChange={async (e) => {
+                                                                if (e.target.files && e.target.files[0] && organizationId && onUpdateOrganization) {
+                                                                    setIsUploadingLogo(true);
+                                                                    try {
+                                                                        const file = e.target.files[0];
+                                                                        // Upload to Firebase Storage
+                                                                        const storagePath = generateUniquePath(file.name, `organizations/${organizationId}/logos`);
+                                                                        const downloadUrl = await uploadFile(file, storagePath);
+                                                                        
+                                                                        // Update organization with the new logo URL
+                                                                        await onUpdateOrganization(organizationId, {
+                                                                            programSettings: {
+                                                                                ...programSettings,
+                                                                                logo: downloadUrl
+                                                                            }
+                                                                        });
+                                                                        setShowSuccess(true);
+                                                                        setTimeout(() => setShowSuccess(false), 3000);
+                                                                    } catch (error) {
+                                                                        console.error('Error uploading logo:', error);
+                                                                        alert('Failed to upload logo. Please try again.');
+                                                                    } finally {
+                                                                        setIsUploadingLogo(false);
+                                                                    }
+                                                                }
+                                                            }} 
+                                                            accept="image/*" 
+                                                            disabled={isUploadingLogo}
+                                                        />
+                                                    </label>
+                                                    {!programSettings.logo && <p className="pl-1">or drag and drop</p>}
+                                                </div>
+                                                {programSettings.logo && (
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (onUpdateOrganization && organizationId && window.confirm('Are you sure you want to remove the logo?')) {
+                                                                try {
+                                                                    await onUpdateOrganization(organizationId, {
+                                                                        programSettings: {
+                                                                            ...programSettings,
+                                                                            logo: null
+                                                                        }
+                                                                    });
+                                                                    setShowSuccess(true);
+                                                                    setTimeout(() => setShowSuccess(false), 3000);
+                                                                } catch (error) {
+                                                                    console.error('Error removing logo:', error);
+                                                                }
+                                                            }
+                                                        }}
+                                                        className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 mt-2"
+                                                    >
+                                                        Remove logo
+                                                    </button>
+                                                )}
+                                                <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+                                                {isUploadingLogo && (
+                                                    <p className="text-xs text-emerald-600">Uploading...</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        Your logo appears on the signup page and throughout the platform.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Intro Text */}
+                            <div className={CARD_CLASS}>
+                                <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center">
+                                    <FileText className="w-5 h-5 mr-2 text-emerald-600" /> Signup Introduction
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Introduction Text</label>
+                                        <textarea
+                                            className={INPUT_CLASS}
+                                            rows={4}
+                                            value={programSettings.introText || ''}
+                                            onChange={async (e) => {
+                                                if (onUpdateOrganization && organizationId) {
+                                                    try {
+                                                        await onUpdateOrganization(organizationId, {
+                                                            programSettings: {
+                                                                ...programSettings,
+                                                                introText: e.target.value
+                                                            }
+                                                        });
+                                                        setShowSuccess(true);
+                                                        setTimeout(() => setShowSuccess(false), 3000);
+                                                    } catch (error) {
+                                                        console.error('Error updating intro text:', error);
+                                                    }
+                                                }
+                                            }}
+                                            placeholder="Welcome to our mentorship program! Please complete your profile to get matched."
+                                        />
+                                    </div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        This text appears on the participant signup page.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     )}
 
