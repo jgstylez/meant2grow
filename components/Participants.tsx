@@ -419,10 +419,11 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
                   </td>
                   <td className="px-6 py-4 max-w-xs">
                     {user.role === Role.MENTOR ? (
-                      <div className="flex flex-wrap gap-1">
-                        {user.skills?.slice(0, 3).map((skill, idx) => (
-                          <span
-                            key={idx}
+                      <div>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {user.skills?.slice(0, 3).map((skill, idx) => (
+                            <span
+                              key={idx}
                             className="text-xs px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded"
                           >
                             {skill}
@@ -432,6 +433,12 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
                           <span className="text-xs px-2 py-0.5 text-slate-500 dark:text-slate-400">
                             +{user.skills.length - 3} more
                           </span>
+                        )}
+                        </div>
+                        {isAdmin && (
+                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                            <span className="font-medium">Hours Committed:</span> {(user.totalHoursCommitted || 0).toFixed(1)}h
+                          </div>
                         )}
                       </div>
                     ) : (
@@ -906,6 +913,20 @@ const Participants: React.FC<ParticipantsProps> = ({ users, matches, onNavigate,
                     </div>
                   ) : (
                     <p className="text-slate-400 dark:text-slate-500 italic">No skills listed</p>
+                  )}
+                  {isAdmin && (
+                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                      <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">Mentorship Commitment</h5>
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                          {(selectedUser.totalHoursCommitted || 0).toFixed(1)}
+                        </span>
+                        <span className="text-slate-600 dark:text-slate-400">hours committed</span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Total hours from scheduled appointments
+                      </p>
+                    </div>
                   )}
                 </div>
               ) : (

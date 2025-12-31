@@ -709,6 +709,12 @@ const UserManagement: React.FC<UserManagementProps> = ({
                                   {user.skills.join(", ")}
                                 </div>
                             )}
+                              {user.role === Role.MENTOR && (
+                                <div>
+                                  <strong>Total Hours Committed:</strong>{" "}
+                                  {(user.totalHoursCommitted || 0).toFixed(1)} hours
+                                </div>
+                              )}
                               <div>
                                 <strong>Created:</strong>{" "}
                                 {new Date(user.createdAt).toLocaleDateString()}
@@ -1141,6 +1147,26 @@ const UserManagement: React.FC<UserManagementProps> = ({
                 </div>
               )}
 
+              {/* Total Hours Committed (for mentors) */}
+              {selectedUser.role === Role.MENTOR && (
+                <div>
+                  <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                    Mentorship Commitment
+                  </h5>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {(selectedUser.totalHoursCommitted || 0).toFixed(1)}
+                    </span>
+                    <span className="text-slate-600 dark:text-slate-400">
+                      hours committed
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Total hours from scheduled appointments
+                  </p>
+                </div>
+              )}
+
               {/* Goals (for mentees) */}
               {selectedUser.goals && selectedUser.goals.length > 0 && (
                 <div>
@@ -1514,18 +1540,34 @@ const EditUserForm: React.FC<EditUserFormProps> = ({
   onCancel,
 }) => {
   const [formData, setFormData] = useState({
-    name: user.name,
-    email: user.email,
+    name: user.name || '',
+    email: user.email || '',
     role: user.role,
-    organizationId: user.organizationId,
-    title: user.title,
-    company: user.company,
-    bio: user.bio,
+    organizationId: user.organizationId || '',
+    title: user.title || '',
+    company: user.company || '',
+    bio: user.bio || '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    // Filter out empty strings and convert them to undefined for optional fields
+    const updates: Partial<User> = {
+      name: formData.name || undefined,
+      email: formData.email || undefined,
+      role: formData.role,
+      organizationId: formData.organizationId || undefined,
+      title: formData.title || undefined,
+      company: formData.company || undefined,
+      bio: formData.bio || undefined,
+    };
+    // Remove undefined values
+    Object.keys(updates).forEach(key => {
+      if (updates[key as keyof User] === undefined) {
+        delete updates[key as keyof User];
+      }
+    });
+    onSave(updates);
   };
 
   return (

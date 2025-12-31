@@ -16,7 +16,22 @@ const DynamicSignupForm: React.FC<DynamicSignupFormProps> = ({
   submitButtonText = "Continue",
   excludeFields = []
 }) => {
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  // Load persisted form data from localStorage
+  const getStoredFormData = () => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem(`dynamicSignupForm_${programSettings.programName}`);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const storedData = getStoredFormData();
+  const [formData, setFormData] = useState<Record<string, any>>(storedData || {});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [logoError, setLogoError] = useState(false);
 
@@ -75,7 +90,12 @@ const DynamicSignupForm: React.FC<DynamicSignupFormProps> = ({
   );
 
   const handleChange = (fieldId: string, value: any) => {
-    setFormData(prev => ({ ...prev, [fieldId]: value }));
+    const newFormData = { ...formData, [fieldId]: value };
+    setFormData(newFormData);
+    // Persist to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`dynamicSignupForm_${programSettings.programName}`, JSON.stringify(newFormData));
+    }
     // Clear error for this field
     if (errors[fieldId]) {
       setErrors(prev => {
@@ -105,6 +125,10 @@ const DynamicSignupForm: React.FC<DynamicSignupFormProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
+      // Clear localStorage after successful submission
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(`dynamicSignupForm_${programSettings.programName}`);
+      }
       onSubmit(formData);
     }
   };

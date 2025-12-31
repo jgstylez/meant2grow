@@ -4,7 +4,7 @@ import { defineString, defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import { google } from "googleapis";
 import { Role, User, Organization, Match, Goal } from "./types";
-import { emailService } from "./emailService";
+import { createEmailService } from "./emailService";
 import { setTrialPeriod } from "./organizationUtils";
 
 // Initialize Firebase Admin
@@ -18,6 +18,49 @@ const serviceAccountEmail = defineString("GOOGLE_SERVICE_ACCOUNT_EMAIL", {
 });
 
 const serviceAccountKey = defineSecret("GOOGLE_SERVICE_ACCOUNT_KEY");
+
+// Mailtrap email service configuration
+const mailtrapApiToken = defineString("MAILTRAP_API_TOKEN", {
+  description: "Mailtrap API token for sending emails",
+  default: "",
+});
+
+const mailtrapUseSandbox = defineString("MAILTRAP_USE_SANDBOX", {
+  description: "Use Mailtrap sandbox mode (true/false)",
+  default: "true",
+});
+
+const mailtrapInboxId = defineString("MAILTRAP_INBOX_ID", {
+  description: "Mailtrap inbox ID for sandbox mode",
+  default: "",
+});
+
+const mailtrapFromEmail = defineString("MAILTRAP_FROM_EMAIL", {
+  description: "From email address for Mailtrap",
+  default: "noreply@meant2grow.com",
+});
+
+const mailtrapReplyToEmail = defineString("MAILTRAP_REPLY_TO_EMAIL", {
+  description: "Reply-to email address for Mailtrap",
+  default: "support@meant2grow.com",
+});
+
+const appUrl = defineString("VITE_APP_URL", {
+  description: "Application URL for email links",
+  default: "https://meant2grow.com",
+});
+
+// Helper function to get email service instance with current config values
+const getEmailService = () => {
+  return createEmailService({
+    apiToken: mailtrapApiToken.value(),
+    useSandbox: mailtrapUseSandbox.value() === "true",
+    inboxId: mailtrapInboxId.value() ? Number(mailtrapInboxId.value()) : undefined,
+    fromEmail: mailtrapFromEmail.value(),
+    replyToEmail: mailtrapReplyToEmail.value(),
+    appUrl: appUrl.value(),
+  });
+};
 
 // Helper function to generate organization code
 const generateOrgCode = (): string => {
@@ -234,7 +277,7 @@ export const authGoogle = functions.onRequest(
           await invitationDoc.ref.update({ status: "Accepted" });
 
           // Send welcome back email (don't await - send async)
-          emailService.sendWelcomeBack(userResponse, orgResponse).catch((err) => {
+          getEmailService().sendWelcomeBack(userResponse, orgResponse).catch((err) => {
             console.error("Failed to send welcome back email:", err);
           });
 
@@ -358,7 +401,7 @@ export const authGoogle = functions.onRequest(
           };
 
           // Send welcome back email (don't await - send async)
-          emailService.sendWelcomeBack(userResponse, orgResponse).catch((err) => {
+          getEmailService().sendWelcomeBack(userResponse, orgResponse).catch((err) => {
             console.error("Failed to send welcome back email:", err);
           });
 
@@ -592,7 +635,7 @@ export const sendAdminEmail = functions.onRequest(
       }
 
       // Send email to all recipients
-      await emailService.sendCustomEmail(recipients, subject, body, fromAdmin, isPlatformAdmin);
+      await getEmailService().sendCustomEmail(recipients, subject, body, fromAdmin, isPlatformAdmin);
 
       res.json({ success: true, message: `Email sent to ${recipients.length} recipient(s)` });
     } catch (error: any) {
@@ -631,9 +674,9 @@ export const onUserCreated = functionsV1.firestore
 
       // Send welcome email based on role
       if (user.role === Role.ADMIN) {
-        await emailService.sendWelcomeAdmin(user, organization);
+        await getEmailService().sendWelcomeAdmin(user, organization);
       } else {
-        await emailService.sendWelcomeParticipant(user, organization, user.role);
+        await getEmailService().sendWelcomeParticipant(user, organization, user.role);
       }
     } catch (error: any) {
       console.error("Error in onUserCreated trigger:", error);
@@ -689,12 +732,12 @@ export const onMatchCreated = functionsV1.firestore
       };
 
       // Send to mentor
-      emailService.sendMatchCreated(mentor, matchForEmail, mentor, mentee).catch((err) => {
+      getEmailService().sendMatchCreated(mentor, matchForEmail, mentor, mentee).catch((err) => {
         console.error("Failed to send match email to mentor:", err);
       });
 
       // Send to mentee
-      emailService.sendMatchCreated(mentee, matchForEmail, mentor, mentee).catch((err) => {
+      getEmailService().sendMatchCreated(mentee, matchForEmail, mentor, mentee).catch((err) => {
         console.error("Failed to send match email to mentee:", err);
       });
     } catch (error: any) {
@@ -751,7 +794,7 @@ export const onGoalCompleted = functionsV1.firestore
         };
 
         // Send goal completed email
-        emailService.sendGoalCompleted(user, goalForEmail).catch((err) => {
+        getEmailService().sendGoalCompleted(user, goalForEmail).catch((err) => {
           console.error("Failed to send goal completed email:", err);
         });
       }
@@ -812,7 +855,7 @@ export const checkExpiringTrials = functionsV1.pubsub
             };
 
             // Send trial ending email
-            emailService.sendTrialEnding(user, organization, daysRemaining).catch((err) => {
+            getEmailService().sendTrialEnding(user, organization, daysRemaining).catch((err) => {
               console.error(`Failed to send trial ending email for org ${orgDoc.id}:`, err);
             });
           }
@@ -1399,7 +1442,7 @@ async function sendMeetingReminders(
       };
 
       // Send email reminder
-      emailService.sendMeetingReminder(
+      getEmailService().sendMeetingReminder(
         user,
         {
           title: eventData.title,

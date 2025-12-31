@@ -72,12 +72,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
         setFormData(user);
     }, [user]);
 
-    // Initialize goalsPublic from user, defaulting to true if not set
-    const [goalsPublic, setGoalsPublic] = useState(user.goalsPublic !== undefined ? user.goalsPublic : true);
+    // Initialize goalsPublic from user, defaulting to false if not set
+    const [goalsPublic, setGoalsPublic] = useState(user.goalsPublic ?? false);
 
-    // Sync goalsPublic with user prop when it changes
+    // Sync goalsPublic with user prop when it changes (only if defined in user)
     useEffect(() => {
-        setGoalsPublic(user.goalsPublic !== undefined ? user.goalsPublic : true);
+        if (user.goalsPublic !== undefined) {
+            setGoalsPublic(user.goalsPublic);
+        }
     }, [user.goalsPublic]);
 
     // Calculate mentor's current active matches count

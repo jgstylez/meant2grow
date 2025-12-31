@@ -332,20 +332,20 @@ const Layout: React.FC<LayoutProps> = ({
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {/* Impersonation Banner */}
       {isImpersonating && (
-        <div className="fixed top-0 left-0 right-0 z-[100] bg-amber-500 text-white px-4 py-2 shadow-lg">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <LogIn className="w-4 h-4 flex-shrink-0" />
-              <span className="text-sm font-medium truncate">
-                You are viewing as <strong>{currentUser.name}</strong> ({formatRole(currentUser.role)})
+        <div className="fixed top-0 left-0 right-0 z-[100] bg-amber-500 text-white px-3 py-1.5 shadow-lg">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <LogIn className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="text-xs font-medium truncate">
+                Viewing as <strong>{currentUser.name}</strong> ({formatRole(currentUser.role)})
               </span>
             </div>
             <button
               onClick={handleExitImpersonation}
-              className="px-4 py-1.5 bg-white text-amber-600 rounded-lg font-medium text-sm hover:bg-amber-50 transition-colors flex items-center gap-2 flex-shrink-0"
+              className="px-3 py-1 bg-white text-amber-600 rounded-md font-medium text-xs hover:bg-amber-50 transition-colors flex items-center gap-1.5 flex-shrink-0"
             >
-              <LogOut className="w-4 h-4" />
-              Exit Impersonation
+              <LogOut className="w-3.5 h-3.5" />
+              Exit
             </button>
           </div>
         </div>
@@ -506,7 +506,7 @@ const Layout: React.FC<LayoutProps> = ({
         fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-transform duration-200 ease-in-out touch-action-pan-y
         md:relative md:translate-x-0 md:z-10
         ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
-        ${isImpersonating ? "top-12 md:top-0" : ""}
+        ${isImpersonating ? "top-10 md:top-0" : ""}
       `}
       >
         <div className="p-4 h-full flex flex-col touch-action-pan-y">
@@ -702,7 +702,7 @@ const Layout: React.FC<LayoutProps> = ({
         data-impersonating={isImpersonating ? "true" : undefined}
         style={{
           // Calculate top padding: PWA banner offset + impersonation banner (if present) + base padding
-          paddingTop: `calc(var(--pwa-banner-offset, 0px) + ${isImpersonating ? '4rem + ' : ''}var(--main-base-pt, 0.75rem))`
+          paddingTop: `calc(var(--pwa-banner-offset, 0px) + ${isImpersonating ? '2.75rem + ' : ''}var(--main-base-pt, 0.75rem))`
         }}
       >
         {children}

@@ -76,6 +76,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       return;
     }
 
+    // Ensure creator is always included in participants array
+    const participants = [...newEvent.participants];
+    if (!participants.includes(currentUser.id)) {
+      participants.push(currentUser.id);
+    }
+
     const event: Omit<CalendarEvent, "id" | "createdAt"> = {
       organizationId: currentUser.organizationId,
       title: newEvent.title,
@@ -83,11 +89,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       startTime: newEvent.time,
       duration: newEvent.duration,
       type: newEvent.type,
+      createdBy: currentUser.id, // Track who created/scheduled the event
       ...(currentUser.role === "MENTOR" && { mentorId: currentUser.id }),
       ...(currentUser.role === "MENTEE" && { menteeId: currentUser.id }),
-      ...(newEvent.participants.length > 0 && {
-        participants: newEvent.participants,
-      }),
+      participants, // Always include participants array with creator
     };
 
     // Create event in Firestore first
@@ -169,13 +174,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Filter events to only show those where current user is creator or participant
   const visibleEvents = events.filter((ev) => {
-    // User is the creator (mentorId or menteeId matches)
-    if (ev.mentorId === currentUser.id || ev.menteeId === currentUser.id) {
+    // User is the creator (createdBy, mentorId, or menteeId matches)
+    if (ev.createdBy === currentUser.id || ev.mentorId === currentUser.id || ev.menteeId === currentUser.id) {
       return true;
     }
     // User is in participants list
     if (ev.participants && ev.participants.includes(currentUser.id)) {
       return true;
+    }
+    // If event has mentorId and menteeId, show to both mentor and mentee
+    if (ev.mentorId && ev.menteeId) {
+      if (ev.mentorId === currentUser.id || ev.menteeId === currentUser.id) {
+        return true;
+      }
     }
     return false;
   });
@@ -478,8 +489,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           ? ev.participants.length - 2
                           : 0;
 
-                      // Check if current user can edit this event (is creator)
-                      const canEdit = ev.mentorId === currentUser.id || ev.menteeId === currentUser.id;
+                      // Check if current user can edit this event (only creator can edit)
+                      // Both mentor and mentee can view, but only the person who scheduled can edit
+                      const canEdit = ev.createdBy === currentUser.id || (!ev.createdBy && (ev.mentorId === currentUser.id || ev.menteeId === currentUser.id));
                       const isHovered = hoveredEventId === ev.id;
 
                       return (

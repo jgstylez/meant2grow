@@ -909,6 +909,22 @@ export const getCalendarEventsByUser = async (userId: string, organizationId: st
   })) as CalendarEvent[];
 };
 
+export const getCalendarEvent = async (eventId: string): Promise<CalendarEvent | null> => {
+  const eventRef = doc(db, 'calendarEvents', eventId);
+  const eventSnap = await getDoc(eventRef);
+
+  if (!eventSnap.exists()) {
+    return null;
+  }
+
+  const eventData = eventSnap.data();
+  return {
+    id: eventSnap.id,
+    ...eventData,
+    createdAt: convertTimestamp(eventData.createdAt),
+  } as CalendarEvent;
+};
+
 export const updateCalendarEvent = async (eventId: string, updates: Partial<CalendarEvent>): Promise<void> => {
   const eventRef = doc(db, 'calendarEvents', eventId);
   await updateDoc(eventRef, updates);
@@ -1643,6 +1659,101 @@ export const subscribeToChatMessages = (
       callback([]);
     }
   );
+};
+
+/**
+ * Subscribe to DM messages in both directions
+ * For DMs, messages can have chatId = partnerId (sent TO partner) or chatId = currentUserId (sent TO current user)
+ * This function queries both directions and merges the results
+ */
+export const subscribeToDMMessages = (
+  partnerId: string, // The chat partner's ID (activeChatId)
+  currentUserId: string, // The current user's ID
+  organizationId: string,
+  callback: (messages: ChatMessage[]) => void,
+  pageSize: number = 50
+): Unsubscribe => {
+  // Query 1: Messages sent TO the partner (chatId = partnerId)
+  const q1 = query(
+    collection(db, 'chatMessages'),
+    where('organizationId', '==', organizationId),
+    where('chatId', '==', partnerId),
+    where('chatType', '==', 'dm'),
+    orderBy('timestamp', 'desc'),
+    firestoreLimit(pageSize)
+  );
+
+  // Query 2: Messages sent TO the current user BY the partner (chatId = currentUserId, senderId = partnerId)
+  const q2 = query(
+    collection(db, 'chatMessages'),
+    where('organizationId', '==', organizationId),
+    where('chatId', '==', currentUserId),
+    where('chatType', '==', 'dm'),
+    where('senderId', '==', partnerId),
+    orderBy('timestamp', 'desc'),
+    firestoreLimit(pageSize)
+  );
+
+  let unsubscribe1: Unsubscribe | null = null;
+  let unsubscribe2: Unsubscribe | null = null;
+  const messagesMap = new Map<string, ChatMessage>();
+
+  const mergeAndCallback = () => {
+    const mergedMessages = Array.from(messagesMap.values());
+    // Sort by timestamp descending, then reverse to show oldest first
+    mergedMessages.sort((a, b) => {
+      const aTime = new Date(a.timestamp).getTime();
+      const bTime = new Date(b.timestamp).getTime();
+      return bTime - aTime; // Descending
+    });
+    callback(mergedMessages.reverse());
+  };
+
+  unsubscribe1 = onSnapshot(
+    q1,
+    (snapshot: QuerySnapshot) => {
+      snapshot.docs.forEach(doc => {
+        const message = {
+          id: doc.id,
+          ...doc.data(),
+          timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
+          createdAt: convertTimestamp(doc.data().createdAt),
+        } as ChatMessage;
+        messagesMap.set(doc.id, message);
+      });
+      mergeAndCallback();
+    },
+    (error) => {
+      console.error('Error subscribing to DM messages (query 1):', error);
+      console.error('PartnerId:', partnerId, 'CurrentUserId:', currentUserId, 'OrganizationId:', organizationId);
+    }
+  );
+
+  unsubscribe2 = onSnapshot(
+    q2,
+    (snapshot: QuerySnapshot) => {
+      snapshot.docs.forEach(doc => {
+        const message = {
+          id: doc.id,
+          ...doc.data(),
+          timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
+          createdAt: convertTimestamp(doc.data().createdAt),
+        } as ChatMessage;
+        messagesMap.set(doc.id, message);
+      });
+      mergeAndCallback();
+    },
+    (error) => {
+      console.error('Error subscribing to DM messages (query 2):', error);
+      console.error('PartnerId:', partnerId, 'CurrentUserId:', currentUserId, 'OrganizationId:', organizationId);
+    }
+  );
+
+  // Return cleanup function that unsubscribes from both queries
+  return () => {
+    if (unsubscribe1) unsubscribe1();
+    if (unsubscribe2) unsubscribe2();
+  };
 };
 
 // ==================== CHAT GROUP OPERATIONS ====================

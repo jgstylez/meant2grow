@@ -1,69 +1,76 @@
 import { MailtrapClient } from "mailtrap";
 import { User, Organization, Role, Match, Goal } from "./types";
 
-// Initialize Mailtrap client
-const getMailtrapClient = () => {
-  const apiToken = process.env.MAILTRAP_API_TOKEN;
-  const useSandbox = process.env.MAILTRAP_USE_SANDBOX === "true";
-  const inboxId = process.env.MAILTRAP_INBOX_ID 
-    ? Number(process.env.MAILTRAP_INBOX_ID) 
-    : undefined;
+// Email service configuration interface
+export interface EmailServiceConfig {
+  apiToken: string;
+  useSandbox: boolean;
+  inboxId?: number;
+  fromEmail: string;
+  replyToEmail: string;
+  appUrl: string;
+}
 
-  if (!apiToken) {
+// Initialize Mailtrap client with configuration
+const getMailtrapClient = (config: EmailServiceConfig) => {
+  if (!config.apiToken) {
     console.warn("MAILTRAP_API_TOKEN not set. Email sending will be disabled.");
     return null;
   }
 
   return new MailtrapClient({
-    token: apiToken,
-    sandbox: useSandbox,
-    testInboxId: inboxId, // Only used in sandbox mode
+    token: config.apiToken,
+    sandbox: config.useSandbox,
+    testInboxId: config.inboxId, // Only used in sandbox mode
   });
 };
 
-const client = getMailtrapClient();
-
-// Email configuration
-const EMAIL_CONFIG = {
+// Email configuration factory
+const getEmailConfig = (config: EmailServiceConfig) => ({
   from: {
     name: "Meant2Grow",
-    email: process.env.MAILTRAP_FROM_EMAIL || "noreply@meant2grow.com",
+    email: config.fromEmail,
   },
-  replyTo: process.env.MAILTRAP_REPLY_TO_EMAIL || "support@meant2grow.com",
-};
+  replyTo: config.replyToEmail,
+});
 
 // Helper function to send email safely
-const sendEmail = async (options: {
-  to: { email: string; name?: string }[];
-  subject: string;
-  html: string;
-  text: string;
-  category?: string;
-}) => {
-  if (!client) {
-    console.log("Email service not configured. Would send:", options.subject);
-    return;
-  }
+const createSendEmail = (config: EmailServiceConfig) => {
+  const client = getMailtrapClient(config);
+  const emailConfig = getEmailConfig(config);
 
-  try {
-    await client.send({
-      from: EMAIL_CONFIG.from,
-      reply_to: { email: EMAIL_CONFIG.replyTo },
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      text: options.text,
-      category: options.category || "Transactional",
-    });
-    console.log(`Email sent successfully: ${options.subject}`);
-  } catch (error) {
-    console.error("Failed to send email:", error);
-    // Don't throw - email failures shouldn't break the app
-  }
+  return async (options: {
+    to: { email: string; name?: string }[];
+    subject: string;
+    html: string;
+    text: string;
+    category?: string;
+  }) => {
+    if (!client) {
+      console.log("Email service not configured. Would send:", options.subject);
+      return;
+    }
+
+    try {
+      await client.send({
+        from: emailConfig.from,
+        reply_to: { email: emailConfig.replyTo },
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+        category: options.category || "Transactional",
+      });
+      console.log(`Email sent successfully: ${options.subject}`);
+    } catch (error) {
+      console.error("Failed to send email:", error);
+      // Don't throw - email failures shouldn't break the app
+    }
+  };
 };
 
-// Email Templates (same as client-side)
-const templates = {
+// Email Templates factory - creates templates with appUrl baked in
+const createTemplates = (appUrl: string) => ({
   welcomeAdmin: (user: User, organization: Organization) => ({
     subject: `Welcome to Meant2Grow, ${user.name}!`,
     html: `
@@ -90,7 +97,7 @@ const templates = {
               Share this code with mentors and mentees to help them join your program.
             </p>
             <div style="margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}" 
+              <a href="${appUrl}" 
                  style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 Get Started
               </a>
@@ -111,7 +118,7 @@ Your organization code is: ${organization.organizationCode}
 
 Share this code with mentors and mentees to help them join your program.
 
-Get started: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}
+Get started: ${appUrl}
 
 Need help? Reply to this email or visit our support center.
     `.trim(),
@@ -148,7 +155,7 @@ Need help? Reply to this email or visit our support center.
                  </p>`
             }
             <div style="margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}" 
+              <a href="${appUrl}" 
                  style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 Complete Your Profile
               </a>
@@ -170,7 +177,7 @@ ${role === Role.MENTOR
   : 'As a mentee, you\'re taking an important step in your professional development.'
 }
 
-Complete your profile: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}
+Complete your profile: ${appUrl}
 
 Questions? Reply to this email and we'll be happy to help.
     `.trim(),
@@ -201,7 +208,7 @@ Questions? Reply to this email and we'll be happy to help.
               <li>New messages and notifications</li>
             </ul>
             <div style="margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}" 
+              <a href="${appUrl}" 
                  style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 Go to Dashboard
               </a>
@@ -223,7 +230,7 @@ Ready to continue your mentorship journey? Check out your dashboard to see:
 - Upcoming meetings and goals
 - New messages and notifications
 
-Go to Dashboard: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}
+Go to Dashboard: ${appUrl}
 
 If this wasn't you, please contact support immediately.
     `.trim(),
@@ -281,7 +288,7 @@ If this wasn't you, please contact support immediately.
                    </p>`
               }
               <div style="margin: 30px 0;">
-                <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}/chat" 
+                <a href="${appUrl}/chat" 
                    style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                   Start Conversation
                 </a>
@@ -313,7 +320,7 @@ ${bioSnippet ? `"${bioSnippet}"` : ''}
 ${mentor.name} is ready to guide you on your professional journey. Don't hesitate to reach out and introduce yourself!`
 }
 
-Start Conversation: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}/chat
+Start Conversation: ${appUrl}/chat
 
 Remember: Great mentorship relationships start with open communication and mutual respect.
       `.trim(),
@@ -348,7 +355,7 @@ Remember: Great mentorship relationships start with open communication and mutua
               Keep up the excellent work!
             </p>
             <div style="margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}/goals" 
+              <a href="${appUrl}/goals" 
                  style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 View Your Goals
               </a>
@@ -372,7 +379,7 @@ ${goal.description}
 
 This is a significant milestone in your professional development journey. Keep up the excellent work!
 
-View Your Goals: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}/goals
+View Your Goals: ${appUrl}/goals
 
 Ready for your next challenge? Set a new goal and keep growing!
     `.trim(),
@@ -422,7 +429,7 @@ Your free trial for ${organization.name} ends in ${daysRemaining} ${daysRemainin
 
 To continue enjoying all the benefits of Meant2Grow, please upgrade to a paid plan.
 
-Upgrade Now: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}/settings/billing
+Upgrade Now: ${appUrl}/settings/billing
 
 Questions about pricing? Reply to this email and we'll be happy to help.
     `.trim(),
@@ -471,7 +478,7 @@ Questions about pricing? Reply to this email and we'll be happy to help.
                 This meeting starts in ${timeUntil}. We'll send you another reminder 1 hour before the meeting.
               </p>
               <div style="margin: 30px 0;">
-                <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}/calendar" 
+                <a href="${appUrl}/calendar" 
                    style="display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                   View Calendar
                 </a>
@@ -495,149 +502,154 @@ ${event.googleMeetLink ? `Join: ${event.googleMeetLink}` : ''}
 
 This meeting starts in ${timeUntil}. We'll send you another reminder 1 hour before the meeting.
 
-View Calendar: ${process.env.VITE_APP_URL || 'https://meant2grow.com'}/calendar
+View Calendar: ${appUrl}/calendar
       `.trim(),
     };
   },
-};
+});
 
-// Public API
-export const emailService = {
-  sendWelcomeAdmin: async (user: User, organization: Organization) => {
-    const template = templates.welcomeAdmin(user, organization);
-    await sendEmail({
-      to: [{ email: user.email, name: user.name }],
-      ...template,
-      category: "Welcome",
-    });
-  },
+// Factory function to create email service with configuration
+export const createEmailService = (config: EmailServiceConfig) => {
+  const sendEmail = createSendEmail(config);
+  const templates = createTemplates(config.appUrl);
 
-  sendWelcomeParticipant: async (user: User, organization: Organization, role: Role) => {
-    const template = templates.welcomeParticipant(user, organization, role);
-    await sendEmail({
-      to: [{ email: user.email, name: user.name }],
-      ...template,
-      category: "Welcome",
-    });
-  },
+  return {
+    sendWelcomeAdmin: async (user: User, organization: Organization) => {
+      const template = templates.welcomeAdmin(user, organization);
+      await sendEmail({
+        to: [{ email: user.email, name: user.name }],
+        ...template,
+        category: "Welcome",
+      });
+    },
 
-  sendWelcomeBack: async (user: User, organization: Organization) => {
-    const template = templates.welcomeBack(user, organization);
-    await sendEmail({
-      to: [{ email: user.email, name: user.name }],
-      ...template,
-      category: "Login",
-    });
-  },
+    sendWelcomeParticipant: async (user: User, organization: Organization, role: Role) => {
+      const template = templates.welcomeParticipant(user, organization, role);
+      await sendEmail({
+        to: [{ email: user.email, name: user.name }],
+        ...template,
+        category: "Welcome",
+      });
+    },
 
-  sendMatchCreated: async (
-    user: User,
-    match: Match,
-    mentor: User,
-    mentee: User
-  ) => {
-    const template = templates.matchCreated(user, match, mentor, mentee);
-    await sendEmail({
-      to: [{ email: user.email, name: user.name }],
-      ...template,
-      category: "Match",
-    });
-  },
+    sendWelcomeBack: async (user: User, organization: Organization) => {
+      const template = templates.welcomeBack(user, organization);
+      await sendEmail({
+        to: [{ email: user.email, name: user.name }],
+        ...template,
+        category: "Login",
+      });
+    },
 
-  sendGoalCompleted: async (user: User, goal: Goal) => {
-    const template = templates.goalCompleted(user, goal);
-    await sendEmail({
-      to: [{ email: user.email, name: user.name }],
-      ...template,
-      category: "Goal",
-    });
-  },
+    sendMatchCreated: async (
+      user: User,
+      match: Match,
+      mentor: User,
+      mentee: User
+    ) => {
+      const template = templates.matchCreated(user, match, mentor, mentee);
+      await sendEmail({
+        to: [{ email: user.email, name: user.name }],
+        ...template,
+        category: "Match",
+      });
+    },
 
-  sendTrialEnding: async (
-    user: User,
-    organization: Organization,
-    daysRemaining: number
-  ) => {
-    const template = templates.trialEnding(user, organization, daysRemaining);
-    await sendEmail({
-      to: [{ email: user.email, name: user.name }],
-      ...template,
-      category: "Billing",
-    });
-  },
+    sendGoalCompleted: async (user: User, goal: Goal) => {
+      const template = templates.goalCompleted(user, goal);
+      await sendEmail({
+        to: [{ email: user.email, name: user.name }],
+        ...template,
+        category: "Goal",
+      });
+    },
 
-  sendMeetingReminder: async (
-    user: User,
-    event: { title: string; date: string; startTime: string; duration: string; googleMeetLink?: string; participants?: string[] },
-    hoursUntil: number
-  ) => {
-    const template = templates.meetingReminder(user, event, hoursUntil);
-    await sendEmail({
-      to: [{ email: user.email, name: user.name }],
-      ...template,
-      category: "Meeting",
-    });
-  },
+    sendTrialEnding: async (
+      user: User,
+      organization: Organization,
+      daysRemaining: number
+    ) => {
+      const template = templates.trialEnding(user, organization, daysRemaining);
+      await sendEmail({
+        to: [{ email: user.email, name: user.name }],
+        ...template,
+        category: "Billing",
+      });
+    },
 
-  // Send custom email from admin to user(s)
-  sendCustomEmail: async (
-    recipients: { email: string; name?: string }[],
-    subject: string,
-    body: string,
-    fromAdmin?: { name: string; email: string },
-    isPlatformAdmin?: boolean
-  ) => {
-    // Convert plain text body to HTML
-    const htmlBody = body
-      .split('\n')
-      .map((line) => `<p style="font-size: 16px; margin-bottom: 12px; line-height: 1.6;">${line || '<br/>'}</p>`)
-      .join('');
+    sendMeetingReminder: async (
+      user: User,
+      event: { title: string; date: string; startTime: string; duration: string; googleMeetLink?: string; participants?: string[] },
+      hoursUntil: number
+    ) => {
+      const template = templates.meetingReminder(user, event, hoursUntil);
+      await sendEmail({
+        to: [{ email: user.email, name: user.name }],
+        ...template,
+        category: "Meeting",
+      });
+    },
 
-    const footerMessage = isPlatformAdmin
-      ? "This message was sent from a Meant2Grow platform operator."
-      : "This message was sent from your organization's Meant2Grow admin.";
+    // Send custom email from admin to user(s)
+    sendCustomEmail: async (
+      recipients: { email: string; name?: string }[],
+      subject: string,
+      body: string,
+      fromAdmin?: { name: string; email: string },
+      isPlatformAdmin?: boolean
+    ) => {
+      // Convert plain text body to HTML
+      const htmlBody = body
+        .split('\n')
+        .map((line) => `<p style="font-size: 16px; margin-bottom: 12px; line-height: 1.6;">${line || '<br/>'}</p>`)
+        .join('');
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${subject}</title>
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0;">Message from Meant2Grow</h1>
-          </div>
-          <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-            ${fromAdmin ? `<p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">From: <strong>${fromAdmin.name}</strong> (${fromAdmin.email})${isPlatformAdmin ? ' <span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">Platform Operator</span>' : ''}</p>` : ''}
-            <div style="font-size: 16px; margin-bottom: 20px;">
-              ${htmlBody}
+      const footerMessage = isPlatformAdmin
+        ? "This message was sent from a Meant2Grow platform operator."
+        : "This message was sent from your organization's Meant2Grow admin.";
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${subject}</title>
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+              <h1 style="color: white; margin: 0;">Message from Meant2Grow</h1>
             </div>
-            <div style="margin: 30px 0; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-              <p style="font-size: 14px; color: #6b7280;">
-                ${footerMessage}
-              </p>
+            <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+              ${fromAdmin ? `<p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">From: <strong>${fromAdmin.name}</strong> (${fromAdmin.email})${isPlatformAdmin ? ' <span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">Platform Operator</span>' : ''}</p>` : ''}
+              <div style="font-size: 16px; margin-bottom: 20px;">
+                ${htmlBody}
+              </div>
+              <div style="margin: 30px 0; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                <p style="font-size: 14px; color: #6b7280;">
+                  ${footerMessage}
+                </p>
+              </div>
             </div>
-          </div>
-        </body>
-      </html>
-    `;
+          </body>
+        </html>
+      `;
 
-    const text = `
+      const text = `
 ${fromAdmin ? `From: ${fromAdmin.name} (${fromAdmin.email})${isPlatformAdmin ? ' [Platform Operator]' : ''}\n\n` : ''}${body}
 
 ---
 ${footerMessage}
-    `.trim();
+      `.trim();
 
-    await sendEmail({
-      to: recipients,
-      subject,
-      html,
-      text,
-      category: "Admin",
-    });
-  },
+      await sendEmail({
+        to: recipients,
+        subject,
+        html,
+        text,
+        category: "Admin",
+      });
+    },
+  };
 };
 

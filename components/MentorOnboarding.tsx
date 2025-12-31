@@ -18,21 +18,46 @@ interface GoalInput {
 }
 
 const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, programSettings, currentUser }) => {
+  // Load persisted form data from localStorage
+  const getStoredFormData = () => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem(`mentorOnboarding_${currentUser?.id || 'default'}`);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const storedData = getStoredFormData();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    title: currentUser?.title || '',
-    company: currentUser?.company || '',
-    skills: currentUser?.skills || [] as string[],
-    bio: currentUser?.bio || '',
-    experience: '',
-    availability: '',
-    maxMentees: '2',
-    goals: [] as GoalInput[],
-    phoneNumber: currentUser?.phoneNumber || ''
+    title: storedData?.title || currentUser?.title || '',
+    company: storedData?.company || currentUser?.company || '',
+    skills: storedData?.skills || currentUser?.skills || [] as string[],
+    bio: storedData?.bio || currentUser?.bio || '',
+    experience: storedData?.experience || '',
+    availability: storedData?.availability || '',
+    maxMentees: storedData?.maxMentees || '2',
+    goals: storedData?.goals || [] as GoalInput[],
+    phoneNumber: storedData?.phoneNumber || currentUser?.phoneNumber || ''
   });
   const [currentGoal, setCurrentGoal] = useState('');
   const [currentTargetDate, setCurrentTargetDate] = useState('');
-  const [customFieldData, setCustomFieldData] = useState<Record<string, any>>({});
+  const [customFieldData, setCustomFieldData] = useState<Record<string, any>>(storedData?.customFieldData || {});
+
+  // Persist form data to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && currentUser?.id) {
+      localStorage.setItem(`mentorOnboarding_${currentUser.id}`, JSON.stringify({
+        ...formData,
+        customFieldData
+      }));
+    }
+  }, [formData, customFieldData, currentUser?.id]);
 
   // Update formData when currentUser changes (in case it loads asynchronously)
   useEffect(() => {
@@ -94,11 +119,19 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
 
   const handleCustomFieldsSubmit = (data: Record<string, any>) => {
     setCustomFieldData(data);
+    // Clear localStorage after successful submission
+    if (typeof window !== 'undefined' && currentUser?.id) {
+      localStorage.removeItem(`mentorOnboarding_${currentUser.id}`);
+    }
     // Save all form data and complete onboarding
     onComplete({ ...formData, customFieldData: data });
   };
 
   const handleComplete = () => {
+    // Clear localStorage after successful submission
+    if (typeof window !== 'undefined' && currentUser?.id) {
+      localStorage.removeItem(`mentorOnboarding_${currentUser.id}`);
+    }
     // Save all form data and complete onboarding
     // This will mark onboarding as complete and redirect to dashboard
     onComplete({ ...formData, customFieldData });

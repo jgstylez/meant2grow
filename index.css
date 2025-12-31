@@ -94,9 +94,9 @@
     }
   }
   
-  /* Handle impersonation banner - add extra 4rem on top */
+  /* Handle impersonation banner - add extra 2.75rem on top */
   main#main-content[data-impersonating="true"] {
-    padding-top: calc(var(--pwa-banner-offset, 0px) + 4rem + var(--main-base-pt));
+    padding-top: calc(var(--pwa-banner-offset, 0px) + 2.75rem + var(--main-base-pt));
   }
   
   /* Hide scrollbar but keep functionality */

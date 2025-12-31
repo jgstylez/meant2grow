@@ -1749,10 +1749,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
               <div className="mt-4 space-y-3">
                 {calendarEvents
                   .filter(e => {
-                    // Show events where user is a participant (mentor or mentee)
-                    const isParticipant = e.mentorId === user.id || e.menteeId === user.id || 
-                                         (e.participants && e.participants.includes(user.id));
-                    if (!isParticipant) return false;
+                    // Priority: If participants array exists and has items, ONLY show to users in that array
+                    // Otherwise, fall back to mentorId/menteeId fields
+                    const hasParticipants = e.participants && e.participants.length > 0;
+                    
+                    if (hasParticipants) {
+                      // If participants array exists, user MUST be in it (or be the creator)
+                      const isInParticipants = e.participants.includes(user.id);
+                      const isCreator = e.createdBy === user.id;
+                      if (!isInParticipants && !isCreator) return false;
+                    } else {
+                      // If no participants array, check mentorId/menteeId fields
+                      const isSpecificMentor = e.mentorId === user.id;
+                      const isSpecificMentee = e.menteeId === user.id;
+                      const isCreator = e.createdBy === user.id;
+                      if (!isSpecificMentor && !isSpecificMentee && !isCreator) return false;
+                    }
                     
                     const eventDate = new Date(e.date);
                     const today = new Date();
@@ -1778,9 +1790,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
                     );
                   })}
                 {calendarEvents.filter(e => {
-                  const isParticipant = e.mentorId === user.id || e.menteeId === user.id || 
-                                       (e.participants && e.participants.includes(user.id));
-                  if (!isParticipant) return false;
+                  // Priority: If participants array exists and has items, ONLY show to users in that array
+                  const hasParticipants = e.participants && e.participants.length > 0;
+                  
+                  if (hasParticipants) {
+                    const isInParticipants = e.participants.includes(user.id);
+                    const isCreator = e.createdBy === user.id;
+                    if (!isInParticipants && !isCreator) return false;
+                  } else {
+                    const isSpecificMentor = e.mentorId === user.id;
+                    const isSpecificMentee = e.menteeId === user.id;
+                    const isCreator = e.createdBy === user.id;
+                    if (!isSpecificMentor && !isSpecificMentee && !isCreator) return false;
+                  }
                   
                   const eventDate = new Date(e.date);
                   const today = new Date();
@@ -1985,6 +2007,74 @@ const Dashboard: React.FC<DashboardProps> = ({ user, users, matches, goals, rati
               </button>
             </div>
             <Users className="absolute bottom-[-10px] right-[-10px] w-24 h-24 text-white opacity-10" />
+          </div>
+        </div>
+
+        {/* My Feedback Section - Shows approved ratings given by mentee */}
+        <div className={CARD_CLASS}>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-slate-800 dark:text-white mb-1">My Feedback</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Your approved ratings and feedback</p>
+            </div>
+            <Star className="w-5 h-5 text-amber-500" />
+          </div>
+          <div className="space-y-4">
+            {(() => {
+              const myApprovedRatings = ratings.filter(r => r.fromUserId === user.id && r.isApproved);
+              if (myApprovedRatings.length === 0) {
+                return (
+                  <div className="text-center py-8">
+                    <p className="text-slate-400 dark:text-slate-500 text-sm">No approved feedback yet.</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Your feedback will appear here once approved.</p>
+                  </div>
+                );
+              }
+              return myApprovedRatings.map(rating => {
+                const ratedUser = users.find(u => u.id === rating.toUserId);
+                return (
+                  <div key={rating.id} className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <img src={ratedUser?.avatar || ''} alt={ratedUser?.name || 'Unknown'} className="w-8 h-8 rounded-full object-cover" />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                            Feedback for {ratedUser?.name || 'Unknown User'}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {new Date(rating.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-4 h-4 ${
+                              i < rating.score
+                                ? 'text-amber-400 fill-amber-400'
+                                : 'text-slate-300 dark:text-slate-600'
+                            }`}
+                          />
+                        ))}
+                        <span className="ml-1 text-sm font-semibold text-slate-700 dark:text-slate-300">{rating.score}/5</span>
+                      </div>
+                    </div>
+                    {rating.comment && (
+                      <p className="text-sm text-slate-700 dark:text-slate-300 mt-2 pl-10 italic">
+                        "{rating.comment}"
+                      </p>
+                    )}
+                    <div className="mt-2 pl-10">
+                      <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded">
+                        <CheckCircle className="w-3 h-3" />
+                        Approved
+                      </span>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </div>
         </div>
       </div>

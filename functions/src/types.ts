@@ -49,6 +49,7 @@ export interface User {
   bio: string;
   googleId?: string; // For OAuth linking
   goalsPublic?: boolean; // Whether goals are visible to others (default: true)
+  totalHoursCommitted?: number; // Total hours committed by mentor (sum of all scheduled appointment durations)
   createdAt: string;
 }
 
@@ -186,6 +187,7 @@ export interface CalendarEvent {
   mentorId?: string;
   menteeId?: string;
   participants?: string[]; // Array of user IDs who are invited/participating
+  createdBy?: string; // User ID who created/scheduled the event
   googleMeetLink?: string; // Generated Meet link
   googleCalendarEventId?: string; // Google Calendar event ID for sync
   outlookCalendarEventId?: string; // Outlook Calendar event ID for sync

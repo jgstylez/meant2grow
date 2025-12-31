@@ -21,6 +21,7 @@ import {
   TrainingVideo,
 } from "./types";
 import { getBlogPosts } from "./services/database";
+import { parseDurationToHours } from "./services/utils";
 import { useOrganizationData } from "./hooks/useOrganizationData";
 import {
   createMatch,
@@ -34,6 +35,7 @@ import {
   createResource,
   deleteResource,
   createCalendarEvent,
+  getCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
   createNotification,
@@ -41,6 +43,7 @@ import {
   deleteNotification,
   createInvitation,
   updateInvitation,
+  getUser,
   updateUser,
   updateOrganization,
   createBlogPost,
@@ -185,6 +188,10 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  
+  // Impersonation state - track original operator for access control
+  const [originalOperator, setOriginalOperator] = useState<User | null>(null);
+  const [isImpersonating, setIsImpersonating] = useState(false);
 
   // Load published blog posts for public pages
   useEffect(() => {
@@ -205,6 +212,26 @@ const App: React.FC = () => {
       setBlogPosts(loadedBlogPosts);
     }
   }, [loadedBlogPosts]);
+
+  // Check impersonation status and load original operator if needed
+  useEffect(() => {
+    const impersonating = localStorage.getItem('isImpersonating') === 'true';
+    const originalOperatorId = localStorage.getItem('originalOperatorId');
+    setIsImpersonating(impersonating);
+    
+    if (impersonating && originalOperatorId) {
+      // Load original operator's data for access control
+      getUser(originalOperatorId).then((operator) => {
+        if (operator) {
+          setOriginalOperator(operator);
+        }
+      }).catch((error) => {
+        console.error('Error loading original operator:', error);
+      });
+    } else {
+      setOriginalOperator(null);
+    }
+  }, []);
 
   // Sync currentUser from loadedUser
   useEffect(() => {
@@ -656,6 +683,23 @@ const App: React.FC = () => {
         console.error("Failed to sync to calendars:", syncError);
       }
 
+      // Update mentor's total hours committed if this event has a mentorId
+      if (event.mentorId) {
+        try {
+          const mentor = await getUser(event.mentorId);
+          if (mentor) {
+            const hoursToAdd = parseDurationToHours(event.duration);
+            const currentHours = mentor.totalHoursCommitted || 0;
+            await updateUser(event.mentorId, {
+              totalHoursCommitted: currentHours + hoursToAdd,
+            });
+          }
+        } catch (error) {
+          console.error("Error updating mentor hours:", error);
+          // Don't fail the event creation if hours update fails
+        }
+      }
+
       addToast("Event added to calendar", "success");
       const participants = event.participants || [];
       participants.forEach((participantId) => {
@@ -703,6 +747,65 @@ const App: React.FC = () => {
       if (!organizationId) throw new Error("Organization ID is required");
       if (!currentUser) throw new Error("User must be logged in");
 
+      // Get original event to calculate hour differences
+      const originalEvent = await getCalendarEvent(eventId);
+      
+      // Update mentor hours if duration or mentorId changed
+      if (originalEvent && (updates.duration || updates.mentorId !== undefined)) {
+        const oldMentorId = originalEvent.mentorId;
+        const newMentorId = updates.mentorId !== undefined ? updates.mentorId : oldMentorId;
+        const oldDuration = originalEvent.duration;
+        const newDuration = updates.duration || oldDuration;
+        const oldHours = parseDurationToHours(oldDuration);
+        const newHours = parseDurationToHours(newDuration);
+
+        // If mentorId changed, adjust both mentors' hours
+        if (oldMentorId !== newMentorId) {
+          // Subtract old hours from old mentor
+          if (oldMentorId) {
+            try {
+              const oldMentor = await getUser(oldMentorId);
+              if (oldMentor) {
+                const currentHours = oldMentor.totalHoursCommitted || 0;
+                await updateUser(oldMentorId, {
+                  totalHoursCommitted: Math.max(0, currentHours - oldHours),
+                });
+              }
+            } catch (error) {
+              console.error("Error updating old mentor hours:", error);
+            }
+          }
+          // Add new hours to new mentor
+          if (newMentorId) {
+            try {
+              const newMentor = await getUser(newMentorId);
+              if (newMentor) {
+                const currentHours = newMentor.totalHoursCommitted || 0;
+                await updateUser(newMentorId, {
+                  totalHoursCommitted: currentHours + newHours,
+                });
+              }
+            } catch (error) {
+              console.error("Error updating new mentor hours:", error);
+            }
+          }
+        } else if (oldMentorId && oldHours !== newHours) {
+          // Same mentor, but duration changed - adjust hours
+          try {
+            const mentor = await getUser(oldMentorId);
+            if (mentor) {
+              const currentHours = mentor.totalHoursCommitted || 0;
+              const hourDifference = newHours - oldHours;
+              await updateUser(oldMentorId, {
+                totalHoursCommitted: Math.max(0, currentHours + hourDifference),
+              });
+            }
+          } catch (error) {
+            console.error("Error updating mentor hours:", error);
+          }
+        }
+      }
+
       await updateCalendarEvent(eventId, updates);
       addToast("Event updated successfully", "success");
       
@@ -711,6 +814,41 @@ const App: React.FC = () => {
     } catch (error: unknown) {
       console.error("Error updating event:", error);
       addToast(getErrorMessage(error) || "Failed to update event", "error");
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      if (!organizationId) throw new Error("Organization ID is required");
+      if (!currentUser) throw new Error("User must be logged in");
+
+      // Get event before deleting to update mentor hours
+      const event = await getCalendarEvent(eventId);
+      
+      if (event && event.mentorId) {
+        try {
+          const mentor = await getUser(event.mentorId);
+          if (mentor) {
+            const hoursToSubtract = parseDurationToHours(event.duration);
+            const currentHours = mentor.totalHoursCommitted || 0;
+            await updateUser(event.mentorId, {
+              totalHoursCommitted: Math.max(0, currentHours - hoursToSubtract),
+            });
+          }
+        } catch (error) {
+          console.error("Error updating mentor hours on delete:", error);
+          // Don't fail the deletion if hours update fails
+        }
+      }
+
+      await deleteCalendarEvent(eventId);
+      addToast("Event deleted successfully", "success");
+      
+      // Refresh calendar events to show updated data
+      await refreshData();
+    } catch (error: unknown) {
+      console.error("Error deleting event:", error);
+      addToast(getErrorMessage(error) || "Failed to delete event", "error");
     }
   };
 
@@ -1053,11 +1191,13 @@ const App: React.FC = () => {
         );
       case "platform-operator-management":
         // Check platform admin access - handle both enum and string role representations
-        if (!currentUser) {
+        // If impersonating, use original operator's role for access control
+        const userForPlatformOpCheck = isImpersonating && originalOperator ? originalOperator : currentUser;
+        if (!userForPlatformOpCheck) {
           return <div className="p-8 text-center">Access denied.</div>;
         }
-        const platformOpRoleStr = String(currentUser.role);
-        const isPlatformOp = currentUser.role === Role.PLATFORM_ADMIN || 
+        const platformOpRoleStr = String(userForPlatformOpCheck.role);
+        const isPlatformOp = userForPlatformOpCheck.role === Role.PLATFORM_ADMIN || 
                             platformOpRoleStr === "PLATFORM_ADMIN" || 
                             platformOpRoleStr === "PLATFORM_OPERATOR";
         if (!isPlatformOp) {
@@ -1095,11 +1235,13 @@ const App: React.FC = () => {
         }
         if (currentPage.startsWith("user-management")) {
           // Check platform admin access - handle both enum and string role representations
-          if (!currentUser) {
+          // If impersonating, use original operator's role for access control
+          const userForAccessCheck = isImpersonating && originalOperator ? originalOperator : currentUser;
+          if (!userForAccessCheck) {
             return <div className="p-8 text-center">Access denied.</div>;
           }
-          const userMgmtRoleStr = String(currentUser.role);
-          const isPlatformOpForMgmt = currentUser.role === Role.PLATFORM_ADMIN || 
+          const userMgmtRoleStr = String(userForAccessCheck.role);
+          const isPlatformOpForMgmt = userForAccessCheck.role === Role.PLATFORM_ADMIN || 
                                      userMgmtRoleStr === "PLATFORM_ADMIN" || 
                                      userMgmtRoleStr === "PLATFORM_OPERATOR";
           if (!isPlatformOpForMgmt) {

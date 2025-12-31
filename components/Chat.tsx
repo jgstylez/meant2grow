@@ -46,6 +46,7 @@ import {
 import {
   createChatMessage,
   subscribeToChatMessages,
+  subscribeToDMMessages,
   updateChatMessage,
   createChatGroup,
   subscribeToChatGroups,
@@ -58,10 +59,13 @@ import {
   updatePrivateMessageRequest,
   subscribeToPrivateMessageRequests,
   getApprovedPrivateMessagePartners,
+  getUser,
+  updateUser,
 } from "../services/database";
 import { Unsubscribe } from "../services/database";
 import { logger } from "../services/logger";
 import { uploadFile, generateUniquePath } from "../services/storage";
+import { parseDurationToHours } from "../services/utils";
 
 // Using ChatMessage and ChatGroup from types.ts
 
@@ -1107,101 +1111,136 @@ const Chat: React.FC<ChatProps> = ({
         : null;
 
     // Subscribe to messages for this chat
-    unsubscribeMessagesRef.current[activeChatId] = subscribeToChatMessages(
-      activeChatId,
-      organizationId,
-      (newMessages) => {
-        // Filter messages to ensure user only sees messages they're allowed to see
-        const filteredMessages = newMessages.filter((msg) => {
-          // Ensure message is from the same organization
-          if (msg.organizationId !== organizationId) {
-            return false;
-          }
+    // For DMs, use subscribeToDMMessages to query both directions
+    // For group chats, use subscribeToChatMessages
+    const messageCallback = (newMessages: ChatMessageType[]) => {
+      // Filter messages to ensure user only sees messages they're allowed to see
+      const filteredMessages = newMessages.filter((msg) => {
+        // Ensure message is from the same organization
+        if (msg.organizationId !== organizationId) {
+          return false;
+        }
 
-          // Group messages: only members can see, and only messages after they joined
-          if (isGroupChat) {
-            // For group chats, filter out messages from before user joined (if timestamp available)
-            if (userJoinedTimestamp) {
-              const messageTimestamp = new Date(msg.timestamp).getTime();
-              if (messageTimestamp < userJoinedTimestamp) {
-                return false; // Don't show old messages to new members
-              }
-            }
-            return true; // All group members can see messages after they joined
-          }
-
-          // DM messages: only sender and recipient can see
-          // For DMs, activeChatId is the chat partner's ID
-          const isSender = msg.senderId === currentUser.id;
-          const isRecipient = msg.senderId === activeChatId; // Chat partner sent the message
-
-          // Check if users are matched partners
-          const isMatchedPartner = activeMatches.some(m => 
-            m.status === MatchStatus.ACTIVE &&
-            ((m.mentorId === currentUser.id && m.menteeId === activeChatId) ||
-             (m.menteeId === currentUser.id && m.mentorId === activeChatId))
-          );
-
-          // Check if users are approved private message partners
-          const isApprovedPartner = approvedPrivateMessagePartners.has(activeChatId);
-
-          // Admins can see all messages in their organization
-          // Handle both enum and string values for role checks
-          const currentUserRoleStrForMessages = String(currentUser.role);
-          const isCurrentUserAdminForMessages = currentUser.role === Role.ADMIN || 
-                                               currentUserRoleStrForMessages === "ADMIN" || 
-                                               currentUserRoleStrForMessages === "ORGANIZATION_ADMIN";
-          const isCurrentUserPlatformAdminForMessages = currentUser.role === Role.PLATFORM_ADMIN || 
-                                                        currentUserRoleStrForMessages === "PLATFORM_ADMIN" || 
-                                                        currentUserRoleStrForMessages === "PLATFORM_OPERATOR";
-          if (isCurrentUserAdminForMessages || isCurrentUserPlatformAdminForMessages) {
-            return isSender || isRecipient;
-          }
-
-          // Allow messages between matched partners or approved private message partners
-          if (isMatchedPartner || isApprovedPartner) {
-            return isSender || isRecipient;
-          }
-
-          // For non-matched regular users, check if chat partner is admin
-          const chatPartner = users.find(u => u.id === activeChatId);
-          if (chatPartner) {
-            const chatPartnerRoleStrForMessages = String(chatPartner.role);
-            const isChatPartnerAdminForMessages = chatPartner.role === Role.ADMIN || 
-                                                 chatPartnerRoleStrForMessages === "ADMIN" || 
-                                                 chatPartnerRoleStrForMessages === "ORGANIZATION_ADMIN";
-            const isChatPartnerPlatformAdminForMessages = chatPartner.role === Role.PLATFORM_ADMIN || 
-                                                         chatPartnerRoleStrForMessages === "PLATFORM_ADMIN" || 
-                                                         chatPartnerRoleStrForMessages === "PLATFORM_OPERATOR";
-            if (isChatPartnerAdminForMessages || isChatPartnerPlatformAdminForMessages) {
-              return isSender || isRecipient;
+        // Group messages: only members can see, and only messages after they joined
+        if (isGroupChat) {
+          // For group chats, filter out messages from before user joined (if timestamp available)
+          if (userJoinedTimestamp) {
+            const messageTimestamp = new Date(msg.timestamp).getTime();
+            if (messageTimestamp < userJoinedTimestamp) {
+              return false; // Don't show old messages to new members
             }
           }
+          return true; // All group members can see messages after they joined
+        }
 
+        // DM messages: only sender and recipient can see
+        // For DMs, activeChatId is the chat partner's ID
+        const isSender = msg.senderId === currentUser.id;
+        const isRecipient = msg.senderId === activeChatId; // Chat partner sent the message
+
+        // Check if users are matched partners
+        const isMatchedPartner = activeMatches.some(m => 
+          m.status === MatchStatus.ACTIVE &&
+          ((m.mentorId === currentUser.id && m.menteeId === activeChatId) ||
+           (m.menteeId === currentUser.id && m.mentorId === activeChatId))
+        );
+
+        // Check if users are approved private message partners
+        const isApprovedPartner = approvedPrivateMessagePartners.has(activeChatId);
+
+        // Handle both enum and string values for role checks
+        const currentUserRoleStrForMessages = String(currentUser.role);
+        const isCurrentUserAdminForMessages = currentUser.role === Role.ADMIN || 
+                                             currentUserRoleStrForMessages === "ADMIN" || 
+                                             currentUserRoleStrForMessages === "ORGANIZATION_ADMIN";
+        const isCurrentUserPlatformAdminForMessages = currentUser.role === Role.PLATFORM_ADMIN || 
+                                                      currentUserRoleStrForMessages === "PLATFORM_ADMIN" || 
+                                                      currentUserRoleStrForMessages === "PLATFORM_OPERATOR";
+        
+        // Check if chat partner is admin
+        const chatPartner = users.find(u => u.id === activeChatId);
+        const chatPartnerRoleStrForMessages = chatPartner ? String(chatPartner.role) : '';
+        const isChatPartnerAdminForMessages = chatPartner && (
+          chatPartner.role === Role.ADMIN || 
+          chatPartnerRoleStrForMessages === "ADMIN" || 
+          chatPartnerRoleStrForMessages === "ORGANIZATION_ADMIN"
+        );
+        const isChatPartnerPlatformAdminForMessages = chatPartner && (
+          chatPartner.role === Role.PLATFORM_ADMIN || 
+          chatPartnerRoleStrForMessages === "PLATFORM_ADMIN" || 
+          chatPartnerRoleStrForMessages === "PLATFORM_OPERATOR"
+        );
+        const isChatPartnerAdmin = isChatPartnerAdminForMessages || isChatPartnerPlatformAdminForMessages;
+
+        // Admins can see all messages in their organization (both directions)
+        if (isCurrentUserAdminForMessages || isCurrentUserPlatformAdminForMessages) {
           return isSender || isRecipient;
-        });
+        }
 
-        setMessages((prev) => {
-          // Only update if messages actually changed
-          const prevMessages = prev[activeChatId] || [];
-          if (
-            prevMessages.length === filteredMessages.length &&
-            prevMessages.every((msg, idx) => msg.id === filteredMessages[idx]?.id)
-          ) {
-            return prev; // No changes
+        // Special rule: If current user is NOT an admin AND chat partner IS an admin,
+        // non-admin users should see:
+        // 1. Their own messages TO Admin (isSender)
+        // 2. Admin's messages sent directly TO them (isRecipient AND msg.chatId === currentUser.id)
+        // But NOT Admin's messages to other users (isRecipient AND msg.chatId !== currentUser.id)
+        if (!isCurrentUserAdminForMessages && !isCurrentUserPlatformAdminForMessages && isChatPartnerAdmin) {
+          // Show messages sent BY the current user (messages TO Admin)
+          if (isSender) {
+            return true;
           }
-          return {
-            ...prev,
-            [activeChatId]: filteredMessages,
-          };
-        });
+          // Show Admin's messages TO the current user (chatId must match current user's ID)
+          if (isRecipient && msg.chatId === currentUser.id) {
+            return true;
+          }
+          // Hide Admin's messages to other users
+          return false;
+        }
 
-        // TODO: Implement real-time typing detection
-        // When messages arrive, check if sender is currently typing
-        // For now, typing indicator state is functional but requires
-        // Firestore typing status collection/listener to work properly
-      }
-    );
+        // Allow messages between matched partners or approved private message partners
+        if (isMatchedPartner || isApprovedPartner) {
+          return isSender || isRecipient;
+        }
+
+        return isSender || isRecipient;
+      });
+
+      setMessages((prev) => {
+        // Only update if messages actually changed
+        const prevMessages = prev[activeChatId] || [];
+        if (
+          prevMessages.length === filteredMessages.length &&
+          prevMessages.every((msg, idx) => msg.id === filteredMessages[idx]?.id)
+        ) {
+          return prev; // No changes
+        }
+        return {
+          ...prev,
+          [activeChatId]: filteredMessages,
+        };
+      });
+
+      // TODO: Implement real-time typing detection
+      // When messages arrive, check if sender is currently typing
+      // For now, typing indicator state is functional but requires
+      // Firestore typing status collection/listener to work properly
+    };
+
+    // Use subscribeToDMMessages for DMs to query both directions
+    // Use subscribeToChatMessages for group chats
+    if (isGroupChat) {
+      unsubscribeMessagesRef.current[activeChatId] = subscribeToChatMessages(
+        activeChatId,
+        organizationId,
+        messageCallback
+      );
+    } else {
+      // For DMs, query both directions: messages sent TO partner and messages sent TO current user BY partner
+      unsubscribeMessagesRef.current[activeChatId] = subscribeToDMMessages(
+        activeChatId, // partnerId
+        currentUser.id, // currentUserId
+        organizationId,
+        messageCallback
+      );
+    }
 
     return () => {
       if (unsubscribeMessagesRef.current[activeChatId]) {
@@ -1822,6 +1861,11 @@ const Chat: React.FC<ChatProps> = ({
         }
       }
 
+      // Ensure creator is always included in participants array
+      if (!participants.includes(currentUser.id)) {
+        participants.push(currentUser.id);
+      }
+
       // Create calendar event
       const eventId = await createCalendarEvent({
         organizationId,
@@ -1831,6 +1875,7 @@ const Chat: React.FC<ChatProps> = ({
         duration: meetingDuration,
         type: "Virtual",
         participants,
+        createdBy: currentUser.id, // Track who created/scheduled the event
         mentorId: currentUser.role === Role.MENTOR ? currentUser.id : undefined,
         menteeId: currentUser.role === Role.MENTEE ? currentUser.id : undefined,
       });
@@ -1899,6 +1944,24 @@ const Chat: React.FC<ChatProps> = ({
       } catch (syncError) {
         console.error("Failed to sync to calendars:", syncError);
         // Don't fail the event creation if sync fails
+      }
+
+      // Update mentor's total hours committed if this event has a mentorId
+      const mentorIdForEvent = currentUser.role === Role.MENTOR ? currentUser.id : undefined;
+      if (mentorIdForEvent) {
+        try {
+          const mentor = await getUser(mentorIdForEvent);
+          if (mentor) {
+            const hoursToAdd = parseDurationToHours(meetingDuration);
+            const currentHours = mentor.totalHoursCommitted || 0;
+            await updateUser(mentorIdForEvent, {
+              totalHoursCommitted: currentHours + hoursToAdd,
+            });
+          }
+        } catch (error) {
+          console.error("Error updating mentor hours:", error);
+          // Don't fail the event creation if hours update fails
+        }
       }
 
       // Create notifications for all participants except the creator (non-blocking)
