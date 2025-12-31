@@ -1548,18 +1548,63 @@ const EditUserForm: React.FC<EditUserFormProps> = ({
     company: user.company || '',
     bio: user.bio || '',
   });
+  const [emailError, setEmailError] = useState<string>('');
+
+  // Validate email format
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData({ ...formData, email: value });
+    
+    // Clear error when user starts typing
+    if (emailError) {
+      setEmailError('');
+    }
+    
+    // Validate email format in real-time
+    if (value && !isValidEmail(value.trim())) {
+      setEmailError('Please enter a valid email address (e.g., user@example.com)');
+    } else {
+      setEmailError('');
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Trim and normalize email
+    const trimmedEmail = formData.email.trim().toLowerCase();
+    
+    // Validate email
+    if (!trimmedEmail) {
+      setEmailError('Please enter an email address');
+      return;
+    }
+
+    if (!isValidEmail(trimmedEmail)) {
+      setEmailError('Please enter a valid email address (e.g., user@example.com)');
+      return;
+    }
+
+    // Check if email is the same as current
+    if (user.email.toLowerCase() === trimmedEmail) {
+      setEmailError('This is already the current email address');
+      return;
+    }
+
     // Filter out empty strings and convert them to undefined for optional fields
     const updates: Partial<User> = {
-      name: formData.name || undefined,
-      email: formData.email || undefined,
+      name: formData.name.trim() || undefined,
+      email: trimmedEmail, // Use normalized email
       role: formData.role,
       organizationId: formData.organizationId || undefined,
-      title: formData.title || undefined,
-      company: formData.company || undefined,
-      bio: formData.bio || undefined,
+      title: formData.title.trim() || undefined,
+      company: formData.company.trim() || undefined,
+      bio: formData.bio.trim() || undefined,
     };
     // Remove undefined values
     Object.keys(updates).forEach(key => {
@@ -1592,12 +1637,13 @@ const EditUserForm: React.FC<EditUserFormProps> = ({
           <input
             type="email"
             value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
-            className={INPUT_CLASS}
+            onChange={handleEmailChange}
+            className={INPUT_CLASS + (emailError ? ' border-red-500' : '')}
             required
           />
+          {emailError && (
+            <p className="text-xs text-red-500 mt-1">{emailError}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">

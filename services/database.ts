@@ -1712,14 +1712,21 @@ export const subscribeToDMMessages = (
   unsubscribe1 = onSnapshot(
     q1,
     (snapshot: QuerySnapshot) => {
-      snapshot.docs.forEach(doc => {
-        const message = {
-          id: doc.id,
-          ...doc.data(),
-          timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
-          createdAt: convertTimestamp(doc.data().createdAt),
-        } as ChatMessage;
-        messagesMap.set(doc.id, message);
+      // Use docChanges() to handle added, modified, and removed documents
+      snapshot.docChanges().forEach(change => {
+        if (change.type === 'removed') {
+          // Remove deleted messages from the map
+          messagesMap.delete(change.doc.id);
+        } else if (change.type === 'added' || change.type === 'modified') {
+          // Add or update messages in the map
+          const message = {
+            id: change.doc.id,
+            ...change.doc.data(),
+            timestamp: change.doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
+            createdAt: convertTimestamp(change.doc.data().createdAt),
+          } as ChatMessage;
+          messagesMap.set(change.doc.id, message);
+        }
       });
       mergeAndCallback();
     },
@@ -1732,14 +1739,21 @@ export const subscribeToDMMessages = (
   unsubscribe2 = onSnapshot(
     q2,
     (snapshot: QuerySnapshot) => {
-      snapshot.docs.forEach(doc => {
-        const message = {
-          id: doc.id,
-          ...doc.data(),
-          timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
-          createdAt: convertTimestamp(doc.data().createdAt),
-        } as ChatMessage;
-        messagesMap.set(doc.id, message);
+      // Use docChanges() to handle added, modified, and removed documents
+      snapshot.docChanges().forEach(change => {
+        if (change.type === 'removed') {
+          // Remove deleted messages from the map
+          messagesMap.delete(change.doc.id);
+        } else if (change.type === 'added' || change.type === 'modified') {
+          // Add or update messages in the map
+          const message = {
+            id: change.doc.id,
+            ...change.doc.data(),
+            timestamp: change.doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
+            createdAt: convertTimestamp(change.doc.data().createdAt),
+          } as ChatMessage;
+          messagesMap.set(change.doc.id, message);
+        }
       });
       mergeAndCallback();
     },

@@ -27,9 +27,9 @@ export const isImageUrl = (url: string): boolean => {
 };
 
 /**
- * Parses a duration string (e.g., "1h", "30m", "1.5h", "2h 30m") to hours
- * @param duration Duration string like "1h", "30m", "1.5h", "2h 30m"
- * @returns Number of hours (as decimal, e.g., 0.5 for 30 minutes)
+ * Parses a duration string (e.g., "1h", "30m", "1.5h", "2.5m", "2h 30m") to hours
+ * @param duration Duration string like "1h", "30m", "1.5h", "2.5m", "2h 30m"
+ * @returns Number of hours (as decimal, e.g., 0.5 for 30 minutes, 0.0417 for 2.5 minutes)
  */
 export const parseDurationToHours = (duration: string): number => {
     if (!duration) return 0;
@@ -43,8 +43,8 @@ export const parseDurationToHours = (duration: string): number => {
         totalHours += parseFloat(hourMatch[1]);
     }
     
-    // Match minutes: "30m", "45m"
-    const minuteMatch = normalized.match(/(\d+)\s*m/);
+    // Match minutes: "30m", "45m", "2.5m"
+    const minuteMatch = normalized.match(/(\d+\.?\d*)\s*m/);
     if (minuteMatch) {
         totalHours += parseFloat(minuteMatch[1]) / 60;
     }
