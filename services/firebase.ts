@@ -1,5 +1,5 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getFirestore, Firestore, terminate } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging';
@@ -13,10 +13,16 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase - prevent multiple instances during HMR
+let app: FirebaseApp;
+const existingApps = getApps();
+if (existingApps.length === 0) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp(); // Use existing app
+}
 
-// Initialize Firestore
+// Initialize Firestore - reuse existing instance during HMR
 export const db = getFirestore(app);
 
 // Initialize Cloud Storage
@@ -38,4 +44,14 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
 
 export { messaging, getToken, onMessage };
 export default app;
+
+// Clean up Firestore on HMR
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    // Terminate Firestore instance to clean up listeners
+    terminate(db).catch((error) => {
+      console.warn('Error terminating Firestore during HMR:', error);
+    });
+  });
+}
 

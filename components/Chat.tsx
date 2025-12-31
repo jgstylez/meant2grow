@@ -915,6 +915,7 @@ const Chat: React.FC<ChatProps> = ({
   const [gifSearchQuery, setGifSearchQuery] = useState("");
   const [gifs, setGifs] = useState<GiphyGif[]>([]);
   const [gifsLoading, setGifsLoading] = useState(false);
+  const [gifsError, setGifsError] = useState<string | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [messages, setMessages] = useState<Record<string, ChatMessageType[]>>(
     {}
@@ -1086,9 +1087,14 @@ const Chat: React.FC<ChatProps> = ({
       }
     }
 
-    // Cleanup previous subscription
+    // Cleanup previous subscription synchronously before creating new one
     if (unsubscribeMessagesRef.current[activeChatId]) {
-      unsubscribeMessagesRef.current[activeChatId]();
+      try {
+        unsubscribeMessagesRef.current[activeChatId]();
+      } catch (error) {
+        console.error('Error cleaning up previous message subscription:', error);
+      }
+      delete unsubscribeMessagesRef.current[activeChatId];
     }
 
     // Get the timestamp when user joined the group (for group chats)
@@ -1227,38 +1233,76 @@ const Chat: React.FC<ChatProps> = ({
 
     // Use subscribeToDMMessages for DMs to query both directions
     // Use subscribeToChatMessages for group chats
-    if (isGroupChat) {
-      unsubscribeMessagesRef.current[activeChatId] = subscribeToChatMessages(
-        activeChatId,
-        organizationId,
-        messageCallback
-      );
-    } else {
-      // For DMs, query both directions: messages sent TO partner and messages sent TO current user BY partner
-      unsubscribeMessagesRef.current[activeChatId] = subscribeToDMMessages(
-        activeChatId, // partnerId
-        currentUser.id, // currentUserId
-        organizationId,
-        messageCallback
-      );
+    let unsubscribe: Unsubscribe | null = null;
+    try {
+      if (isGroupChat) {
+        unsubscribe = subscribeToChatMessages(
+          activeChatId,
+          organizationId,
+          messageCallback
+        );
+      } else {
+        // For DMs, query both directions: messages sent TO partner and messages sent TO current user BY partner
+        unsubscribe = subscribeToDMMessages(
+          activeChatId, // partnerId
+          currentUser.id, // currentUserId
+          organizationId,
+          messageCallback
+        );
+      }
+      unsubscribeMessagesRef.current[activeChatId] = unsubscribe;
+    } catch (error) {
+      console.error('Error setting up message subscription:', error);
+      // Clean up on error
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (cleanupError) {
+          console.error('Error cleaning up failed subscription:', cleanupError);
+        }
+      }
     }
 
     return () => {
-      if (unsubscribeMessagesRef.current[activeChatId]) {
-        unsubscribeMessagesRef.current[activeChatId]();
+      const unsub = unsubscribeMessagesRef.current[activeChatId];
+      if (unsub) {
+        try {
+          unsub();
+        } catch (error) {
+          console.error('Error unsubscribing from messages:', error);
+        }
+        delete unsubscribeMessagesRef.current[activeChatId];
       }
     };
-  }, [activeChatId, organizationId, currentUser, users, MOCK_GROUPS, matches, approvedPrivateMessagePartners]);
+  }, [activeChatId, organizationId, currentUser.id, currentUser.createdAt, currentUser.role, users, MOCK_GROUPS, matches, approvedPrivateMessagePartners]);
 
   // Cleanup all subscriptions and timeouts on unmount
   useEffect(() => {
     return () => {
-      Object.values(unsubscribeMessagesRef.current).forEach((unsub) => unsub());
+      // Clean up all message subscriptions
+      Object.entries(unsubscribeMessagesRef.current).forEach(([chatId, unsub]) => {
+        try {
+          unsub();
+        } catch (error) {
+          console.error(`Error unsubscribing from chat ${chatId}:`, error);
+        }
+      });
+      unsubscribeMessagesRef.current = {};
+      
+      // Clean up groups subscription
       if (unsubscribeGroupsRef.current) {
-        unsubscribeGroupsRef.current();
+        try {
+          unsubscribeGroupsRef.current();
+        } catch (error) {
+          console.error('Error unsubscribing from groups:', error);
+        }
+        unsubscribeGroupsRef.current = null;
       }
+      
+      // Clean up typing timeout
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
       }
     };
   }, []);
@@ -1606,37 +1650,67 @@ const Chat: React.FC<ChatProps> = ({
     if (!showGifPicker) {
       // Reset search when picker closes
       setGifSearchQuery("");
+      setGifsError(null);
       return;
     }
 
     // Don't fetch if API key is not configured
-    if (!GIPHY_API_KEY || GIPHY_API_KEY === "4Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3") {
+    if (!GIPHY_API_KEY || 
+        GIPHY_API_KEY === "4Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3" || 
+        GIPHY_API_KEY === "your_giphy_api_key_here") {
       setGifs([]);
       setGifsLoading(false);
+      setGifsError("GIPHY API key not configured. Get a free key at developers.giphy.com");
       return;
     }
 
     const fetchGifs = async () => {
       setGifsLoading(true);
+      setGifsError(null);
       try {
         const url = gifSearchQuery.trim()
           ? `${GIPHY_BASE_URL}/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(gifSearchQuery.trim())}&limit=30&rating=g`
           : `${GIPHY_BASE_URL}/trending?api_key=${GIPHY_API_KEY}&limit=30&rating=g`;
         
         const response = await fetch(url);
+        
         if (!response.ok) {
-          throw new Error(`GIPHY API error: ${response.status}`);
+          // Try to parse error response
+          let errorMessage = `HTTP error: ${response.status} ${response.statusText}`;
+          try {
+            const errorData = await response.json();
+            if (errorData.meta && errorData.meta.msg) {
+              errorMessage = errorData.meta.msg;
+            }
+          } catch {
+            // If JSON parsing fails, use the default error message
+          }
+          throw new Error(errorMessage);
         }
+        
         const data = await response.json();
+        
+        // Check for API errors in the meta field (even if HTTP status is 200)
+        if (data.meta && data.meta.status !== 200) {
+          throw new Error(data.meta.msg || `GIPHY API error: ${data.meta.status}`);
+        }
         
         if (data.data && Array.isArray(data.data)) {
           setGifs(data.data);
+          setGifsError(null);
         } else {
           setGifs([]);
+          setGifsError(gifSearchQuery.trim() ? "No GIFs found" : null);
         }
       } catch (error) {
-        logger.error("Error fetching GIFs", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to fetch GIFs";
+        logger.error("Error fetching GIFs", {
+          error: errorMessage,
+          gifSearchQuery,
+          apiKey: GIPHY_API_KEY ? `${GIPHY_API_KEY.substring(0, 4)}...` : "missing"
+        });
         setGifs([]);
+        setGifsError(errorMessage);
       } finally {
         setGifsLoading(false);
       }
@@ -3041,82 +3115,125 @@ const Chat: React.FC<ChatProps> = ({
                   </div>
                 )}
                 {showGifPicker && (
-                  <div className="absolute bottom-full left-0 sm:left-4 mb-2 bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 rounded-lg p-2 w-full sm:w-[400px] h-64 sm:h-80 flex flex-col z-20">
-                    {/* Search Input */}
-                    <div className="mb-2">
-                      <input
-                        type="text"
-                        placeholder="Search GIFs..."
-                        value={gifSearchQuery}
-                        onChange={(e) => setGifSearchQuery(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+                  <div className="absolute bottom-full left-0 sm:left-4 mb-2 bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden w-full sm:w-[480px] md:w-[560px] max-h-[70vh] sm:max-h-[500px] flex flex-col z-20 animate-in fade-in slide-in-from-bottom-4 duration-200">
+                    {/* Header with Search and Close */}
+                    <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-white dark:from-slate-800 dark:to-slate-800">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 relative">
+                          <input
+                            type="text"
+                            placeholder="Search GIFs..."
+                            value={gifSearchQuery}
+                            onChange={(e) => setGifSearchQuery(e.target.value)}
+                            className="w-full px-3 py-2 pl-10 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                            autoFocus
+                          />
+                          <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        </div>
+                        <button
+                          onClick={() => {
+                            setShowGifPicker(false);
+                            setGifSearchQuery("");
+                          }}
+                          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                          title="Close"
+                        >
+                          <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                        </button>
+                      </div>
                     </div>
+                    
                     {/* GIF Grid */}
-                    <div className="flex-1 overflow-y-auto grid grid-cols-3 gap-1">
+                    <div className="flex-1 overflow-y-auto p-2">
                       {gifsLoading ? (
-                        <div className="col-span-3 flex items-center justify-center py-8">
-                          <div className="flex items-center space-x-2 text-slate-500">
-                            <div className="w-4 h-4 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin"></div>
-                            <span className="text-sm">Loading GIFs...</span>
+                        <div className="flex items-center justify-center py-12">
+                          <div className="flex flex-col items-center space-y-3 text-slate-500">
+                            <div className="w-8 h-8 border-3 border-slate-300 border-t-emerald-500 rounded-full animate-spin"></div>
+                            <span className="text-sm font-medium">Finding GIFs...</span>
                           </div>
                         </div>
                       ) : gifs.length === 0 ? (
-                        <div className="col-span-3 flex flex-col items-center justify-center py-8 text-slate-500 text-sm">
-                          {(!GIPHY_API_KEY || GIPHY_API_KEY === "4Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3") ? (
-                            <>
-                              <span className="mb-1">GIPHY API key not configured</span>
+                        <div className="flex flex-col items-center justify-center py-12 text-slate-500 text-sm">
+                          {gifsError ? (
+                            <div className="text-center px-4">
+                              <span className="block mb-2 text-red-500 dark:text-red-400 font-medium">{gifsError}</span>
+                              {gifsError.includes("API key") && (
+                                <span className="text-xs text-slate-400">Get a free key at developers.giphy.com</span>
+                              )}
+                            </div>
+                          ) : (!GIPHY_API_KEY || GIPHY_API_KEY === "4Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3") ? (
+                            <div className="text-center px-4">
+                              <span className="block mb-2 font-medium">GIPHY API key not configured</span>
                               <span className="text-xs text-slate-400">Get a free key at developers.giphy.com</span>
-                            </>
+                            </div>
                           ) : gifSearchQuery.trim() ? (
-                            "No GIFs found"
+                            <div className="text-center px-4">
+                              <span className="block mb-2">No GIFs found</span>
+                              <span className="text-xs text-slate-400">Try a different search term</span>
+                            </div>
                           ) : (
-                            "Search for GIFs"
+                            <div className="text-center px-4">
+                              <ImageIcon className="w-12 h-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                              <span className="block font-medium">Search for GIFs</span>
+                              <span className="text-xs text-slate-400 mt-1">Powered by GIPHY</span>
+                            </div>
                           )}
                         </div>
                       ) : (
-                        gifs.map((gif) => (
-                          <button
-                            key={gif.id}
-                            onClick={async () => {
-                              if (!activeChatId || !organizationId) return;
-                              const isGroup = MOCK_GROUPS.some(
-                                (g) => g.id === activeChatId
-                              );
-                              const chatType: "dm" | "group" = isGroup
-                                ? "group"
-                                : "dm";
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {gifs.map((gif) => (
+                            <button
+                              key={gif.id}
+                              onClick={async () => {
+                                if (!activeChatId || !organizationId) return;
+                                const isGroup = MOCK_GROUPS.some(
+                                  (g) => g.id === activeChatId
+                                );
+                                const chatType: "dm" | "group" = isGroup
+                                  ? "group"
+                                  : "dm";
 
-                              try {
-                                await createChatMessage({
-                                  organizationId,
-                                  chatId: activeChatId,
-                                  chatType,
-                                  senderId: currentUser.id,
-                                  text: "GIF",
-                                  type: "image",
-                                  fileUrl: gif.images.fixed_height.url,
-                                  timestamp: new Date().toISOString(),
-                                  isRead: false,
-                                  readBy: [currentUser.id],
-                                });
-                                setShowGifPicker(false);
-                              } catch (error) {
-                                logger.error("Error sending GIF", error);
-                              }
-                            }}
-                            className="hover:opacity-80 transition-opacity hover:scale-105 transform duration-150 aspect-square overflow-hidden rounded-md"
-                          >
-                            <img
-                              src={gif.images.fixed_height.url}
-                              alt={gif.title || "GIF"}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                          </button>
-                        ))
+                                try {
+                                  await createChatMessage({
+                                    organizationId,
+                                    chatId: activeChatId,
+                                    chatType,
+                                    senderId: currentUser.id,
+                                    text: "GIF",
+                                    type: "image",
+                                    fileUrl: gif.images.fixed_height.url,
+                                    timestamp: new Date().toISOString(),
+                                    isRead: false,
+                                    readBy: [currentUser.id],
+                                  });
+                                  setShowGifPicker(false);
+                                  setGifSearchQuery("");
+                                } catch (error) {
+                                  logger.error("Error sending GIF", error);
+                                }
+                              }}
+                              className="relative group overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-700 hover:ring-2 hover:ring-emerald-500 transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                              style={{ aspectRatio: '16/9' }}
+                            >
+                              <img
+                                src={gif.images.fixed_height.url}
+                                alt={gif.title || "GIF"}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200"></div>
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
+                    
+                    {/* Footer */}
+                    {gifs.length > 0 && (
+                      <div className="px-3 py-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-center">
+                        <span className="text-xs text-slate-400">Powered by GIPHY • {gifs.length} results</span>
+                      </div>
+                    )}
                   </div>
                 )}
                 {attachment && (

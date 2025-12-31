@@ -765,6 +765,9 @@ const App: React.FC = () => {
       // Get original event to calculate hour differences
       const originalEvent = await getCalendarEvent(eventId);
       
+      // Update the event first to ensure consistency
+      await updateCalendarEvent(eventId, updates);
+      
       // Update mentor hours if duration or mentorId changed
       // Use atomic increments to prevent race conditions
       if (originalEvent && (updates.duration || updates.mentorId !== undefined)) {
@@ -800,11 +803,11 @@ const App: React.FC = () => {
             await incrementMentorHours(oldMentorId, hourDifference);
           } catch (error) {
             console.error("Error updating mentor hours:", error);
+            // Don't fail the event update if hours update fails
           }
         }
       }
 
-      await updateCalendarEvent(eventId, updates);
       addToast("Event updated successfully", "success");
       
       // Refresh calendar events to show updated data

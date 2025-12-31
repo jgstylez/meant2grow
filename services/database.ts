@@ -1654,25 +1654,49 @@ export const subscribeToChatMessages = (
     firestoreLimit(pageSize)
   );
 
-  return onSnapshot(
-    q,
-    (snapshot: QuerySnapshot) => {
-      const messages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
-        createdAt: convertTimestamp(doc.data().createdAt),
-      })) as ChatMessage[];
-      // Reverse to show oldest first
-      callback(messages.reverse());
-    },
-    (error) => {
-      console.error('Error subscribing to chat messages:', error);
-      console.error('ChatId:', chatId, 'OrganizationId:', organizationId);
-      // Call callback with empty array on error to prevent UI from hanging
-      callback([]);
+  let isUnsubscribed = false;
+  let unsubscribe: Unsubscribe | null = null;
+
+  try {
+    unsubscribe = onSnapshot(
+      q,
+      (snapshot: QuerySnapshot) => {
+        if (isUnsubscribed) return;
+        
+        const messages = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
+          createdAt: convertTimestamp(doc.data().createdAt),
+        })) as ChatMessage[];
+        // Reverse to show oldest first
+        callback(messages.reverse());
+      },
+      (error) => {
+        if (isUnsubscribed) return;
+        console.error('Error subscribing to chat messages:', error);
+        console.error('ChatId:', chatId, 'OrganizationId:', organizationId);
+        // Call callback with empty array on error to prevent UI from hanging
+        callback([]);
+      }
+    );
+  } catch (error) {
+    console.error('Error creating chat messages subscription:', error);
+    throw error;
+  }
+
+  // Return cleanup function
+  return () => {
+    isUnsubscribed = true;
+    if (unsubscribe) {
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.error('Error unsubscribing from chat messages:', error);
+      }
+      unsubscribe = null;
     }
-  );
+  };
 };
 
 /**
@@ -1710,9 +1734,14 @@ export const subscribeToDMMessages = (
 
   let unsubscribe1: Unsubscribe | null = null;
   let unsubscribe2: Unsubscribe | null = null;
+  let isUnsubscribed = false;
+  let secondListenerTimeoutId: ReturnType<typeof setTimeout> | null = null;
   const messagesMap = new Map<string, ChatMessage>();
 
   const mergeAndCallback = () => {
+    // Don't call callback if already unsubscribed
+    if (isUnsubscribed) return;
+    
     const mergedMessages = Array.from(messagesMap.values());
     // Sort by timestamp descending, then reverse to show oldest first
     mergedMessages.sort((a, b) => {
@@ -1723,64 +1752,143 @@ export const subscribeToDMMessages = (
     callback(mergedMessages.reverse());
   };
 
-  unsubscribe1 = onSnapshot(
-    q1,
-    (snapshot: QuerySnapshot) => {
-      // Use docChanges() to handle added, modified, and removed documents
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'removed') {
-          // Remove deleted messages from the map
-          messagesMap.delete(change.doc.id);
-        } else if (change.type === 'added' || change.type === 'modified') {
-          // Add or update messages in the map
-          const message = {
-            id: change.doc.id,
-            ...change.doc.data(),
-            timestamp: change.doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
-            createdAt: convertTimestamp(change.doc.data().createdAt),
-          } as ChatMessage;
-          messagesMap.set(change.doc.id, message);
-        }
-      });
-      mergeAndCallback();
-    },
-    (error) => {
-      console.error('Error subscribing to DM messages (query 1):', error);
-      console.error('PartnerId:', partnerId, 'CurrentUserId:', currentUserId, 'OrganizationId:', organizationId);
-    }
-  );
+  // Validate inputs before creating listeners
+  if (!partnerId || !currentUserId || !organizationId) {
+    console.error('Invalid parameters for subscribeToDMMessages:', { partnerId, currentUserId, organizationId });
+    callback([]);
+    return () => {}; // Return no-op unsubscribe
+  }
 
-  unsubscribe2 = onSnapshot(
-    q2,
-    (snapshot: QuerySnapshot) => {
-      // Use docChanges() to handle added, modified, and removed documents
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'removed') {
-          // Remove deleted messages from the map
-          messagesMap.delete(change.doc.id);
-        } else if (change.type === 'added' || change.type === 'modified') {
-          // Add or update messages in the map
-          const message = {
-            id: change.doc.id,
-            ...change.doc.data(),
-            timestamp: change.doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
-            createdAt: convertTimestamp(change.doc.data().createdAt),
-          } as ChatMessage;
-          messagesMap.set(change.doc.id, message);
+  try {
+    // Create first listener
+    unsubscribe1 = onSnapshot(
+      q1,
+      {
+        next: (snapshot: QuerySnapshot) => {
+          if (isUnsubscribed) return;
+          
+          // Use docChanges() to handle added, modified, and removed documents
+          snapshot.docChanges().forEach(change => {
+            if (change.type === 'removed') {
+              // Remove deleted messages from the map
+              messagesMap.delete(change.doc.id);
+            } else if (change.type === 'added' || change.type === 'modified') {
+              // Add or update messages in the map
+              const message = {
+                id: change.doc.id,
+                ...change.doc.data(),
+                timestamp: change.doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
+                createdAt: convertTimestamp(change.doc.data().createdAt),
+              } as ChatMessage;
+              messagesMap.set(change.doc.id, message);
+            }
+          });
+          mergeAndCallback();
+        },
+        error: (error) => {
+          if (isUnsubscribed) return;
+          console.error('Error subscribing to DM messages (query 1):', error);
+          console.error('PartnerId:', partnerId, 'CurrentUserId:', currentUserId, 'OrganizationId:', organizationId);
+          // Call callback with empty array on error to prevent UI from hanging
+          callback([]);
         }
-      });
-      mergeAndCallback();
-    },
-    (error) => {
-      console.error('Error subscribing to DM messages (query 2):', error);
-      console.error('PartnerId:', partnerId, 'CurrentUserId:', currentUserId, 'OrganizationId:', organizationId);
+      }
+    );
+
+    // Small delay to ensure first listener is fully initialized before creating second
+    // This prevents Firestore internal state corruption
+    secondListenerTimeoutId = setTimeout(() => {
+      if (isUnsubscribed) return;
+      
+      try {
+        unsubscribe2 = onSnapshot(
+          q2,
+          {
+            next: (snapshot: QuerySnapshot) => {
+              if (isUnsubscribed) return;
+              
+              // Use docChanges() to handle added, modified, and removed documents
+              snapshot.docChanges().forEach(change => {
+                if (change.type === 'removed') {
+                  // Remove deleted messages from the map
+                  messagesMap.delete(change.doc.id);
+                } else if (change.type === 'added' || change.type === 'modified') {
+                  // Add or update messages in the map
+                  const message = {
+                    id: change.doc.id,
+                    ...change.doc.data(),
+                    timestamp: change.doc.data().timestamp?.toDate().toISOString() || new Date().toISOString(),
+                    createdAt: convertTimestamp(change.doc.data().createdAt),
+                  } as ChatMessage;
+                  messagesMap.set(change.doc.id, message);
+                }
+              });
+              mergeAndCallback();
+            },
+            error: (error) => {
+              if (isUnsubscribed) return;
+              console.error('Error subscribing to DM messages (query 2):', error);
+              console.error('PartnerId:', partnerId, 'CurrentUserId:', currentUserId, 'OrganizationId:', organizationId);
+              // Call callback with empty array on error to prevent UI from hanging
+              callback([]);
+            }
+          }
+        );
+      } catch (error) {
+        console.error('Error creating second DM listener:', error);
+        // Clean up first listener if second fails
+        if (unsubscribe1) {
+          try {
+            unsubscribe1();
+          } catch (cleanupError) {
+            console.error('Error cleaning up first listener:', cleanupError);
+          }
+        }
+        callback([]);
+      }
+    }, 50); // 50ms delay to ensure sequential initialization
+  } catch (error) {
+    // If listener creation fails, clean up what was created
+    console.error('Error creating first DM listener:', error);
+    if (unsubscribe1) {
+      try {
+        unsubscribe1();
+      } catch (cleanupError) {
+        console.error('Error cleaning up first listener:', cleanupError);
+      }
     }
-  );
+    if (unsubscribe2) {
+      try {
+        unsubscribe2();
+      } catch (cleanupError) {
+        console.error('Error cleaning up second listener:', cleanupError);
+      }
+    }
+    callback([]);
+  }
 
   // Return cleanup function that unsubscribes from both queries
   return () => {
-    if (unsubscribe1) unsubscribe1();
-    if (unsubscribe2) unsubscribe2();
+    isUnsubscribed = true;
+    
+    // Clear the timeout if second listener hasn't been created yet
+    if (secondListenerTimeoutId) {
+      clearTimeout(secondListenerTimeoutId);
+      secondListenerTimeoutId = null;
+    }
+    
+    try {
+      if (unsubscribe1) {
+        unsubscribe1();
+        unsubscribe1 = null;
+      }
+      if (unsubscribe2) {
+        unsubscribe2();
+        unsubscribe2 = null;
+      }
+    } catch (error) {
+      console.error('Error unsubscribing from DM messages:', error);
+    }
   };
 };
 
