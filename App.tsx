@@ -126,7 +126,34 @@ const getInitialAuthState = () => {
   const storedUserId = localStorage.getItem("userId");
   const storedOrgId = localStorage.getItem("organizationId");
   const lastPage = localStorage.getItem("lastPage");
-  const isAuthenticated = !!(storedUserId && storedOrgId);
+  
+  // Check URL params for org-signup route BEFORE determining auth state
+  // This ensures invite links work even if user is authenticated
+  let shouldClearAuth = false;
+  let initialPublicRoute: PublicRoute | "hidden" = "landing";
+  
+  if (typeof window !== "undefined") {
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteToken = urlParams.get("invite");
+    const orgCode = urlParams.get("orgCode");
+    
+    // If there's an invite token or orgCode, show org-signup page
+    if (inviteToken || orgCode) {
+      initialPublicRoute = "org-signup";
+      // Clear auth if user clicks invite link (they're signing up as someone else)
+      if (storedUserId && storedOrgId) {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("organizationId");
+        localStorage.removeItem("userId");
+        shouldClearAuth = true;
+      }
+    }
+  }
+
+  // Re-read auth state after potentially clearing localStorage
+  const finalUserId = shouldClearAuth ? null : storedUserId;
+  const finalOrgId = shouldClearAuth ? null : storedOrgId;
+  const isAuthenticated = !!(finalUserId && finalOrgId);
 
   // Don't restore onboarding pages - let the onboarding logic handle those
   const isOnboardingPage =
@@ -134,29 +161,9 @@ const getInitialAuthState = () => {
     lastPage === "mentee-onboarding" ||
     lastPage === "setup";
 
-  // Check URL params for org-signup route
-  let initialPublicRoute: PublicRoute | "hidden" = "landing";
-  if (typeof window !== "undefined") {
-    const urlParams = new URLSearchParams(window.location.search);
-    const inviteToken = urlParams.get("invite");
-    const orgCode = urlParams.get("orgCode");
-    
-    // If there's an invite token or orgCode, show org-signup page
-    // This works even if user is authenticated (for testing links)
-    if (inviteToken || orgCode) {
-      initialPublicRoute = "org-signup";
-      // Clear auth if user clicks invite link (they're signing up as someone else)
-      if (isAuthenticated) {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("organizationId");
-        localStorage.removeItem("userId");
-      }
-    }
-  }
-
   return {
-    userId: storedUserId,
-    organizationId: storedOrgId,
+    userId: finalUserId,
+    organizationId: finalOrgId,
     publicRoute: isAuthenticated
       ? ("hidden" as const)
       : initialPublicRoute,
@@ -293,7 +300,11 @@ const App: React.FC = () => {
   // via getInitialAuthState() to prevent flash of landing page on refresh
 
   // Check URL params for org-signup route (invitation token or orgCode)
+  // This runs only on mount to handle cases where getInitialAuthState might have missed something
   useEffect(() => {
+    // Only run if we haven't already set the route correctly
+    if (publicRoute === "org-signup") return;
+    
     const urlParams = new URLSearchParams(window.location.search);
     const inviteToken = urlParams.get("invite");
     const orgCode = urlParams.get("orgCode");
@@ -308,12 +319,11 @@ const App: React.FC = () => {
         setUserId(null);
         setOrganizationId(null);
         setCurrentUser(null);
-        setPublicRoute("org-signup");
-      } else if (publicRoute !== "org-signup") {
-        setPublicRoute("org-signup");
       }
+      setPublicRoute("org-signup");
     }
-  }, [publicRoute]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only on mount
 
   // Restore Firebase Auth session on app load if Google ID token exists
   useEffect(() => {
