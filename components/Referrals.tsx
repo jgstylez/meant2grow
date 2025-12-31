@@ -15,7 +15,10 @@ interface ReferralsProps {
 
 const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendInvite, existingInvitations, organizationCode, organizationId }) => {
   const [activeTab, setActiveTab] = useState<'invite' | 'bulk' | 'track'>('invite');
-  const [copied, setCopied] = useState(false);
+  // Separate copied state for each copy button to prevent all showing "Copied!" simultaneously
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedOrgSignupLink, setCopiedOrgSignupLink] = useState(false);
+  const [copiedGeneratedLink, setCopiedGeneratedLink] = useState(false);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
@@ -68,8 +71,8 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
   const handleCopyCode = () => {
     if (organizationCode) {
       navigator.clipboard.writeText(organizationCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
     }
   };
 
@@ -107,8 +110,8 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
     if (generatedLink) {
       try {
         await navigator.clipboard.writeText(generatedLink);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        setCopiedGeneratedLink(true);
+        setTimeout(() => setCopiedGeneratedLink(false), 2000);
       } catch (err) {
         console.error('Failed to copy link:', err);
       }
@@ -129,8 +132,8 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
     if (orgSignupLink) {
       try {
         await navigator.clipboard.writeText(orgSignupLink);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        setCopiedOrgSignupLink(true);
+        setTimeout(() => setCopiedOrgSignupLink(false), 2000);
       } catch (err) {
         console.error('Failed to copy link:', err);
       }
@@ -210,7 +213,7 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                       onClick={handleCopyCode}
                       className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
                     >
-                      {copied ? (
+                      {copiedCode ? (
                         <>
                           <Check className="w-5 h-5" />
                           Copied!
@@ -245,7 +248,7 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                           className="text-white hover:text-emerald-100 transition-colors"
                           title="Copy link"
                         >
-                          {copied ? (
+                          {copiedOrgSignupLink ? (
                             <Check className="w-4 h-4 text-emerald-200" />
                           ) : (
                             <Copy className="w-4 h-4" />
@@ -348,7 +351,7 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                                           className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors"
                                           title="Copy link"
                                       >
-                                          {copied ? (
+                                          {copiedGeneratedLink ? (
                                               <Check className="w-5 h-5 text-emerald-600" />
                                           ) : (
                                               <Copy className="w-5 h-5" />

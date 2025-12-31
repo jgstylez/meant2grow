@@ -123,13 +123,14 @@ type PublicRoute =
 
 // Helper to compute initial auth state synchronously to prevent flash
 const getInitialAuthState = () => {
+  // Pure function: only reads from localStorage, never mutates
+  // This ensures React's render phase remains pure
   const storedUserId = localStorage.getItem("userId");
   const storedOrgId = localStorage.getItem("organizationId");
   const lastPage = localStorage.getItem("lastPage");
   
-  // Check URL params for org-signup route BEFORE determining auth state
-  // This ensures invite links work even if user is authenticated
-  let shouldClearAuth = false;
+  // Check URL params for org-signup route to determine initial route
+  // Note: Auth clearing will happen in useEffect after mount, not here
   let initialPublicRoute: PublicRoute | "hidden" = "landing";
   
   if (typeof window !== "undefined") {
@@ -140,20 +141,10 @@ const getInitialAuthState = () => {
     // If there's an invite token or orgCode, show org-signup page
     if (inviteToken || orgCode) {
       initialPublicRoute = "org-signup";
-      // Clear auth if user clicks invite link (they're signing up as someone else)
-      if (storedUserId && storedOrgId) {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("organizationId");
-        localStorage.removeItem("userId");
-        shouldClearAuth = true;
-      }
     }
   }
 
-  // Re-read auth state after potentially clearing localStorage
-  const finalUserId = shouldClearAuth ? null : storedUserId;
-  const finalOrgId = shouldClearAuth ? null : storedOrgId;
-  const isAuthenticated = !!(finalUserId && finalOrgId);
+  const isAuthenticated = !!(storedUserId && storedOrgId);
 
   // Don't restore onboarding pages - let the onboarding logic handle those
   const isOnboardingPage =
@@ -162,8 +153,8 @@ const getInitialAuthState = () => {
     lastPage === "setup";
 
   return {
-    userId: finalUserId,
-    organizationId: finalOrgId,
+    userId: storedUserId,
+    organizationId: storedOrgId,
     publicRoute: isAuthenticated
       ? ("hidden" as const)
       : initialPublicRoute,
@@ -299,31 +290,34 @@ const App: React.FC = () => {
   // Note: Authentication state is now restored synchronously during initialization
   // via getInitialAuthState() to prevent flash of landing page on refresh
 
-  // Check URL params for org-signup route (invitation token or orgCode)
-  // This runs only on mount to handle cases where getInitialAuthState might have missed something
+  // Handle invite/orgCode URL params and clear auth if needed
+  // This runs once after mount to handle auth clearing (side effects belong in useEffect)
   useEffect(() => {
-    // Only run if we haven't already set the route correctly
-    if (publicRoute === "org-signup") return;
-    
     const urlParams = new URLSearchParams(window.location.search);
     const inviteToken = urlParams.get("invite");
     const orgCode = urlParams.get("orgCode");
     
+    // If there's an invite token or orgCode, ensure we're on org-signup route
     if (inviteToken || orgCode) {
-      // If there's an invite token or orgCode, show org-signup page
-      if (publicRoute === "hidden") {
-        // User is authenticated but clicked invite link - clear auth and show signup
+      // If user is authenticated but clicked invite link, clear auth and show signup
+      // This allows them to sign up as a different user/role
+      if (publicRoute === "hidden" && userId && organizationId) {
+        // Clear localStorage (side effect - must be in useEffect, not render phase)
         localStorage.removeItem("authToken");
         localStorage.removeItem("organizationId");
         localStorage.removeItem("userId");
+        // Clear React state
         setUserId(null);
         setOrganizationId(null);
         setCurrentUser(null);
       }
-      setPublicRoute("org-signup");
+      // Ensure route is set to org-signup
+      if (publicRoute !== "org-signup") {
+        setPublicRoute("org-signup");
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only on mount
+  }, []); // Run only once on mount
 
   // Restore Firebase Auth session on app load if Google ID token exists
   useEffect(() => {
