@@ -43,6 +43,7 @@ const PRICE_TO_TIER: Record<string, string> = {
 
 // Helper function to read raw body from request stream
 // This reads the raw bytes before Vercel parses the JSON, which is critical for signature verification
+// Note: With bodyParser disabled via config, the stream will be available for reading
 async function getRawBody(req: VercelRequest): Promise<Buffer> {
     return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
@@ -52,13 +53,6 @@ async function getRawBody(req: VercelRequest): Promise<Buffer> {
         timeout = setTimeout(() => {
             reject(new Error('Request body read timeout'));
         }, 10000);
-        
-        // Check if stream is already readable/ended
-        if (req.readableEnded) {
-            clearTimeout(timeout);
-            reject(new Error('Request stream already consumed'));
-            return;
-        }
         
         req.on('data', (chunk: Buffer) => {
             chunks.push(chunk);
@@ -80,6 +74,13 @@ async function getRawBody(req: VercelRequest): Promise<Buffer> {
         });
     });
 }
+
+// Disable automatic body parsing so we can read the raw body for signature verification
+export const config = {
+    api: {
+        bodyParser: false,
+    },
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
