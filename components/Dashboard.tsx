@@ -394,7 +394,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                           {showParticipantsModal === "mentors" && (
                             <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800">
                               <p className="text-xs text-slate-500 dark:text-slate-400">
-                                Active Bridges:{" "}
+                                Active Matches:{" "}
                                 <span className="font-medium text-slate-900 dark:text-white">
                                   {participantMatches}
                                 </span>
@@ -1083,7 +1083,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <span>Matches Overview</span>
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Platform-wide mentorship bridges
+                    Platform-wide mentorship matches
                   </p>
                 </div>
               </div>
@@ -1562,10 +1562,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                 )}
 
-                {/* Bridge Status */}
+                {/* Match Status */}
                 <div className={CARD_CLASS}>
                   <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase mb-3 flex items-center gap-2">
-                    <Repeat className="w-4 h-4" /> Bridge Status
+                    <Repeat className="w-4 h-4" /> Match Status
                   </h5>
                   {getUserMatches(selectedUser.id).length > 0 ? (
                     <div className="space-y-3">
@@ -1585,7 +1585,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             <div className="flex items-center gap-3 mb-2">
                               <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                               <span className="font-semibold text-slate-900 dark:text-white">
-                                Active Bridge
+                                Active Match
                               </span>
                             </div>
                             {partner && (
@@ -1700,7 +1700,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <span className="truncate">{organization?.name || "Organization Dashboard"}</span>
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Manage your organization, users, bridges, and resources
+                Manage your organization, users, matches, and resources
               </p>
             </div>
             {programSettings && (
@@ -1758,7 +1758,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="flex items-center justify-between mb-2 sm:mb-3">
                 <h3 className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium truncate">
-                  Active Bridges
+                  Active Matches
                 </h3>
                 <Repeat className="text-blue-500 w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
               </div>
@@ -1862,7 +1862,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               </button>
             )}
 
-            {/* Manage Bridges & Matches */}
+            {/* Manage Matches */}
             <button
               onClick={() => onNavigate("matching")}
               className={`${CARD_CLASS} p-4 sm:p-6 text-left hover:shadow-lg transition-all cursor-pointer group min-h-[120px] sm:min-h-0 touch-manipulation`}
@@ -1872,11 +1872,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <Repeat className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  Manage Bridges
+                  Manage Matches
                 </h3>
               </div>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3 sm:mb-4 break-words">
-                Create and manage mentorship bridges between mentors and
+                Create and manage mentorship matches between mentors and
                 mentees. View active matches.
               </p>
               <div className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium text-xs sm:text-sm">
@@ -2184,7 +2184,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="lg:col-span-2 space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                My Mentorship Bridges
+                My Mentorship Matches
               </h2>
             </div>
 
@@ -2486,7 +2486,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full blur-3xl"></div>
           <h2 className="text-xl font-semibold mb-6 flex items-center">
             <Repeat className="w-5 h-5 mr-2 opacity-80" />
-            My Bridge (Mentor)
+            My Match (Mentor)
           </h2>
 
           {partner ? (
@@ -2539,7 +2539,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 You are currently not matched with a mentor.
               </p>
               <p className="text-sm opacity-75 mt-2">
-                Admin is working on your bridge!
+                Admin is working on your match!
               </p>
             </div>
           )}

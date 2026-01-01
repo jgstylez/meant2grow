@@ -299,6 +299,32 @@ const App: React.FC = () => {
     
     // If there's an invite token or orgCode, ensure we're on org-signup route
     if (inviteToken || orgCode) {
+      // Check if impersonating - if so, exit impersonation gracefully first
+      const impersonating = localStorage.getItem('isImpersonating') === 'true';
+      if (impersonating) {
+        // Exit impersonation: restore original operator's session
+        const originalOperatorId = localStorage.getItem('originalOperatorId');
+        const originalOrganizationId = localStorage.getItem('originalOrganizationId');
+        
+        if (originalOperatorId && originalOrganizationId) {
+          // Restore original operator's session
+          localStorage.setItem('userId', originalOperatorId);
+          localStorage.setItem('organizationId', originalOrganizationId);
+          // Clear impersonation state
+          localStorage.removeItem('isImpersonating');
+          localStorage.removeItem('originalOperatorId');
+          localStorage.removeItem('originalOrganizationId');
+          // Reload to reinitialize with original operator's context
+          window.location.href = `${window.location.pathname}?${urlParams.toString()}`;
+          return; // Exit early, reload will handle the rest
+        } else {
+          // If original operator data is missing, clear impersonation state
+          localStorage.removeItem('isImpersonating');
+          localStorage.removeItem('originalOperatorId');
+          localStorage.removeItem('originalOrganizationId');
+        }
+      }
+      
       // If user is authenticated but clicked invite link, clear auth and show signup
       // This allows them to sign up as a different user/role
       if (publicRoute === "hidden" && userId && organizationId) {
@@ -616,6 +642,28 @@ const App: React.FC = () => {
   const handleCreateMatch = async (mentorId: string, menteeId: string) => {
     try {
       if (!organizationId) throw new Error("Organization ID is required");
+      
+      // Find mentor and mentee in users list
+      const mentor = users.find((u) => u.id === mentorId);
+      const mentee = users.find((u) => u.id === menteeId);
+      
+      // Validate users exist
+      if (!mentor) throw new Error("Mentor not found");
+      if (!mentee) throw new Error("Mentee not found");
+      
+      // Validate both users are from the same organization (security check)
+      if (mentor.organizationId !== organizationId || mentee.organizationId !== organizationId) {
+        throw new Error("Cannot create match: users must be from the same organization");
+      }
+      
+      // Validate roles
+      if (mentor.role !== Role.MENTOR) {
+        throw new Error("Selected user is not a mentor");
+      }
+      if (mentee.role !== Role.MENTEE) {
+        throw new Error("Selected user is not a mentee");
+      }
+      
       const newMatch: Match = {
         id: `temp-${Date.now()}`,
         organizationId,
@@ -626,9 +674,6 @@ const App: React.FC = () => {
       };
       await createMatch(newMatch);
       addToast("Match created successfully", "success");
-
-      const mentor = users.find((u) => u.id === mentorId);
-      const mentee = users.find((u) => u.id === menteeId);
 
       if (organizationId && mentor && mentee) {
         // Create initial welcoming message in the chat
@@ -668,7 +713,7 @@ const App: React.FC = () => {
         createNotification({
           organizationId,
           userId: menteeId,
-          type: "bridge",
+          type: "match",
           title: "New Mentor Match",
           body: `You've been matched with ${mentor.name}, ${mentor.title} at ${mentor.company}. ${mentor.skills && mentor.skills.length > 0 ? `Specializes in ${mentor.skills.slice(0, 3).join(", ")}.` : ""} Reach out to start your mentorship journey!`,
           isRead: false,
@@ -682,7 +727,7 @@ const App: React.FC = () => {
         createNotification({
           organizationId,
           userId: mentorId,
-          type: "bridge",
+          type: "match",
           title: "New Mentee Match",
           body: `You've been matched with ${mentee.name}, ${mentee.title} at ${mentee.company}. ${mentee.goals && mentee.goals.length > 0 ? `Looking to grow in: ${mentee.goals.slice(0, 3).join(", ")}.` : ""} Ready to guide them on their journey!`,
           isRead: false,

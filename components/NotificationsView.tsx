@@ -30,7 +30,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
             filter === 'all' ? true :
             filter === 'unread' ? !n.isRead :
             filter === 'activity' ? (n.type === 'message' || n.type === 'meeting' || n.type === 'goal') :
-            filter === 'system' ? (n.type === 'system' || n.type === 'bridge') : true;
+            filter === 'system' ? (n.type === 'system' || n.type === 'match') : true;
         
         const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) || n.body.toLowerCase().includes(searchQuery.toLowerCase());
 
@@ -109,7 +109,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
                         </div>
                     ) : (
                         filteredNotifications.map(n => {
-                            const isClickable = n.type === 'bridge' && n.chatId;
+                            const isClickable = n.type === 'match' && n.chatId;
                             const handleClick = () => {
                                 if (isClickable && n.chatId) {
                                     // Navigate to chat with the specific chatId

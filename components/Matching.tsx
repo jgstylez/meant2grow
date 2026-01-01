@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { User, Match, Role, MatchStatus } from '../types';
 import { INPUT_CLASS } from '../styles/common';
-import { Users, Search, X, CheckCircle, ArrowRight, Briefcase, GraduationCap, Sparkles, MessageSquare, Loader2, Repeat, List, Link2, Calendar } from 'lucide-react';
+import { Users, Search, X, CheckCircle, ArrowRight, Briefcase, GraduationCap, Sparkles, MessageSquare, Loader2, Repeat, List, Link2, Calendar, Menu } from 'lucide-react';
 import { getMatchSuggestions } from '../services/geminiService';
 
 interface MatchingProps {
@@ -113,7 +113,7 @@ const Matching: React.FC<MatchingProps> = ({ users, matches, onCreateMatch }) =>
             {viewMode === 'bench' ? (
               <>
                 <Users className="w-4 h-4 mr-2 text-slate-500" />
-                The Bench <span className="ml-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full text-xs">{unmatchedMentees.length}</span>
+                Matches <span className="ml-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full text-xs">{unmatchedMentees.length}</span>
               </>
             ) : (
               <>
@@ -148,7 +148,7 @@ const Matching: React.FC<MatchingProps> = ({ users, matches, onCreateMatch }) =>
                 {viewMode === 'bench' ? (
                   <>
                     <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-slate-500" />
-                    The Bench <span className="ml-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full text-xs">{unmatchedMentees.length}</span>
+                    Matches <span className="ml-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full text-xs">{unmatchedMentees.length}</span>
                   </>
                 ) : (
                   <>
@@ -178,7 +178,7 @@ const Matching: React.FC<MatchingProps> = ({ users, matches, onCreateMatch }) =>
               }`}
             >
               <Users className="w-3 h-3 inline mr-1" />
-              Bench
+              Unmatched
             </button>
             <button
               onClick={() => setViewMode('matches')}
@@ -189,7 +189,7 @@ const Matching: React.FC<MatchingProps> = ({ users, matches, onCreateMatch }) =>
               }`}
             >
               <Link2 className="w-3 h-3 inline mr-1" />
-              Matches
+              Matched
             </button>
           </div>
         </div>
@@ -299,7 +299,7 @@ const Matching: React.FC<MatchingProps> = ({ users, matches, onCreateMatch }) =>
                      className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-2"
                    >
                      <Link2 className="w-5 h-5 sm:w-6 sm:h-6" />
-                     Create a Bridge
+                     Create a Match
                    </button>
                  </div>
                  <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400">Find the perfect mentor for {selectedMentee.name.split(' ')[0]}</p>
@@ -462,7 +462,7 @@ const Matching: React.FC<MatchingProps> = ({ users, matches, onCreateMatch }) =>
              <p className="text-center max-w-sm mb-6">
                {viewMode === 'bench' 
                  ? 'Select a participant from the "Bench" on the left to view their profile and find a compatible mentor.'
-                 : 'Click "Create a Bridge" above to toggle between viewing matches and the bench, or select a match from the sidebar to view details.'}
+                 : 'Click "Create a Match" above to toggle between viewing matches and the bench, or select a match from the sidebar to view details.'}
              </p>
              <button
                onClick={toggleViewMode}

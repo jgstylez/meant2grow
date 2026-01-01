@@ -692,7 +692,7 @@ const Participants: React.FC<ParticipantsProps> = ({
                 <th className="px-6 py-4">Role</th>
                 <th className="px-6 py-4">Organization</th>
                 <th className="px-6 py-4">Skills / Goals</th>
-                <th className="px-6 py-4">Bridge Status</th>
+                <th className="px-6 py-4">Match Status</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -1451,10 +1451,10 @@ const Participants: React.FC<ParticipantsProps> = ({
                 </div>
               )}
 
-              {/* Bridge Status */}
+              {/* Match Status */}
               <div className={CARD_CLASS}>
                 <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase mb-3 flex items-center gap-2">
-                  <Repeat className="w-4 h-4" /> Bridge Status
+                  <Repeat className="w-4 h-4" /> Match Status
                 </h5>
                 {getUserMatches(selectedUser.id).length > 0 ? (
                   <div className="space-y-3">
@@ -1472,7 +1472,7 @@ const Participants: React.FC<ParticipantsProps> = ({
                           <div className="flex items-center gap-3 mb-2">
                             <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                             <span className="font-semibold text-slate-900 dark:text-white">
-                              Active Bridge
+                              Active Match
                             </span>
                           </div>
                           {partner && (
@@ -1511,7 +1511,7 @@ const Participants: React.FC<ParticipantsProps> = ({
                       }}
                       className="mt-3 text-sm text-emerald-600 dark:text-emerald-400 hover:underline"
                     >
-                      Create a bridge →
+                      Create a match →
                     </button>
                   </div>
                 )}
@@ -1527,7 +1527,7 @@ const Participants: React.FC<ParticipantsProps> = ({
                     }}
                     className="flex-1 px-4 py-2.5 sm:py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 min-h-[44px] touch-manipulation text-sm sm:text-base"
                   >
-                    <Repeat className="w-4 h-4" /> Manage Bridges
+                    <Repeat className="w-4 h-4" /> Manage Matches
                   </button>
                   <button
                     onClick={() => {

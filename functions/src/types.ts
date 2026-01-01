@@ -202,7 +202,7 @@ export interface Notification {
   id: string;
   organizationId: string; // Isolated per organization
   userId: string;
-  type: "message" | "meeting" | "goal" | "system" | "bridge";
+  type: "message" | "meeting" | "goal" | "system" | "match";
   title: string;
   body: string;
   isRead: boolean;
