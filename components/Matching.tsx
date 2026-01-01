@@ -113,7 +113,7 @@ const Matching: React.FC<MatchingProps> = ({ users, matches, onCreateMatch }) =>
             {viewMode === 'bench' ? (
               <>
                 <Users className="w-4 h-4 mr-2 text-slate-500" />
-                Matches <span className="ml-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full text-xs">{unmatchedMentees.length}</span>
+                Unmatched <span className="ml-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full text-xs">{unmatchedMentees.length}</span>
               </>
             ) : (
               <>
@@ -148,7 +148,7 @@ const Matching: React.FC<MatchingProps> = ({ users, matches, onCreateMatch }) =>
                 {viewMode === 'bench' ? (
                   <>
                     <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-slate-500" />
-                    Matches <span className="ml-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full text-xs">{unmatchedMentees.length}</span>
+                    Unmatched <span className="ml-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full text-xs">{unmatchedMentees.length}</span>
                   </>
                 ) : (
                   <>
