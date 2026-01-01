@@ -45,6 +45,7 @@ const convertTimestamp = (value: any): string => {
 // Export Unsubscribe type for use in hooks
 export type { Unsubscribe };
 import { db } from "./firebase";
+import { logger } from "./logger";
 import {
   User,
   Match,
@@ -175,7 +176,7 @@ export const getAllOrganizations = async (): Promise<Organization[]> => {
       createdAt: convertTimestamp(doc.data().createdAt),
     })) as Organization[];
   } catch (error) {
-    console.error("Error in getAllOrganizations:", error);
+    logger.error("Error in getAllOrganizations", error);
     throw error;
   }
 };
@@ -372,7 +373,7 @@ export const getAllUsers = async (): Promise<User[]> => {
       createdAt: convertTimestamp(doc.data().createdAt),
     })) as User[];
   } catch (error) {
-    console.error("Error in getAllUsers:", error);
+    logger.error("Error in getAllUsers", error);
     throw error;
   }
 };
@@ -468,7 +469,7 @@ export const getAllMatches = async (): Promise<Match[]> => {
       ...doc.data(),
     })) as Match[];
   } catch (error) {
-    console.error("Error in getAllMatches:", error);
+    logger.error("Error in getAllMatches", error);
     throw error;
   }
 };
@@ -570,7 +571,7 @@ export const getAllGoals = async (): Promise<Goal[]> => {
       ...doc.data(),
     })) as Goal[];
   } catch (error) {
-    console.error("Error in getAllGoals:", error);
+    logger.error("Error in getAllGoals", error);
     throw error;
   }
 };
@@ -633,7 +634,7 @@ export const subscribeToMilestones = (
       callback(milestones);
     },
     (error) => {
-      console.error("Error subscribing to milestones:", error);
+      logger.error("Error subscribing to milestones", error);
       callback([]);
     }
   );
@@ -718,7 +719,7 @@ export const getAllRatings = async (): Promise<Rating[]> => {
       ...doc.data(),
     })) as Rating[];
   } catch (error) {
-    console.error("Error in getAllRatings:", error);
+    logger.error("Error in getAllRatings", error);
     throw error;
   }
 };
@@ -1166,7 +1167,7 @@ export const getAllCalendarEvents = async (
 
     return events;
   } catch (error) {
-    console.error("Error in getAllCalendarEvents:", error);
+    logger.error("Error in getAllCalendarEvents", error);
     throw error;
   }
 };
@@ -1455,8 +1456,8 @@ export const subscribeToUsersByOrganization = (
       callback(users);
     },
     (error) => {
-      console.error("Error subscribing to users:", error);
-      console.error("OrganizationId:", organizationId);
+      logger.error("Error subscribing to users", error);
+      logger.debug("OrganizationId", { organizationId });
     }
   );
 };
@@ -1899,14 +1900,14 @@ export const subscribeToChatMessages = (
       },
       (error) => {
         if (isUnsubscribed) return;
-        console.error("Error subscribing to chat messages:", error);
-        console.error("ChatId:", chatId, "OrganizationId:", organizationId);
+        logger.error("Error subscribing to chat messages", error);
+        logger.debug("Chat subscription error details", { chatId, organizationId });
         // Call callback with empty array on error to prevent UI from hanging
         callback([]);
       }
     );
   } catch (error) {
-    console.error("Error creating chat messages subscription:", error);
+    logger.error("Error creating chat messages subscription", error);
     throw error;
   }
 
@@ -1917,7 +1918,7 @@ export const subscribeToChatMessages = (
       try {
         unsubscribe();
       } catch (error) {
-        console.error("Error unsubscribing from chat messages:", error);
+        logger.error("Error unsubscribing from chat messages", error);
       }
       unsubscribe = null;
     }
@@ -1979,7 +1980,7 @@ export const subscribeToDMMessages = (
 
   // Validate inputs before creating listeners
   if (!partnerId || !currentUserId || !organizationId) {
-    console.error("Invalid parameters for subscribeToDMMessages:", {
+    logger.error("Invalid parameters for subscribeToDMMessages", {
       partnerId,
       currentUserId,
       organizationId,
@@ -2016,15 +2017,12 @@ export const subscribeToDMMessages = (
       },
       error: (error) => {
         if (isUnsubscribed) return;
-        console.error("Error subscribing to DM messages (query 1):", error);
-        console.error(
-          "PartnerId:",
+        logger.error("Error subscribing to DM messages (query 1)", error);
+        logger.debug("DM subscription error details", {
           partnerId,
-          "CurrentUserId:",
           currentUserId,
-          "OrganizationId:",
           organizationId
-        );
+        });
         // Call callback with empty array on error to prevent UI from hanging
         callback([]);
       },
@@ -2065,27 +2063,24 @@ export const subscribeToDMMessages = (
           },
           error: (error) => {
             if (isUnsubscribed) return;
-            console.error("Error subscribing to DM messages (query 2):", error);
-            console.error(
-              "PartnerId:",
+            logger.error("Error subscribing to DM messages (query 2)", error);
+            logger.debug("DM subscription error details (query 2)", {
               partnerId,
-              "CurrentUserId:",
               currentUserId,
-              "OrganizationId:",
               organizationId
-            );
+            });
             // Call callback with empty array on error to prevent UI from hanging
             callback([]);
           },
         });
       } catch (error) {
-        console.error("Error creating second DM listener:", error);
+        logger.error("Error creating second DM listener", error);
         // Clean up first listener if second fails
         if (unsubscribe1) {
           try {
             unsubscribe1();
           } catch (cleanupError) {
-            console.error("Error cleaning up first listener:", cleanupError);
+            logger.error("Error cleaning up first listener", cleanupError);
           }
         }
         callback([]);
@@ -2093,19 +2088,19 @@ export const subscribeToDMMessages = (
     }, 50); // 50ms delay to ensure sequential initialization
   } catch (error) {
     // If listener creation fails, clean up what was created
-    console.error("Error creating first DM listener:", error);
+    logger.error("Error creating first DM listener", error);
     if (unsubscribe1) {
       try {
         unsubscribe1();
       } catch (cleanupError) {
-        console.error("Error cleaning up first listener:", cleanupError);
+        logger.error("Error cleaning up first listener", cleanupError);
       }
     }
     if (unsubscribe2) {
       try {
         unsubscribe2();
       } catch (cleanupError) {
-        console.error("Error cleaning up second listener:", cleanupError);
+        logger.error("Error cleaning up second listener", cleanupError);
       }
     }
     callback([]);
@@ -2131,7 +2126,7 @@ export const subscribeToDMMessages = (
         unsubscribe2 = null;
       }
     } catch (error) {
-      console.error("Error unsubscribing from DM messages:", error);
+      logger.error("Error unsubscribing from DM messages", error);
     }
   };
 };
@@ -2202,10 +2197,12 @@ export const subscribeToChatGroups = (
       callback(groups);
     },
     (error) => {
-      console.error("Error subscribing to chat groups:", error);
-      console.error("OrganizationId:", organizationId);
-      console.error("Error code:", (error as any)?.code);
-      console.error("Error message:", (error as any)?.message);
+      logger.error("Error subscribing to chat groups", error);
+      logger.debug("Chat groups subscription error details", {
+        organizationId,
+        code: (error as any)?.code,
+        message: (error as any)?.message
+      });
       // Call callback with empty array on error to prevent UI from hanging
       callback([]);
     }
@@ -2316,7 +2313,7 @@ export const subscribeToPrivateMessageRequests = (
       callback(requests);
     },
     (error) => {
-      console.error("Error subscribing to private message requests:", error);
+      logger.error("Error subscribing to private message requests", error);
       callback([]);
     }
   );

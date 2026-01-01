@@ -1092,7 +1092,7 @@ const Chat: React.FC<ChatProps> = ({
       try {
         unsubscribeMessagesRef.current[activeChatId]();
       } catch (error) {
-        console.error('Error cleaning up previous message subscription:', error);
+        logger.error('Error cleaning up previous message subscription', error);
       }
       delete unsubscribeMessagesRef.current[activeChatId];
     }
@@ -1252,13 +1252,13 @@ const Chat: React.FC<ChatProps> = ({
       }
       unsubscribeMessagesRef.current[activeChatId] = unsubscribe;
     } catch (error) {
-      console.error('Error setting up message subscription:', error);
+      logger.error('Error setting up message subscription', error);
       // Clean up on error
       if (unsubscribe) {
         try {
           unsubscribe();
         } catch (cleanupError) {
-          console.error('Error cleaning up failed subscription:', cleanupError);
+          logger.error('Error cleaning up failed subscription', cleanupError);
         }
       }
     }
@@ -1269,7 +1269,7 @@ const Chat: React.FC<ChatProps> = ({
         try {
           unsub();
         } catch (error) {
-          console.error('Error unsubscribing from messages:', error);
+          logger.error('Error unsubscribing from messages', error);
         }
         delete unsubscribeMessagesRef.current[activeChatId];
       }
@@ -1284,7 +1284,7 @@ const Chat: React.FC<ChatProps> = ({
         try {
           unsub();
         } catch (error) {
-          console.error(`Error unsubscribing from chat ${chatId}:`, error);
+          logger.error(`Error unsubscribing from chat ${chatId}`, error);
         }
       });
       unsubscribeMessagesRef.current = {};
@@ -1294,7 +1294,7 @@ const Chat: React.FC<ChatProps> = ({
         try {
           unsubscribeGroupsRef.current();
         } catch (error) {
-          console.error('Error unsubscribing from groups:', error);
+          logger.error('Error unsubscribing from groups', error);
         }
         unsubscribeGroupsRef.current = null;
       }
@@ -1798,7 +1798,7 @@ const Chat: React.FC<ChatProps> = ({
       
       alert('Request sent! The user will be notified and can approve your request.');
     } catch (error) {
-      console.error('Error requesting private message:', error);
+      logger.error('Error requesting private message', error);
       alert('Failed to send request. Please try again.');
     } finally {
       setRequestingPrivateMessage(null);
@@ -1823,7 +1823,7 @@ const Chat: React.FC<ChatProps> = ({
         setApprovedPrivateMessagePartners(new Set(partnerIds));
       })
       .catch(error => {
-        console.error('Error fetching approved private message partners:', error);
+        logger.error('Error fetching approved private message partners', error);
       });
     
     return () => unsubscribe();
@@ -1863,7 +1863,7 @@ const Chat: React.FC<ChatProps> = ({
       // Remove from local state
       setPrivateMessageRequests(prev => prev.filter(r => r.id !== requestId));
     } catch (error) {
-      console.error('Error responding to request:', error);
+      logger.error('Error responding to request', error);
       alert('Failed to respond to request. Please try again.');
     }
   };
@@ -1973,7 +1973,7 @@ const Chat: React.FC<ChatProps> = ({
           );
           meetLink = meetResponse.meetLink;
         } catch (error) {
-          console.error("Failed to create Meet link:", error);
+          logger.error("Failed to create Meet link", error);
         }
 
         // Create event in all connected calendars
@@ -2017,7 +2017,7 @@ const Chat: React.FC<ChatProps> = ({
 
         await updateCalendarEvent(eventId, updates);
       } catch (syncError) {
-        console.error("Failed to sync to calendars:", syncError);
+        logger.error("Failed to sync to calendars", syncError);
         // Don't fail the event creation if sync fails
       }
 
@@ -2029,7 +2029,7 @@ const Chat: React.FC<ChatProps> = ({
           const hoursToAdd = parseDurationToHours(meetingDuration);
           await incrementMentorHours(mentorIdForEvent, hoursToAdd);
         } catch (error) {
-          console.error("Error updating mentor hours:", error);
+          logger.error("Error updating mentor hours", error);
           // Don't fail the event creation if hours update fails
         }
       }
@@ -2051,7 +2051,7 @@ const Chat: React.FC<ChatProps> = ({
             isRead: false,
             timestamp: new Date().toISOString(),
           }).catch((err) =>
-            console.error("Error creating meeting notification:", err)
+            logger.error("Error creating meeting notification", err)
           );
         }
       });
@@ -2078,7 +2078,7 @@ const Chat: React.FC<ChatProps> = ({
       setMeetingParticipants([]);
       setActiveModal(null);
     } catch (error) {
-      console.error("Error scheduling meeting:", error);
+      logger.error("Error scheduling meeting", error);
       // TODO: Show error toast
     }
   };

@@ -92,7 +92,8 @@ import { useVideoActions } from "./hooks/useVideoActions";
 import { useOnboardingActions } from "./hooks/useOnboardingActions";
 import { useGoalActions } from "./hooks/useGoalActions";
 import { useFCM } from "./hooks/useFCM";
-import { getErrorMessage } from "./utils/errors";
+import { getErrorMessage, formatError } from "./utils/errors";
+import { logger } from "./services/logger";
 import { signInToFirebaseAuth, getIdToken, signOut as signOutGoogle } from "./services/googleAuth";
 
 // Loading component for Suspense fallback
@@ -222,7 +223,7 @@ const App: React.FC = () => {
         const posts = await getBlogPosts(true); // Only published posts
         setBlogPosts(posts);
       } catch (error) {
-        console.error("Error loading blog posts:", error);
+        logger.error("Error loading blog posts", error);
       }
     };
     loadBlogPosts();
@@ -249,7 +250,7 @@ const App: React.FC = () => {
         if (operator) {
           setOriginalOperator(operator);
         } else {
-          console.error('Original operator not found');
+          logger.warn('Original operator not found');
           // If operator not found, exit impersonation for security
           localStorage.removeItem('isImpersonating');
           localStorage.removeItem('originalOperatorId');
@@ -258,7 +259,7 @@ const App: React.FC = () => {
         }
         setOriginalOperatorLoading(false);
       }).catch((error) => {
-        console.error('Error loading original operator:', error);
+        logger.error('Error loading original operator', error);
         // On error, exit impersonation for security
         localStorage.removeItem('isImpersonating');
         localStorage.removeItem('originalOperatorId');
@@ -355,7 +356,7 @@ const App: React.FC = () => {
         try {
           await signInToFirebaseAuth(idToken);
         } catch (error) {
-          console.warn('Failed to restore Firebase Auth session:', error);
+          logger.warn('Failed to restore Firebase Auth session', error);
           // Don't block the app if Firebase Auth restoration fails
         }
       }
@@ -499,7 +500,7 @@ const App: React.FC = () => {
       );
       await updateNotification(id, { isRead: true });
     } catch (error: unknown) {
-      console.error("Error marking notification as read:", error);
+      logger.error("Error marking notification as read", error);
       await refreshData();
     }
   };
@@ -514,7 +515,7 @@ const App: React.FC = () => {
         )
       );
     } catch (error: unknown) {
-      console.error("Error marking all notifications as read:", error);
+      logger.error("Error marking all notifications as read", error);
       await refreshData();
     }
   };
@@ -529,7 +530,7 @@ const App: React.FC = () => {
       await deleteNotification(id);
       addToast("Notification deleted", "info");
     } catch (error: unknown) {
-      console.error("Error deleting notification:", error);
+      logger.error("Error deleting notification", error);
       await refreshData();
       addToast(
         getErrorMessage(error) || "Failed to delete notification",
@@ -548,7 +549,7 @@ const App: React.FC = () => {
       await updateUser(updatedUser.id, updates);
       addToast("Profile updated successfully", "success");
     } catch (error: unknown) {
-      console.error("Error updating user:", error);
+      logger.error("Error updating user", error);
       // On error, refresh from database to get correct state
       await refreshData();
       addToast(getErrorMessage(error) || "Failed to update profile", "error");
@@ -560,7 +561,7 @@ const App: React.FC = () => {
     try {
       await signOutGoogle();
     } catch (error) {
-      console.warn('Error signing out from Firebase Auth:', error);
+      logger.warn('Error signing out from Firebase Auth', error);
     }
     
     localStorage.removeItem("userId");
@@ -693,7 +694,7 @@ const App: React.FC = () => {
           type: 'text',
           timestamp: new Date().toISOString(),
         }).catch((err) =>
-          console.error("Error creating initial chat message for mentor view:", err)
+          logger.error("Error creating initial chat message for mentor view", err)
         );
 
         // Create message in mentee's chat view (chatId = mentorId)
@@ -706,7 +707,7 @@ const App: React.FC = () => {
           type: 'text',
           timestamp: new Date().toISOString(),
         }).catch((err) =>
-          console.error("Error creating initial chat message for mentee view:", err)
+          logger.error("Error creating initial chat message for mentee view", err)
         );
 
         // Create notification for mentee with mentor introduction and chat link
@@ -720,7 +721,7 @@ const App: React.FC = () => {
           timestamp: new Date().toISOString(),
           chatId: mentorId, // Link to mentor's chat
         }).catch((err) =>
-          console.error("Error creating notification for mentee:", err)
+          logger.error("Error creating notification for mentee", err)
         );
 
         // Create notification for mentor with mentee introduction and chat link
@@ -733,12 +734,12 @@ const App: React.FC = () => {
           isRead: false,
           timestamp: new Date().toISOString(),
           chatId: menteeId, // Link to mentee's chat
-        }).catch((err) =>
-          console.error("Error creating notification for mentor:", err)
-        );
+          }).catch((err) =>
+            logger.error("Error creating notification for mentor", err)
+          );
       }
     } catch (error: unknown) {
-      console.error("Error creating match:", error);
+      logger.error("Error creating match", error);
       addToast(getErrorMessage(error) || "Failed to create match", "error");
     }
   };
@@ -793,9 +794,9 @@ const App: React.FC = () => {
         }
 
         await updateCalendarEvent(eventId, updates);
-      } catch (syncError) {
-        console.error("Failed to sync to calendars:", syncError);
-      }
+        } catch (syncError) {
+          logger.error("Failed to sync to calendars", syncError);
+        }
 
       // Update mentor's total hours committed if this event has a mentorId
       // Use atomic increment to prevent race conditions
@@ -804,7 +805,7 @@ const App: React.FC = () => {
           const hoursToAdd = parseDurationToHours(event.duration);
           await incrementMentorHours(event.mentorId, hoursToAdd);
         } catch (error) {
-          console.error("Error updating mentor hours:", error);
+          logger.error("Error updating mentor hours", error);
           // Don't fail the event creation if hours update fails
         }
       }
@@ -838,12 +839,12 @@ const App: React.FC = () => {
             isRead: false,
             timestamp: new Date().toISOString(),
           }).catch((err) =>
-            console.error("Error creating meeting notification:", err)
+            logger.error("Error creating meeting notification", err)
           );
         }
       });
     } catch (error: unknown) {
-      console.error("Error adding event:", error);
+      logger.error("Error adding event", error);
       addToast(getErrorMessage(error) || "Failed to add event", "error");
     }
   };
@@ -879,7 +880,7 @@ const App: React.FC = () => {
             try {
               await incrementMentorHours(oldMentorId, -oldHours);
             } catch (error) {
-              console.error("Error updating old mentor hours:", error);
+              logger.error("Error updating old mentor hours", error);
             }
           }
           // Add new hours to new mentor (atomic)
@@ -887,7 +888,7 @@ const App: React.FC = () => {
             try {
               await incrementMentorHours(newMentorId, newHours);
             } catch (error) {
-              console.error("Error updating new mentor hours:", error);
+              logger.error("Error updating new mentor hours", error);
             }
           }
         } else if (oldMentorId && oldHours !== newHours) {
@@ -896,7 +897,7 @@ const App: React.FC = () => {
             const hourDifference = newHours - oldHours;
             await incrementMentorHours(oldMentorId, hourDifference);
           } catch (error) {
-            console.error("Error updating mentor hours:", error);
+            logger.error("Error updating mentor hours", error);
             // Don't fail the event update if hours update fails
           }
         }
@@ -907,7 +908,7 @@ const App: React.FC = () => {
       // Refresh calendar events to show updated data
       await refreshData();
     } catch (error: unknown) {
-      console.error("Error updating event:", error);
+      logger.error("Error updating event", error);
       addToast(getErrorMessage(error) || "Failed to update event", "error");
     }
   };
@@ -926,7 +927,7 @@ const App: React.FC = () => {
           const hoursToSubtract = parseDurationToHours(event.duration);
           await incrementMentorHours(event.mentorId, -hoursToSubtract);
         } catch (error) {
-          console.error("Error updating mentor hours on delete:", error);
+          logger.error("Error updating mentor hours on delete", error);
           // Don't fail the deletion if hours update fails
         }
       }
@@ -937,7 +938,7 @@ const App: React.FC = () => {
       // Refresh calendar events to show updated data
       await refreshData();
     } catch (error: unknown) {
-      console.error("Error deleting event:", error);
+      logger.error("Error deleting event", error);
       addToast(getErrorMessage(error) || "Failed to delete event", "error");
     }
   };
@@ -1008,14 +1009,14 @@ const App: React.FC = () => {
             );
             addToast(`Invitation link copied to clipboard!`, "success");
           } catch (clipboardError) {
-            console.error("Failed to copy to clipboard:", clipboardError);
+            logger.error("Failed to copy to clipboard", clipboardError);
           }
         }
       }
 
       addToast(`Invitation sent to ${inviteData.email}`, "success");
     } catch (error: unknown) {
-      console.error("Error sending invitation:", error);
+      logger.error("Error sending invitation", error);
       addToast(getErrorMessage(error) || "Failed to send invitation", "error");
     }
   };
@@ -1034,7 +1035,7 @@ const App: React.FC = () => {
       addToast("Program configured successfully!", "success");
       setCurrentPage("dashboard");
     } catch (error: unknown) {
-      console.error("Error saving program settings:", error);
+      logger.error("Error saving program settings", error);
       addToast(
         getErrorMessage(error) || "Failed to save program settings",
         "error"
@@ -1095,7 +1096,7 @@ const App: React.FC = () => {
                     await updateRating(id, { isApproved: true });
                     addToast("Rating approved", "success");
                   } catch (error: unknown) {
-                    console.error("Error approving rating:", error);
+                    logger.error("Error approving rating", error);
                     addToast(
                       getErrorMessage(error) || "Failed to approve rating",
                       "error"
@@ -1107,7 +1108,7 @@ const App: React.FC = () => {
                     await deleteRating(id);
                     addToast("Rating rejected and removed", "success");
                   } catch (error: unknown) {
-                    console.error("Error rejecting rating:", error);
+                    logger.error("Error rejecting rating", error);
                     addToast(
                       getErrorMessage(error) || "Failed to reject rating",
                       "error"
@@ -1121,7 +1122,7 @@ const App: React.FC = () => {
                     await createRating({ ...r, organizationId });
                     addToast("Rating submitted for approval", "success");
                   } catch (error: unknown) {
-                    console.error("Error creating rating:", error);
+                    logger.error("Error creating rating", error);
                     addToast(
                       getErrorMessage(error) || "Failed to submit rating",
                       "error"
@@ -1198,7 +1199,7 @@ const App: React.FC = () => {
                     });
                     addToast("Resource added to library", "success");
                   } catch (error: unknown) {
-                    console.error("Error adding resource:", error);
+                    logger.error("Error adding resource", error);
                     addToast(
                       getErrorMessage(error) || "Failed to add resource",
                       "error"
@@ -1272,6 +1273,8 @@ const App: React.FC = () => {
           </Suspense>
         );
       case "referrals":
+        if (!currentUser)
+          return <LoadingSpinner message="Loading referrals..." />;
         return (
           <Suspense
             fallback={<LoadingSpinner message="Loading referrals..." />}

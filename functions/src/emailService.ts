@@ -408,7 +408,7 @@ Ready for your next challenge? Set a new goal and keep growing!
               To continue enjoying all the benefits of Meant2Grow, please upgrade to a paid plan.
             </p>
             <div style="margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://meant2grow.com'}/settings/billing" 
+              <a href="${appUrl}/settings/billing" 
                  style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 Upgrade Now
               </a>

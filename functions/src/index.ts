@@ -1198,7 +1198,7 @@ export const outlookAuth = functions.onRequest(
 
       const clientId = process.env.MICROSOFT_CLIENT_ID;
       const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
-      const redirectUri = process.env.MICROSOFT_REDIRECT_URI || `${process.env.VITE_APP_URL || 'https://meant2grow.com'}/auth/outlook/callback`;
+      const redirectUri = process.env.MICROSOFT_REDIRECT_URI || `${appUrl.value()}/auth/outlook/callback`;
 
       if (!clientId || !clientSecret) {
         res.status(500).json({ error: "Microsoft OAuth not configured" });

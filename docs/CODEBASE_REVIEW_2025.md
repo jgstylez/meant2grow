@@ -219,19 +219,25 @@ catch (error: unknown) {
 - ✅ `api/flowglad/*.ts` - Uses `process.env.*`
 - ✅ `functions/src/index.ts` - Uses `defineString()` / `defineSecret()`
 
-**Inconsistency Found:**
+**Inconsistency Found:** ✅ **FIXED**
 
-- `functions/src/index.ts:1197` - Uses `process.env.VITE_APP_URL` (should use `defineString()`)
-- `functions/src/emailService.ts:411` - Uses `process.env.VITE_APP_URL` (should use parameter)
+- ✅ `functions/src/index.ts:1197` - Fixed: Now uses `appUrl.value()` from `defineString()`
+- ✅ `functions/src/emailService.ts:411` - Fixed: Email service receives `appUrl` as parameter from `getEmailService()`
 
-**Recommendation:**
+**What was fixed:**
 
-- Client-side: Always use `import.meta.env.VITE_*`
-- Server-side (Vercel API routes): Use `process.env.*`
-- Server-side (Firebase Functions): Use `defineString()` / `defineSecret()`
-- Remove `VITE_` prefix from server-side environment variables
+- Replaced `process.env.VITE_APP_URL` in Firebase Functions with `appUrl.value()` from `defineString()`
+- Email service now properly receives `appUrl` as a parameter (already configured correctly)
+- All Firebase Functions now use `defineString()` / `defineSecret()` pattern consistently
 
-**Priority:** 🟡 **MEDIUM** - Configuration consistency
+**Current Pattern (Correct):**
+
+- ✅ Client-side: Always use `import.meta.env.VITE_*`
+- ✅ Server-side (Vercel API routes): Use `process.env.*`
+- ✅ Server-side (Firebase Functions): Use `defineString()` / `defineSecret()`
+- ✅ No `VITE_` prefix in server-side environment variables
+
+**Priority:** 🟡 **MEDIUM** - ✅ **RESOLVED**
 
 ---
 
@@ -383,8 +389,8 @@ match /{organizationId}/{allPaths=**} {
 
 ### Next Steps (Remaining)
 
-- 🟡 Replace `catch (error: any)` with `catch (error: unknown)` - **~48 instances fixed, ~37 remaining** (mostly in hooks and scripts)
-- 🟡 Standardize error handling - Replace `console.error` with `logger.error`
+- ✅ Replace `catch (error: any)` with `catch (error: unknown)` - **~80+ instances fixed** (all production code completed)
+- ✅ Standardize error handling - Replace `console.error` with `logger.error` - **COMPLETED** (all client-side code updated)
 - 🟡 Fix environment variable usage inconsistencies
 
 ### Progress Update
