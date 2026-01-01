@@ -41,6 +41,46 @@ const PRICE_TO_TIER: Record<string, string> = {
     [process.env.FLOWGLAD_PRICE_BUSINESS_YEARLY || 'price_business_yearly']: 'business',
 };
 
+// Helper function to read raw body from request stream
+// This reads the raw bytes before Vercel parses the JSON, which is critical for signature verification
+async function getRawBody(req: VercelRequest): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        let timeout: NodeJS.Timeout;
+        
+        // Set a timeout to prevent hanging (10 seconds)
+        timeout = setTimeout(() => {
+            reject(new Error('Request body read timeout'));
+        }, 10000);
+        
+        // Check if stream is already readable/ended
+        if (req.readableEnded) {
+            clearTimeout(timeout);
+            reject(new Error('Request stream already consumed'));
+            return;
+        }
+        
+        req.on('data', (chunk: Buffer) => {
+            chunks.push(chunk);
+        });
+        
+        req.on('end', () => {
+            clearTimeout(timeout);
+            const body = Buffer.concat(chunks);
+            if (body.length === 0) {
+                reject(new Error('Empty request body'));
+            } else {
+                resolve(body);
+            }
+        });
+        
+        req.on('error', (error: Error) => {
+            clearTimeout(timeout);
+            reject(error);
+        });
+    });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -64,12 +104,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(401).json({ error: 'Missing signature' });
     }
 
+    // Read raw body from request stream for accurate signature verification
+    // This is critical because JSON.stringify() can produce different output than the original
+    let rawBody: Buffer;
+    let parsedBody: any;
+    
+    try {
+        rawBody = await getRawBody(req);
+        // Parse JSON after reading raw body for signature verification
+        parsedBody = JSON.parse(rawBody.toString('utf8'));
+    } catch (parseError: unknown) {
+        console.error('Error reading/parsing request body:', parseError);
+        return res.status(400).json({ error: 'Invalid request body' });
+    }
+
     // Verify signature using Svix format (v1,timestamp,signature)
-    // Note: Vercel automatically parses JSON, so we reconstruct the raw body
-    // For production, consider using Vercel's rawBody feature or middleware to capture raw body
     try {
         const signatureString = Array.isArray(signature) ? signature[0] : signature;
-        const rawBody = JSON.stringify(req.body);
+        const rawBodyString = rawBody.toString('utf8');
         
         // Parse Svix signature format: "v1,timestamp1,signature1 v1,timestamp2,signature2"
         // Svix sends multiple signatures for redundancy, we verify at least one matches
@@ -98,7 +150,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 
                 // Verify signature: HMAC-SHA256 of "timestamp.rawBody"
-                const signedPayload = `${timestamp}.${rawBody}`;
+                // Use the raw body string (not Buffer) to match the exact bytes that were signed
+                const signedPayload = `${timestamp}.${rawBodyString}`;
                 const expectedSig = crypto
                     .createHmac('sha256', webhookSecret)
                     .update(signedPayload)
@@ -128,7 +181,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        const event = req.body;
+        // Use parsed body that we parsed from raw body after signature verification
+        const event = parsedBody;
         const eventType = event.type;
         
         console.log('Flowglad webhook received:', eventType);
