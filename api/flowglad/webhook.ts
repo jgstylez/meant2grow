@@ -82,9 +82,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const [, timestamp, receivedSig] = parts;
                 
                 // Verify timestamp is within 5 minutes (prevent replay attacks)
-                const eventTimestamp = parseInt(timestamp);
+                const eventTimestamp = parseInt(timestamp, 10);
                 const currentTimestamp = Math.floor(Date.now() / 1000);
                 const tolerance = 300; // 5 minutes
+                
+                // Validate timestamp is a valid number (not NaN, finite, positive)
+                if (!Number.isFinite(eventTimestamp) || eventTimestamp <= 0) {
+                    console.warn(`Invalid webhook signature timestamp: ${timestamp}`);
+                    continue; // Try next signature
+                }
                 
                 if (Math.abs(currentTimestamp - eventTimestamp) > tolerance) {
                     console.warn(`Webhook signature timestamp expired: ${eventTimestamp}, current: ${currentTimestamp}`);
