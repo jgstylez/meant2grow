@@ -5,61 +5,76 @@ service cloud.firestore {
     // ==================== HELPER FUNCTIONS ====================
     
     // Check if user is authenticated
-    // Supports both Firebase Auth and mock auth for backward compatibility
     function isAuthenticated() {
-      // If Firebase Auth is available, use it
-      // Otherwise, allow all (client validates) for backward compatibility
-      return request.auth != null || true;
+      return request.auth != null;
+    }
+    
+    // Get the current user's document
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
     // Check if user belongs to specific organization
     function belongsToOrg(organizationId) {
-      // For now, allow if authenticated (client-side validation active)
-      // For production: verify request.auth.uid's organizationId matches
-      return isAuthenticated();
+      return isAuthenticated() && 
+             getUserData().organizationId == organizationId;
     }
     
     // Check if user is organization admin
     function isOrgAdmin(organizationId) {
-      // For now, allow if authenticated (client-side validation active)
-      // For production: verify user role is ADMIN for the organizationId
-      return isAuthenticated();
+      return isAuthenticated() && 
+             belongsToOrg(organizationId) &&
+             getUserData().role == 'ORGANIZATION_ADMIN';
     }
     
     // Check if user is platform admin
     function isPlatformAdmin() {
-      // For now, allow if authenticated (client-side validation active)
-      // For production: verify user role is PLATFORM_ADMIN
-      return isAuthenticated();
+      return isAuthenticated() && 
+             getUserData().role == 'PLATFORM_ADMIN';
+    }
+    
+    // Check if user owns the resource (by userId field)
+    function isOwner(userId) {
+      return isAuthenticated() && 
+             request.auth.uid == userId;
+    }
+    
+    // Check if document belongs to user's organization
+    function isOrgScoped(organizationId) {
+      return belongsToOrg(organizationId) || isPlatformAdmin();
     }
     
     // ==================== ORGANIZATIONS ====================
     
     match /organizations/{orgId} {
-      // Anyone can create an organization (for signup)
+      // Anyone authenticated can create an organization (for signup)
       allow create: if isAuthenticated();
       
-      // Authenticated users can read organizations
-      allow read: if isAuthenticated();
+      // Users can read their own organization, platform admins can read all
+      allow read: if belongsToOrg(orgId) || isPlatformAdmin();
       
-      // Authenticated users can update (client validates permissions)
-      allow update: if isAuthenticated();
+      // Only organization admins can update their org, platform admins can update any
+      allow update: if isOrgAdmin(orgId) || isPlatformAdmin();
       
-      // Only platform admins can delete
+      // Only platform admins can delete organizations
       allow delete: if isPlatformAdmin();
     }
     
     // ==================== USERS ====================
     
     match /users/{userId} {
-      // Anyone can create a user (for signup)
+      // Anyone authenticated can create a user (for signup)
       allow create: if isAuthenticated();
       
-      // Authenticated users can read users
-      allow read: if isAuthenticated();
+      // Users can read users in their organization, or their own profile, platform admins can read all
+      allow read: if belongsToOrg(resource.data.organizationId) || 
+                     request.auth.uid == userId || 
+                     isPlatformAdmin();
       
-      // Authenticated users can update (client validates permissions)
-      allow update: if isAuthenticated();
+      // Users can update their own profile, org admins can update users in their org, platform admins can update any
+      allow update: if request.auth.uid == userId ||
+                     (belongsToOrg(resource.data.organizationId) && isOrgAdmin(resource.data.organizationId)) ||
+                     isPlatformAdmin();
       
       // Only platform admins can delete users
       allow delete: if isPlatformAdmin();
@@ -68,180 +83,221 @@ service cloud.firestore {
     // ==================== MATCHES ====================
     
     match /matches/{matchId} {
-      // Authenticated users can create matches
-      allow create: if isAuthenticated();
+      // Users can create matches in their organization
+      allow create: if isAuthenticated() && 
+                      belongsToOrg(request.resource.data.organizationId);
       
-      // Authenticated users can read matches
-      allow read: if isAuthenticated();
+      // Users can read matches in their organization
+      allow read: if isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update matches
-      allow update: if isAuthenticated();
+      // Users can update matches in their organization (participants or org admins)
+      allow update: if isOrgScoped(resource.data.organizationId) &&
+                      (request.auth.uid == resource.data.mentorId ||
+                       request.auth.uid == resource.data.menteeId ||
+                       isOrgAdmin(resource.data.organizationId));
       
-      // Authenticated users can delete matches
-      allow delete: if isAuthenticated();
+      // Users can delete matches they're part of, or org admins can delete in their org
+      allow delete: if isOrgScoped(resource.data.organizationId) &&
+                      (request.auth.uid == resource.data.mentorId ||
+                       request.auth.uid == resource.data.menteeId ||
+                       isOrgAdmin(resource.data.organizationId));
     }
     
     // ==================== GOALS ====================
     
     match /goals/{goalId} {
-      // Authenticated users can create goals
-      allow create: if isAuthenticated();
+      // Users can create goals in their organization
+      allow create: if isAuthenticated() && 
+                      belongsToOrg(request.resource.data.organizationId);
       
-      // Authenticated users can read goals
-      allow read: if isAuthenticated();
+      // Users can read goals in their organization
+      allow read: if isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update goals
-      allow update: if isAuthenticated();
+      // Users can update their own goals, or org admins can update any in their org
+      allow update: if isOrgScoped(resource.data.organizationId) &&
+                      (isOwner(resource.data.userId) ||
+                       isOrgAdmin(resource.data.organizationId));
       
-      // Authenticated users can delete goals
-      allow delete: if isAuthenticated();
+      // Users can delete their own goals, or org admins can delete any in their org
+      allow delete: if isOrgScoped(resource.data.organizationId) &&
+                      (isOwner(resource.data.userId) ||
+                       isOrgAdmin(resource.data.organizationId));
     }
     
     // ==================== MILESTONES ====================
     
     match /milestones/{milestoneId} {
-      // Authenticated users can create milestones
-      allow create: if isAuthenticated();
+      // Users can create milestones in their organization
+      allow create: if isAuthenticated() && 
+                      belongsToOrg(request.resource.data.organizationId);
       
-      // Authenticated users can read milestones
-      allow read: if isAuthenticated();
+      // Users can read milestones in their organization
+      allow read: if isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update milestones
-      allow update: if isAuthenticated();
+      // Users can update milestones in their organization
+      allow update: if isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can delete milestones
-      allow delete: if isAuthenticated();
+      // Users can delete milestones in their organization
+      allow delete: if isOrgScoped(resource.data.organizationId);
     }
     
     // ==================== CALENDAR EVENTS ====================
     
     match /calendarEvents/{eventId} {
-      // Authenticated users can create events
-      allow create: if isAuthenticated();
+      // Users can create events in their organization
+      allow create: if isAuthenticated() && 
+                      belongsToOrg(request.resource.data.organizationId);
       
-      // Authenticated users can read events
-      allow read: if isAuthenticated();
+      // Users can read events in their organization
+      allow read: if isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update events
-      allow update: if isAuthenticated();
+      // Users can update events they're part of, or org admins can update any in their org
+      allow update: if isOrgScoped(resource.data.organizationId) &&
+                      (request.auth.uid == resource.data.mentorId ||
+                       request.auth.uid == resource.data.menteeId ||
+                       isOrgAdmin(resource.data.organizationId));
       
-      // Authenticated users can delete events
-      allow delete: if isAuthenticated();
+      // Users can delete events they're part of, or org admins can delete any in their org
+      allow delete: if isOrgScoped(resource.data.organizationId) &&
+                      (request.auth.uid == resource.data.mentorId ||
+                       request.auth.uid == resource.data.menteeId ||
+                       isOrgAdmin(resource.data.organizationId));
     }
     
     // ==================== RESOURCES ====================
     
     match /resources/{resourceId} {
-      // Authenticated users can create resources
-      allow create: if isAuthenticated();
+      // Users can create resources in their organization
+      allow create: if isAuthenticated() && 
+                      belongsToOrg(request.resource.data.organizationId);
       
-      // Authenticated users can read resources
-      allow read: if isAuthenticated();
+      // Users can read resources in their organization
+      allow read: if isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update resources
-      allow update: if isAuthenticated();
+      // Org admins can update resources in their org, platform admins can update any
+      allow update: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
       
-      // Authenticated users can delete resources
-      allow delete: if isAuthenticated();
+      // Org admins can delete resources in their org, platform admins can delete any
+      allow delete: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
     }
     
     // ==================== NOTIFICATIONS ====================
     
     match /notifications/{notificationId} {
-      // Authenticated users can create notifications
-      allow create: if isAuthenticated();
+      // Users can create notifications in their organization
+      allow create: if isAuthenticated() && 
+                      belongsToOrg(request.resource.data.organizationId);
       
-      // Authenticated users can read notifications
-      allow read: if isAuthenticated();
+      // Users can only read their own notifications, or org admins can read all in their org
+      allow read: if isOwner(resource.data.userId) ||
+                     (belongsToOrg(resource.data.organizationId) && isOrgAdmin(resource.data.organizationId)) ||
+                     isPlatformAdmin();
       
-      // Authenticated users can update notifications
-      allow update: if isAuthenticated();
+      // Users can update their own notifications
+      allow update: if isOwner(resource.data.userId) || isPlatformAdmin();
       
-      // Authenticated users can delete notifications
-      allow delete: if isAuthenticated();
+      // Users can delete their own notifications
+      allow delete: if isOwner(resource.data.userId) || isPlatformAdmin();
     }
     
     // ==================== INVITATIONS ====================
     
     match /invitations/{invitationId} {
-      // Authenticated users can create invitations
-      allow create: if isAuthenticated();
+      // Users can create invitations in their organization
+      allow create: if isAuthenticated() && 
+                      belongsToOrg(request.resource.data.organizationId);
       
-      // Authenticated users can read invitations
-      allow read: if isAuthenticated();
+      // Users can read invitations in their organization
+      allow read: if isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update invitations
-      allow update: if isAuthenticated();
+      // Org admins can update invitations in their org
+      allow update: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
       
-      // Authenticated users can delete invitations
-      allow delete: if isAuthenticated();
+      // Org admins can delete invitations in their org
+      allow delete: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
     }
     
     // ==================== RATINGS ====================
     
     match /ratings/{ratingId} {
-      // Authenticated users can create ratings
-      allow create: if isAuthenticated();
+      // Users can create ratings in their organization
+      allow create: if isAuthenticated() && 
+                      belongsToOrg(request.resource.data.organizationId);
       
-      // Authenticated users can read ratings
-      allow read: if isAuthenticated();
+      // Users can read ratings in their organization
+      allow read: if isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update ratings
-      allow update: if isAuthenticated();
+      // Users can update their own ratings, or org admins can update any in their org
+      allow update: if isOrgScoped(resource.data.organizationId) &&
+                      (isOwner(resource.data.userId) ||
+                       isOrgAdmin(resource.data.organizationId));
       
-      // Authenticated users can delete ratings
-      allow delete: if isAuthenticated();
+      // Users can delete their own ratings, or org admins can delete any in their org
+      allow delete: if isOrgScoped(resource.data.organizationId) &&
+                      (isOwner(resource.data.userId) ||
+                       isOrgAdmin(resource.data.organizationId));
     }
     
     // ==================== CHAT MESSAGES ====================
     
     match /chatMessages/{messageId} {
-      // Authenticated users can create messages
-      allow create: if isAuthenticated();
+      // Users can create messages in their organization
+      allow create: if isAuthenticated() && 
+                      belongsToOrg(request.resource.data.organizationId) &&
+                      request.auth.uid == request.resource.data.senderId;
       
-      // Authenticated users can read messages
-      allow read: if isAuthenticated();
+      // Users can read messages in their organization
+      allow read: if isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update messages
-      allow update: if isAuthenticated();
+      // Users can update their own messages
+      allow update: if isOrgScoped(resource.data.organizationId) &&
+                      request.auth.uid == resource.data.senderId;
       
-      // Authenticated users can delete messages
-      allow delete: if isAuthenticated();
+      // Users can delete their own messages, or org admins can delete any in their org
+      allow delete: if isOrgScoped(resource.data.organizationId) &&
+                      (request.auth.uid == resource.data.senderId ||
+                       isOrgAdmin(resource.data.organizationId));
     }
     
     // ==================== CHAT GROUPS ====================
     
     match /chatGroups/{groupId} {
-      // Authenticated users can create groups
-      allow create: if isAuthenticated();
+      // Users can create groups in their organization
+      allow create: if isAuthenticated() && 
+                      belongsToOrg(request.resource.data.organizationId);
       
-      // Authenticated users can read groups
-      allow read: if isAuthenticated();
+      // Users can read groups in their organization (membership checked client-side)
+      allow read: if isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update groups
-      allow update: if isAuthenticated();
+      // Org admins can update groups in their org, or group members (checked client-side)
+      allow update: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
       
-      // Authenticated users can delete groups
-      allow delete: if isAuthenticated();
+      // Org admins can delete groups in their org
+      allow delete: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
     }
     
     // ==================== PRIVATE MESSAGE REQUESTS ====================
     
     match /privateMessageRequests/{requestId} {
-      // Authenticated users can create requests
-      allow create: if isAuthenticated();
+      // Users can create requests in their organization
+      allow create: if isAuthenticated() && 
+                      belongsToOrg(request.resource.data.organizationId) &&
+                      request.auth.uid == request.resource.data.requesterId;
       
-      // Authenticated users can read requests
-      // Note: Client-side filtering ensures users only see their own requests
-      allow read: if isAuthenticated();
+      // Users can read their own requests (as requester or recipient)
+      allow read: if isOrgScoped(resource.data.organizationId) &&
+                     (request.auth.uid == resource.data.requesterId ||
+                      request.auth.uid == resource.data.recipientId);
       
-      // Authenticated users can update requests
-      // Note: Client-side validation ensures only recipient can approve/reject
-      allow update: if isAuthenticated();
+      // Recipients can update requests (approve/reject), or org admins can update any
+      allow update: if isOrgScoped(resource.data.organizationId) &&
+                      (request.auth.uid == resource.data.recipientId ||
+                       isOrgAdmin(resource.data.organizationId));
       
-      // Authenticated users can delete requests
-      // Note: Client-side validation ensures only requester can delete
-      allow delete: if isAuthenticated();
+      // Requesters can delete their own requests, or org admins can delete any
+      allow delete: if isOrgScoped(resource.data.organizationId) &&
+                      (request.auth.uid == resource.data.requesterId ||
+                       isOrgAdmin(resource.data.organizationId));
     }
     
     // ==================== BLOG POSTS (Platform-wide) ====================
@@ -250,56 +306,80 @@ service cloud.firestore {
       // Anyone can read blog posts
       allow read: if true;
       
-      // Authenticated users can create/update/delete blog posts
-      allow create, update, delete: if isAuthenticated();
+      // Only platform admins can create/update/delete blog posts
+      allow create, update, delete: if isPlatformAdmin();
     }
     
     // ==================== DISCUSSION GUIDES ====================
     
     match /discussionGuides/{guideId} {
-      // Authenticated users can create guides
-      allow create: if isAuthenticated();
+      // Platform admins can create guides, or org admins can create for their org
+      allow create: if isAuthenticated() && 
+                      (isPlatformAdmin() ||
+                       (belongsToOrg(request.resource.data.organizationId) && 
+                        isOrgAdmin(request.resource.data.organizationId)));
       
-      // Authenticated users can read guides
-      allow read: if isAuthenticated();
+      // Users can read guides in their organization, or platform-wide guides
+      allow read: if !exists(resource.data.organizationId) || // Platform-wide
+                     isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update guides
-      allow update: if isAuthenticated();
+      // Platform admins can update any, org admins can update guides in their org
+      allow update: if isPlatformAdmin() ||
+                      (exists(resource.data.organizationId) &&
+                       isOrgAdmin(resource.data.organizationId));
       
-      // Authenticated users can delete guides
-      allow delete: if isAuthenticated();
+      // Platform admins can delete any, org admins can delete guides in their org
+      allow delete: if isPlatformAdmin() ||
+                      (exists(resource.data.organizationId) &&
+                       isOrgAdmin(resource.data.organizationId));
     }
     
     // ==================== CAREER TEMPLATES ====================
     
     match /careerTemplates/{templateId} {
-      // Authenticated users can create templates
-      allow create: if isAuthenticated();
+      // Platform admins can create templates, or org admins can create for their org
+      allow create: if isAuthenticated() && 
+                      (isPlatformAdmin() ||
+                       (belongsToOrg(request.resource.data.organizationId) && 
+                        isOrgAdmin(request.resource.data.organizationId)));
       
-      // Authenticated users can read templates
-      allow read: if isAuthenticated();
+      // Users can read templates in their organization, or platform-wide templates
+      allow read: if !exists(resource.data.organizationId) || // Platform-wide
+                     isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update templates
-      allow update: if isAuthenticated();
+      // Platform admins can update any, org admins can update templates in their org
+      allow update: if isPlatformAdmin() ||
+                      (exists(resource.data.organizationId) &&
+                       isOrgAdmin(resource.data.organizationId));
       
-      // Authenticated users can delete templates
-      allow delete: if isAuthenticated();
+      // Platform admins can delete any, org admins can delete templates in their org
+      allow delete: if isPlatformAdmin() ||
+                      (exists(resource.data.organizationId) &&
+                       isOrgAdmin(resource.data.organizationId));
     }
     
     // ==================== TRAINING VIDEOS ====================
     
     match /trainingVideos/{videoId} {
-      // Authenticated users can create videos
-      allow create: if isAuthenticated();
+      // Platform admins can create videos, or org admins can create for their org
+      allow create: if isAuthenticated() && 
+                      (isPlatformAdmin() ||
+                       (belongsToOrg(request.resource.data.organizationId) && 
+                        isOrgAdmin(request.resource.data.organizationId)));
       
-      // Authenticated users can read videos
-      allow read: if isAuthenticated();
+      // Users can read videos in their organization, or platform-wide videos
+      allow read: if !exists(resource.data.organizationId) || // Platform-wide
+                     isOrgScoped(resource.data.organizationId);
       
-      // Authenticated users can update videos
-      allow update: if isAuthenticated();
+      // Platform admins can update any, org admins can update videos in their org
+      allow update: if isPlatformAdmin() ||
+                      (exists(resource.data.organizationId) &&
+                       isOrgAdmin(resource.data.organizationId));
       
-      // Authenticated users can delete videos
-      allow delete: if isAuthenticated();
+      // Platform admins can delete any, org admins can delete videos in their org
+      allow delete: if isPlatformAdmin() ||
+                      (exists(resource.data.organizationId) &&
+                       isOrgAdmin(resource.data.organizationId));
     }
   }
 }

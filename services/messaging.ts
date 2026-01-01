@@ -3,6 +3,7 @@ import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { getAuth } from 'firebase/auth';
 import { saveDeviceInfo, createDeviceInfo, generateDeviceId, getUserDevices, removeDevice } from './deviceTracking';
+import { getErrorMessage } from '../utils/errors';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
 
@@ -79,11 +80,12 @@ export async function requestNotificationPermission(): Promise<string | null> {
     }
 
     return token;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error getting FCM token:', error);
     
     // iOS-specific error handling
-    if (error.code === 'messaging/unsupported-browser') {
+    const errorCode = getErrorCode(error);
+    if (errorCode === 'messaging/unsupported-browser') {
       console.warn('Browser does not support FCM. iOS requires Safari 16.4+ and app must be installed as PWA.');
     }
     

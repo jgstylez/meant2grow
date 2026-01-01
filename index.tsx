@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { getErrorMessage } from './utils/errors';
 
 // Register service worker for PWA and push notifications (required for iOS)
 if ('serviceWorker' in navigator) {
@@ -38,12 +39,14 @@ if ('serviceWorker' in navigator) {
           });
         }
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[SW] Service Worker registration failed:', error);
       // Log more details for debugging
+      const errorMessage = getErrorMessage(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
       console.error('[SW] Error details:', {
-        message: error.message,
-        stack: error.stack,
+        message: errorMessage,
+        stack: errorStack,
         url: window.location.href,
         protocol: window.location.protocol,
         hostname: window.location.hostname,

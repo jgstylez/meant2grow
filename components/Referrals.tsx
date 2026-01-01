@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User, Role, Invitation } from '../types';
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
 import { ArrowLeft, Send, Mail, UserPlus, Upload, FileText, CheckCircle, Clock, X, Eye, Copy, Check, Link as LinkIcon, ExternalLink } from 'lucide-react';
-import { createInvitation, getInvitation } from '../services/database';
+import { createInvitation, getInvitation, getInvitationByEmail } from '../services/database';
 
 interface ReferralsProps {
   currentUser: User;
@@ -21,6 +21,7 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
   const [copiedGeneratedLink, setCopiedGeneratedLink] = useState(false);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [generatedInvitationId, setGeneratedInvitationId] = useState<string | null>(null);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [orgSignupLink, setOrgSignupLink] = useState<string | null>(null);
   
@@ -38,15 +39,56 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
   const [dragActive, setDragActive] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
 
-  const handleSendInvite = () => {
-     onSendInvite({
-         email: formData.email,
-         name: `${formData.firstName} ${formData.lastName}`,
-         role: formData.role.toUpperCase() as Role,
-         sentDate: new Date().toISOString()
-     });
-     setFormData({ firstName: '', lastName: '', email: '', role: 'Mentee', personalNote: '' });
-     setShowPreview(false);
+  const handleSendInvite = async () => {
+    // If we already generated a link, reuse that invitation
+    if (generatedInvitationId) {
+      onSendInvite({
+        email: formData.email,
+        name: `${formData.firstName} ${formData.lastName}`,
+        role: formData.role.toUpperCase() as Role,
+        sentDate: new Date().toISOString(),
+        invitationId: generatedInvitationId // Pass the existing invitation ID
+      });
+      // Clear the generated link state since we're sending it
+      setGeneratedLink(null);
+      setGeneratedInvitationId(null);
+      setFormData({ firstName: '', lastName: '', email: '', role: 'Mentee', personalNote: '' });
+      setShowPreview(false);
+      return;
+    }
+
+    // Check if there's already an existing invitation for this email
+    if (formData.email && organizationId) {
+      try {
+        const existingInvitation = await getInvitationByEmail(formData.email.toLowerCase(), organizationId);
+        if (existingInvitation) {
+          // Reuse existing invitation
+          onSendInvite({
+            email: formData.email,
+            name: `${formData.firstName} ${formData.lastName}`,
+            role: formData.role.toUpperCase() as Role,
+            sentDate: new Date().toISOString(),
+            invitationId: existingInvitation.id
+          });
+          setFormData({ firstName: '', lastName: '', email: '', role: 'Mentee', personalNote: '' });
+          setShowPreview(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking for existing invitation:", error);
+        // Continue to create new invitation if check fails
+      }
+    }
+
+    // No existing invitation found, create a new one
+    onSendInvite({
+      email: formData.email,
+      name: `${formData.firstName} ${formData.lastName}`,
+      role: formData.role.toUpperCase() as Role,
+      sentDate: new Date().toISOString()
+    });
+    setFormData({ firstName: '', lastName: '', email: '', role: 'Mentee', personalNote: '' });
+    setShowPreview(false);
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -83,7 +125,20 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
 
     setIsGeneratingLink(true);
     try {
-      // Create invitation to get the link
+      // Check if there's already an existing invitation for this email
+      const existingInvitation = await getInvitationByEmail(formData.email.toLowerCase(), organizationId);
+      
+      if (existingInvitation) {
+        // Reuse existing invitation
+        setGeneratedInvitationId(existingInvitation.id);
+        if (existingInvitation.invitationLink) {
+          setGeneratedLink(existingInvitation.invitationLink);
+        }
+        setIsGeneratingLink(false);
+        return;
+      }
+
+      // Create new invitation to get the link
       const invitationId = await createInvitation({
         organizationId,
         name: `${formData.firstName} ${formData.lastName}`.trim() || "Test User",
@@ -93,6 +148,9 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
         sentDate: new Date().toISOString().split("T")[0],
         inviterId: currentUser.id,
       });
+
+      // Store the invitation ID for reuse
+      setGeneratedInvitationId(invitationId);
 
       // Get the created invitation to retrieve the link
       const createdInvitation = await getInvitation(invitationId);
@@ -295,7 +353,20 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                           </div>
                           <div className="mb-4">
                               <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Email Address <span className="text-red-500">*</span></label>
-                              <input type="email" className={INPUT_CLASS} placeholder="colleague@company.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                              <input 
+                                type="email" 
+                                className={INPUT_CLASS} 
+                                placeholder="colleague@company.com" 
+                                value={formData.email} 
+                                onChange={e => {
+                                  setFormData({...formData, email: e.target.value});
+                                  // Clear generated link when email changes
+                                  if (generatedLink) {
+                                    setGeneratedLink(null);
+                                    setGeneratedInvitationId(null);
+                                  }
+                                }} 
+                              />
                           </div>
                           <div className="mb-6">
                               <label className="block text-xs font-semibold text-slate-500 uppercase mb-3">Inviting as</label>
@@ -379,11 +450,11 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                           <div className="flex items-center justify-end gap-3">
                               <button 
                                   onClick={handleGenerateLink} 
-                                  disabled={!formData.email || isGeneratingLink || !organizationId} 
+                                  disabled={!formData.email || isGeneratingLink || !organizationId || !!generatedLink} 
                                   className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center disabled:opacity-50"
                               >
                                   <LinkIcon className="w-4 h-4 mr-2" /> 
-                                  {isGeneratingLink ? 'Generating...' : 'Generate Link'}
+                                  {isGeneratingLink ? 'Generating...' : generatedLink ? 'Link Generated' : 'Generate Link'}
                               </button>
                               <button onClick={() => setShowPreview(true)} disabled={!formData.email} className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center disabled:opacity-50">
                                   <Eye className="w-4 h-4 mr-2" /> Preview

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { updateUser, deleteUser } from "../services/database";
 import { emailService } from "../services/emailService";
+import { getErrorMessage } from "../utils/errors";
 
 interface ParticipantsProps {
   users: User[];
@@ -182,9 +183,9 @@ const Participants: React.FC<ParticipantsProps> = ({
 
       // The useOrganizationData hook uses real-time Firestore listeners,
       // so the users array should update automatically when the document changes
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error updating email:", error);
-      const errorMessage = error?.message || "Failed to update email address";
+      const errorMessage = getErrorMessage(error) || "Failed to update email address";
       alert(`Failed to update email address: ${errorMessage}`);
     } finally {
       setIsUpdatingEmail(false);
@@ -254,9 +255,9 @@ const Participants: React.FC<ParticipantsProps> = ({
       setSelectedUserIds(new Set());
       setEmailSubject("");
       setEmailBody("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error sending email:", error);
-      alert(`Failed to send email: ${error.message || "Unknown error"}`);
+      alert(`Failed to send email: ${getErrorMessage(error) || "Unknown error"}`);
     } finally {
       const sendButton = document.querySelector(
         "[data-email-send-button]"

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { google } from 'googleapis';
+import { getErrorMessage } from '../../utils/errors';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -53,15 +54,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       meetingCode,
       expiresAt: endTime || undefined,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
     console.error('Error creating Meet link:', error);
 
     // Return proper error instead of fake meeting link
     // Fake links break meeting creation and confuse users
     return res.status(500).json({
       error: 'Failed to create meeting',
-      message: error.message || 'Google Meet API error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: getErrorMessage(error) || 'Google Meet API error',
+      details: process.env.NODE_ENV === 'development' ? errorStack : undefined
     });
   }
 }

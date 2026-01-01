@@ -424,9 +424,9 @@ export const useOrganizationData = (
       unsubscribesRef.current.push(unsubscribeVideos);
 
       setLoading(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error setting up real-time listeners:", err);
-      setError(err.message || "Failed to load data");
+      setError(getErrorMessage(err) || "Failed to load data");
       setLoading(false);
     }
 

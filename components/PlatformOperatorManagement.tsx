@@ -5,6 +5,7 @@ import { Crown, UserPlus, Edit2, Trash2, Mail, X, AlertTriangle } from 'lucide-r
 import { createUser, updateUser, getAllUsers, deleteUser } from '../services/database';
 import { query, collection, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { getErrorMessage } from '../utils/errors';
 
 interface PlatformOperatorManagementProps {
     currentUser: User;
@@ -102,11 +103,11 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
             setNewAdminEmail('');
             setNewAdminName('');
             await loadPlatformOperators();
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error creating platform admin:', error);
             setAdminMessage({
                 type: 'error',
-                text: error.message || 'Failed to create platform operator'
+                text: getErrorMessage(error) || 'Failed to create platform operator'
             });
         } finally {
             setCreatingAdmin(false);
@@ -123,9 +124,9 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
             setShowDeleteConfirm(null);
             await loadPlatformOperators();
             setAdminMessage({ type: 'success', text: 'Platform operator deleted successfully' });
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error deleting platform operator:', error);
-            setAdminMessage({ type: 'error', text: error.message || 'Failed to delete platform operator' });
+            setAdminMessage({ type: 'error', text: getErrorMessage(error) || 'Failed to delete platform operator' });
         }
     };
 
@@ -371,8 +372,8 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                                             setEditingOperator(null);
                                             await loadPlatformOperators();
                                             setAdminMessage({ type: 'success', text: 'Platform operator updated successfully' });
-                                        } catch (error: any) {
-                                            setAdminMessage({ type: 'error', text: error.message || 'Failed to update platform operator' });
+                                        } catch (error: unknown) {
+                                            setAdminMessage({ type: 'error', text: getErrorMessage(error) || 'Failed to update platform operator' });
                                         }
                                     }}
                                     className={BUTTON_PRIMARY + " flex-1"}

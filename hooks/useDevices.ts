@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getUserDevices, removeDevice, updateLastActive, DeviceInfo } from '../services/deviceTracking';
 import { removeFCMToken } from '../services/messaging';
+import { getErrorMessage } from '../utils/errors';
 
 interface UseDevicesReturn {
   devices: DeviceInfo[];
@@ -48,9 +49,9 @@ export function useDevices(userId: string | null): UseDevicesReturn {
       });
       
       setDevices(sortedDevices);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching devices:', err);
-      setError(err.message || 'Failed to load devices');
+      setError(getErrorMessage(err) || 'Failed to load devices');
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +69,7 @@ export function useDevices(userId: string | null): UseDevicesReturn {
       
       // Refresh device list
       await refreshDevices();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error revoking device:', err);
       throw err;
     }

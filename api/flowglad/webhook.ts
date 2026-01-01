@@ -10,6 +10,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import crypto from 'crypto';
 
 // Initialize Firebase Admin
 if (!getApps().length) {
@@ -45,17 +46,80 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Verify webhook signature (Flowglad sends signature in headers)
+    // Verify webhook signature (Flowglad uses Svix-style signatures)
     const webhookSecret = process.env.FLOWGLAD_WEBHOOK_SECRET;
-    const signature = req.headers['x-flowglad-signature'];
     
-    if (webhookSecret && !signature) {
-        console.error('Missing webhook signature');
+    if (!webhookSecret) {
+        console.error('FLOWGLAD_WEBHOOK_SECRET not configured');
+        return res.status(500).json({ error: 'Webhook secret not configured' });
+    }
+
+    // Flowglad/Svix sends signature in x-flowglad-signature or svix-signature header
+    const signature = req.headers['x-flowglad-signature'] || 
+                     req.headers['svix-signature'] ||
+                     req.headers['x-svix-signature'];
+    
+    if (!signature) {
+        console.error('Missing webhook signature header');
         return res.status(401).json({ error: 'Missing signature' });
     }
 
-    // TODO: Add proper signature verification when Flowglad provides the method
-    // For now, we trust requests to this endpoint
+    // Verify signature using Svix format (v1,timestamp,signature)
+    // Note: Vercel automatically parses JSON, so we reconstruct the raw body
+    // For production, consider using Vercel's rawBody feature or middleware to capture raw body
+    try {
+        const signatureString = Array.isArray(signature) ? signature[0] : signature;
+        const rawBody = JSON.stringify(req.body);
+        
+        // Parse Svix signature format: "v1,timestamp1,signature1 v1,timestamp2,signature2"
+        // Svix sends multiple signatures for redundancy, we verify at least one matches
+        const signatures = signatureString.split(' ');
+        let isValid = false;
+        
+        for (const sigEntry of signatures) {
+            const parts = sigEntry.split(',');
+            if (parts.length === 3 && parts[0] === 'v1') {
+                const [, timestamp, receivedSig] = parts;
+                
+                // Verify timestamp is within 5 minutes (prevent replay attacks)
+                const eventTimestamp = parseInt(timestamp);
+                const currentTimestamp = Math.floor(Date.now() / 1000);
+                const tolerance = 300; // 5 minutes
+                
+                if (Math.abs(currentTimestamp - eventTimestamp) > tolerance) {
+                    console.warn(`Webhook signature timestamp expired: ${eventTimestamp}, current: ${currentTimestamp}`);
+                    continue; // Try next signature
+                }
+                
+                // Verify signature: HMAC-SHA256 of "timestamp.rawBody"
+                const signedPayload = `${timestamp}.${rawBody}`;
+                const expectedSig = crypto
+                    .createHmac('sha256', webhookSecret)
+                    .update(signedPayload)
+                    .digest('base64');
+                
+                // Use constant-time comparison to prevent timing attacks
+                if (crypto.timingSafeEqual(
+                    Buffer.from(receivedSig),
+                    Buffer.from(expectedSig)
+                )) {
+                    isValid = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!isValid) {
+            console.error('Invalid webhook signature - no valid signatures found');
+            return res.status(401).json({ error: 'Invalid signature' });
+        }
+        
+        // Signature verified successfully
+        console.log('Webhook signature verified successfully');
+    } catch (verifyError: unknown) {
+        console.error('Signature verification error:', verifyError);
+        return res.status(401).json({ error: 'Signature verification failed' });
+    }
 
     try {
         const event = req.body;
@@ -171,11 +235,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.json({ received: true });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Webhook error:', error);
         return res.status(500).json({
             error: 'Webhook processing failed',
-            message: error.message,
+            message: errorMessage,
         });
     }
 }

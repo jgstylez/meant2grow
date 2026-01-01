@@ -25,6 +25,7 @@ import {
   generateOutlookCalendarLink,
   generateAppleCalendarICS,
 } from "../services/calendarDeepLinks";
+import { getErrorMessage } from "../utils/errors";
 
 interface CalendarViewProps {
   events: CalendarEvent[];
@@ -155,9 +156,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error syncing calendar:", error);
-      alert(error.message || "Failed to sync calendar");
+      alert(getErrorMessage(error) || "Failed to sync calendar");
     } finally {
       setSyncing(false);
     }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Download, X, Smartphone } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { getErrorMessage } from '../utils/errors';
 
 // iOS Share Icon - matches the native iOS Share icon (square with upward arrow)
 // This is the exact shape: a rounded square with an arrow pointing up from the center top
@@ -163,11 +164,12 @@ export const PWAInstallBanner: React.FC<PWAInstallBannerProps> = ({ currentUser 
         // iOS: Can't programmatically trigger, but we can show a helpful message
         console.log('iOS installation requires using the Share menu');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Install error:', error);
       // Provide user-friendly error message
-      if (error.message) {
-        console.error('Error details:', error.message);
+      const errorMessage = getErrorMessage(error);
+      if (errorMessage) {
+        console.error('Error details:', errorMessage);
       }
       // User can still use browser menu as fallback
     }

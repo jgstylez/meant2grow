@@ -6,6 +6,7 @@ import { google } from "googleapis";
 import { Role, User, Organization, Match, Goal } from "./types";
 import { createEmailService } from "./emailService";
 import { setTrialPeriod } from "./organizationUtils";
+import { getErrorMessage, formatError } from "./utils/errors";
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -485,11 +486,11 @@ export const authGoogle = functions.onRequest(
       res
         .status(400)
         .json({ error: "Either invitationToken, organizationCode, or isNewOrg must be provided" });
-    } catch (error: any) {
-      console.error("Auth error:", error);
+    } catch (error: unknown) {
+      console.error("Auth error:", formatError(error));
       res
         .status(500)
-        .json({ error: "Internal server error", message: error.message });
+        .json({ error: "Internal server error", message: getErrorMessage(error) });
     }
   }
 );
@@ -557,8 +558,8 @@ export const createMeetLink = functions.onRequest(
         meetingCode,
         expiresAt: endTime || undefined,
       });
-    } catch (error: any) {
-      console.error("Error creating Meet link:", error);
+    } catch (error: unknown) {
+      console.error("Error creating Meet link:", formatError(error));
 
       // If Meet API fails, return a fallback link format
       if (error.code === "ENOTFOUND" || error.message?.includes("meet")) {
@@ -661,10 +662,11 @@ export const sendAdminEmail = functions.onRequest(
       await getEmailService().sendCustomEmail(recipients, subject, body, fromAdmin, isPlatformAdmin);
 
       res.json({ success: true, message: `Email sent to ${recipients.length} recipient(s)` });
-    } catch (error: any) {
-      console.error("Error sending admin email:", error);
+    } catch (error: unknown) {
+      console.error("Error sending admin email:", formatError(error));
       res.status(500).json({
         error: "Failed to send email",
+        message: getErrorMessage(error),
         message: error.message,
       });
     }
@@ -701,8 +703,8 @@ export const onUserCreated = functionsV1.firestore
       } else {
         await getEmailService().sendWelcomeParticipant(user, organization, user.role);
       }
-    } catch (error: any) {
-      console.error("Error in onUserCreated trigger:", error);
+    } catch (error: unknown) {
+      console.error("Error in onUserCreated trigger:", formatError(error));
     }
   });
 
@@ -763,8 +765,8 @@ export const onMatchCreated = functionsV1.firestore
       getEmailService().sendMatchCreated(mentee, matchForEmail, mentor, mentee).catch((err) => {
         console.error("Failed to send match email to mentee:", err);
       });
-    } catch (error: any) {
-      console.error("Error in onMatchCreated trigger:", error);
+    } catch (error: unknown) {
+      console.error("Error in onMatchCreated trigger:", formatError(error));
     }
   });
 
@@ -821,8 +823,8 @@ export const onGoalCompleted = functionsV1.firestore
           console.error("Failed to send goal completed email:", err);
         });
       }
-    } catch (error: any) {
-      console.error("Error in onGoalCompleted trigger:", error);
+    } catch (error: unknown) {
+      console.error("Error in onGoalCompleted trigger:", formatError(error));
     }
   });
 
@@ -886,8 +888,8 @@ export const checkExpiringTrials = functionsV1.pubsub
       }
 
       console.log(`Checked ${orgsSnapshot.size} organizations for expiring trials`);
-    } catch (error: any) {
-      console.error("Error checking expiring trials:", error);
+    } catch (error: unknown) {
+      console.error("Error checking expiring trials:", formatError(error));
     }
   });
 
@@ -982,10 +984,11 @@ export const syncCalendarEvent = functions.onRequest(
         default:
           res.status(400).json({ error: "Invalid action" });
       }
-    } catch (error: any) {
-      console.error("Calendar sync error:", error);
+    } catch (error: unknown) {
+      console.error("Calendar sync error:", formatError(error));
       res.status(500).json({
         error: "Failed to sync calendar",
+        message: getErrorMessage(error),
         message: error.message,
       });
     }
@@ -1039,8 +1042,8 @@ export const checkMeetingReminders = functionsV1.pubsub
       }
 
       console.log(`Checked ${eventsSnapshot.size} events for reminders`);
-    } catch (error: any) {
-      console.error("Error checking meeting reminders:", error);
+    } catch (error: unknown) {
+      console.error("Error checking meeting reminders:", formatError(error));
     }
   });
 
@@ -1162,10 +1165,11 @@ export const syncOutlookCalendar = functions.onRequest(
         default:
           res.status(400).json({ error: "Invalid action" });
       }
-    } catch (error: any) {
-      console.error("Outlook calendar sync error:", error);
+    } catch (error: unknown) {
+      console.error("Outlook calendar sync error:", formatError(error));
       res.status(500).json({
         error: "Failed to sync Outlook calendar",
+        message: getErrorMessage(error),
         message: error.message,
       });
     }
@@ -1228,10 +1232,11 @@ export const outlookAuth = functions.onRequest(
         refreshToken: tokens.refresh_token,
         expiresAt: Date.now() + (tokens.expires_in * 1000),
       });
-    } catch (error: any) {
-      console.error("Outlook auth error:", error);
+    } catch (error: unknown) {
+      console.error("Outlook auth error:", formatError(error));
       res.status(500).json({
         error: "Failed to authenticate with Outlook",
+        message: getErrorMessage(error),
         message: error.message,
       });
     }
@@ -1295,10 +1300,11 @@ export const syncAppleCalendar = functions.onRequest(
         error: "Apple Calendar integration requires CalDAV server or third-party service",
         message: "Please configure USE_APPLE_CALENDAR_SERVICE and APPLE_CALENDAR_SERVICE_URL, or implement CalDAV server",
       });
-    } catch (error: any) {
-      console.error("Apple calendar sync error:", error);
+    } catch (error: unknown) {
+      console.error("Apple calendar sync error:", formatError(error));
       res.status(500).json({
         error: "Failed to sync Apple calendar",
+        message: getErrorMessage(error),
         message: error.message,
       });
     }
@@ -1394,9 +1400,9 @@ async function sendFCMPushNotification(
     // Send FCM message
     await admin.messaging().send(message);
     console.log(`FCM push notification sent to user ${userId}`);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Log error but don't throw - FCM failures shouldn't break notification creation
-    console.error(`Error sending FCM push notification to user ${userId}:`, error);
+    console.error(`Error sending FCM push notification to user ${userId}:`, formatError(error));
     
     // If token is invalid, remove it from user document
     if (error.code === 'messaging/invalid-registration-token' || 
@@ -1434,8 +1440,8 @@ export const onNotificationCreated = functionsV1.firestore
           notificationId,
         }
       );
-    } catch (error: any) {
-      console.error("Error in onNotificationCreated trigger:", error);
+    } catch (error: unknown) {
+      console.error("Error in onNotificationCreated trigger:", formatError(error));
     }
   });
 
@@ -1492,8 +1498,8 @@ async function sendMeetingReminders(
       });
       
       // Note: FCM push notification will be sent automatically by onNotificationCreated trigger
-    } catch (error: any) {
-      console.error(`Error sending reminder to user ${userId}:`, error);
+    } catch (error: unknown) {
+      console.error(`Error sending reminder to user ${userId}:`, formatError(error));
     }
   }
 }

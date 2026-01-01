@@ -65,6 +65,7 @@ import {
   TrainingVideo,
   PrivateMessageRequest,
 } from "../types";
+import { getErrorCode, getErrorMessage } from "../utils/errors";
 
 // ==================== ORGANIZATION OPERATIONS ====================
 
@@ -139,11 +140,13 @@ export const getAllOrganizations = async (): Promise<Organization[]> => {
     let snapshot;
     try {
       snapshot = await getDocs(q);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If index missing, try without orderBy
+      const errorCode = getErrorCode(error);
+      const errorMessage = getErrorMessage(error);
       if (
-        error?.code === "failed-precondition" ||
-        error?.message?.includes("index")
+        errorCode === "failed-precondition" ||
+        errorMessage.includes("index")
       ) {
         console.warn(
           "Index missing for organizations createdAt, fetching without orderBy"
@@ -334,11 +337,13 @@ export const getAllUsers = async (): Promise<User[]> => {
     let snapshot;
     try {
       snapshot = await getDocs(q);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If index missing, try without orderBy
+      const errorCode = getErrorCode(error);
+      const errorMessage = getErrorMessage(error);
       if (
-        error?.code === "failed-precondition" ||
-        error?.message?.includes("index")
+        errorCode === "failed-precondition" ||
+        errorMessage.includes("index")
       ) {
         console.warn(
           "Index missing for users createdAt, fetching without orderBy"
@@ -430,11 +435,13 @@ export const getAllMatches = async (): Promise<Match[]> => {
     let snapshot;
     try {
       snapshot = await getDocs(q);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If index missing, try without orderBy
+      const errorCode = getErrorCode(error);
+      const errorMessage = getErrorMessage(error);
       if (
-        error?.code === "failed-precondition" ||
-        error?.message?.includes("index")
+        errorCode === "failed-precondition" ||
+        errorMessage.includes("index")
       ) {
         console.warn(
           "Index missing for matches startDate, fetching without orderBy"
@@ -530,11 +537,13 @@ export const getAllGoals = async (): Promise<Goal[]> => {
     let snapshot;
     try {
       snapshot = await getDocs(q);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If index missing, try without orderBy
+      const errorCode = getErrorCode(error);
+      const errorMessage = getErrorMessage(error);
       if (
-        error?.code === "failed-precondition" ||
-        error?.message?.includes("index")
+        errorCode === "failed-precondition" ||
+        errorMessage.includes("index")
       ) {
         console.warn(
           "Index missing for goals dueDate, fetching without orderBy"
@@ -676,11 +685,13 @@ export const getAllRatings = async (): Promise<Rating[]> => {
     let snapshot;
     try {
       snapshot = await getDocs(q);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If index missing, try without orderBy
+      const errorCode = getErrorCode(error);
+      const errorMessage = getErrorMessage(error);
       if (
-        error?.code === "failed-precondition" ||
-        error?.message?.includes("index")
+        errorCode === "failed-precondition" ||
+        errorMessage.includes("index")
       ) {
         console.warn(
           "Index missing for ratings date, fetching without orderBy"
@@ -1105,11 +1116,13 @@ export const getAllCalendarEvents = async (
     let hasOrderBy = true; // Track whether we're using orderBy
     try {
       snapshot = await getDocs(q);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If index missing, try without orderBy
+      const errorCode = getErrorCode(error);
+      const errorMessage = getErrorMessage(error);
       if (
-        error?.code === "failed-precondition" ||
-        error?.message?.includes("index")
+        errorCode === "failed-precondition" ||
+        errorMessage.includes("index")
       ) {
         console.warn(
           "Index missing for calendarEvents date, fetching without orderBy"

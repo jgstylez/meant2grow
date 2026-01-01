@@ -22,6 +22,7 @@ import {
   getOrganization,
 } from "../services/database";
 import { Role, User, Invitation, Organization } from "../types";
+import { getErrorMessage } from "../utils/errors";
 
 // Helper function to convert hex to RGB
 const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
@@ -320,9 +321,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
         onLogin(false, false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Authentication error:", err);
-      setError(err.message || "Authentication failed");
+      setError(getErrorMessage(err) || "Authentication failed");
     } finally {
       setIsLoading(false);
     }
@@ -556,9 +557,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
         onLogin(false, false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Google sign-in error:", err);
-      setError(err.message || "Failed to sign in with Google");
+      setError(getErrorMessage(err) || "Failed to sign in with Google");
     } finally {
       setIsGoogleLoading(false);
     }
@@ -654,9 +655,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
         onLogin(true, false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Signup error:", err);
-      setError(err.message || "Failed to create organization");
+      setError(getErrorMessage(err) || "Failed to create organization");
     } finally {
       setIsLoading(false);
       setIsGoogleLoading(false);

@@ -8,6 +8,7 @@ import {
   removeFCMToken
 } from '../services/messaging';
 import { getAuth } from 'firebase/auth';
+import { getErrorMessage } from '../utils/errors';
 
 interface FCMState {
   isSupported: boolean;
@@ -59,14 +60,14 @@ export function useFCM(userId: string | null) {
           isInitializing: false,
           permission: updatedPermission,
         }));
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error initializing FCM:', error);
         // Update permission even on error (user may have granted/denied during the process)
         const updatedPermission = getNotificationPermission();
         setState(prev => ({
           ...prev,
           isInitializing: false,
-          error: error.message || 'Failed to initialize notifications',
+          error: getErrorMessage(error) || 'Failed to initialize notifications',
           permission: updatedPermission,
         }));
       }
@@ -146,10 +147,10 @@ export function useFCM(userId: string | null) {
         error: null,
       }));
       return result !== null && result.token !== null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       setState(prev => ({
         ...prev,
-        error: error.message || 'Failed to request permission',
+        error: getErrorMessage(error) || 'Failed to request permission',
         permission: getNotificationPermission(),
       }));
       return false;

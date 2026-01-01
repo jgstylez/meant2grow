@@ -34,6 +34,7 @@ import {
     clearAppleCredentials,
 } from '../services/appleCalendarService';
 import { useDevices } from '../hooks/useDevices';
+import { getErrorMessage } from '../utils/errors';
 
 interface SettingsViewProps {
     user: User;
@@ -186,9 +187,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                     setBillingError(null);
                     const data = await getBillingData(organizationId);
                     setBillingData(data);
-                } catch (error: any) {
+                } catch (error: unknown) {
                     console.error('Error fetching billing data:', error);
-                    setBillingError(error.message || 'Failed to load billing data');
+                    setBillingError(getErrorMessage(error) || 'Failed to load billing data');
                 } finally {
                     setIsBillingLoading(false);
                 }
@@ -213,9 +214,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
             );
             // Redirect to Flowglad's hosted checkout page
             window.location.href = checkoutUrl;
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error starting checkout:', error);
-            alert(error.message || 'Failed to start checkout session');
+            alert(getErrorMessage(error) || 'Failed to start checkout session');
             setIsBillingLoading(false);
         }
     };
@@ -229,9 +230,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
         try {
             setIsBillingLoading(true);
             await openBillingPortal(organizationId);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error opening billing portal:', error);
-            alert(error.message || 'Failed to open billing portal');
+            alert(getErrorMessage(error) || 'Failed to open billing portal');
             setIsBillingLoading(false);
         }
     };
@@ -270,9 +271,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                     setTimeout(() => setShowSuccess(false), 3000);
                     // Clean up URL
                     window.history.replaceState({}, document.title, window.location.pathname);
-                } catch (error: any) {
+                } catch (error: unknown) {
                     console.error('Error connecting Outlook:', error);
-                    alert(error.message || 'Failed to connect Outlook calendar');
+                    alert(getErrorMessage(error) || 'Failed to connect Outlook calendar');
                 } finally {
                     setCalendarSyncing(prev => ({ ...prev, outlook: false }));
                 }
@@ -922,7 +923,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     setGoogleConnected(false);
                                                     setShowSuccess(true);
                                                     setTimeout(() => setShowSuccess(false), 3000);
-                                                } catch (error: any) {
+                                                } catch (error: unknown) {
                                                     console.error('Error disconnecting Google Calendar:', error);
                                                 }
                                             }}
@@ -941,9 +942,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     setGoogleConnected(true);
                                                     setShowSuccess(true);
                                                     setTimeout(() => setShowSuccess(false), 3000);
-                                                } catch (error: any) {
+                                                } catch (error: unknown) {
                                                     console.error('Error connecting Google Calendar:', error);
-                                                    alert(error.message || 'Failed to connect Google Calendar');
+                                                    alert(getErrorMessage(error) || 'Failed to connect Google Calendar');
                                                 } finally {
                                                     setCalendarSyncing(prev => ({ ...prev, google: false }));
                                                 }

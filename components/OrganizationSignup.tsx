@@ -21,6 +21,7 @@ import {
   subscribeToOrganization,
 } from "../services/database";
 import { Role, User, Invitation, Organization } from "../types";
+import { getErrorMessage } from "../utils/errors";
 
 interface OrganizationSignupProps {
   onLogin: (
@@ -117,10 +118,10 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
             }
           });
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!ignore) {
           console.error("Error loading organization:", err);
-          setError(err.message || "Failed to load organization");
+          setError(getErrorMessage(err) || "Failed to load organization");
         }
       } finally {
         if (!ignore) {
@@ -260,9 +261,9 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
       localStorage.setItem("userId", userId);
 
       onLogin(false, true, participantRole);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Authentication error:", err);
-      setError(err.message || "Authentication failed");
+      setError(getErrorMessage(err) || "Authentication failed");
     } finally {
       setIsLoading(false);
     }
@@ -398,9 +399,9 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
       localStorage.setItem("userId", joinedUser.id);
 
       onLogin(false, true, participantRole);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Google sign-in error:", err);
-      setError(err.message || "Failed to sign in with Google");
+      setError(getErrorMessage(err) || "Failed to sign in with Google");
     } finally {
       setIsGoogleLoading(false);
     }

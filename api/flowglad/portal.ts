@@ -8,6 +8,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getErrorMessage } from '../../utils/errors';
 
 const FLOWGLAD_API_URL = 'https://app.flowglad.com/api/v1';
 
@@ -72,11 +73,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             })),
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Portal error:', error);
         return res.status(500).json({
             error: 'Internal server error',
-            message: error.message,
+            message: getErrorMessage(error),
         });
     }
 }

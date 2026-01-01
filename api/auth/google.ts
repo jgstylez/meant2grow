@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { Role } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
 
 // Initialize Firebase Admin (server-side)
 if (!getApps().length) {
@@ -390,8 +391,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     return res.status(400).json({ error: 'Either invitationToken, organizationCode, or isNewOrg must be provided' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Auth error:', error);
-    return res.status(500).json({ error: 'Internal server error', message: error.message });
+    return res.status(500).json({ error: 'Internal server error', message: getErrorMessage(error) });
   }
 }

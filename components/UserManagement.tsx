@@ -10,6 +10,7 @@ import {
 } from "../services/database";
 import { emailService } from "../services/emailService";
 import { CARD_CLASS, INPUT_CLASS, BUTTON_PRIMARY } from "../styles/common";
+import { getErrorMessage } from "../utils/errors";
 import {
   Users,
   Search,
@@ -135,7 +136,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
             setTimeout(() => reject(new Error("getAllUsers timeout")), 15000)
           ),
         ]);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("[UserManagement] Error loading users:", error);
         // Continue with empty array if users fail
         allUsers = [];
@@ -151,7 +152,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
           )
           ),
         ]);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("[UserManagement] Error loading organizations:", error);
         // Continue with empty array if orgs fail
         allOrgs = [];
@@ -336,9 +337,9 @@ const UserManagement: React.FC<UserManagementProps> = ({
       await updateUser(user.id, updates);
       await refreshData();
       setEditingUser(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error updating user:", error);
-      alert("Failed to update user: " + error.message);
+      alert("Failed to update user: " + getErrorMessage(error));
     }
   };
 
@@ -347,9 +348,9 @@ const UserManagement: React.FC<UserManagementProps> = ({
       await deleteUser(userId);
       await refreshData();
       setShowDeleteConfirm(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting user:", error);
-      alert("Failed to delete user: " + error.message);
+      alert("Failed to delete user: " + getErrorMessage(error));
     }
   };
 
@@ -358,9 +359,9 @@ const UserManagement: React.FC<UserManagementProps> = ({
       await deleteOrganization(orgId);
       await refreshData();
       setShowDeleteConfirm(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting organization:", error);
-      alert("Failed to delete organization: " + error.message);
+      alert("Failed to delete organization: " + getErrorMessage(error));
     }
   };
 
@@ -474,9 +475,9 @@ const UserManagement: React.FC<UserManagementProps> = ({
       setSelectedOrgAdmins(new Set());
       setEmailSubject("");
       setEmailBody("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error sending email:", error);
-      alert(`Failed to send email: ${error.message || "Unknown error"}`);
+      alert(`Failed to send email: ${getErrorMessage(error) || "Unknown error"}`);
     } finally {
       setSendingEmail(false);
     }

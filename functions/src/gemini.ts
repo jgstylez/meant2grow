@@ -2,6 +2,7 @@ import * as functions from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { GoogleGenAI, Type } from "@google/genai";
 import { User, Resource } from "./types";
+import { getErrorMessage, formatError } from "./utils/errors";
 
 // Define the Gemini API key as a secret
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
@@ -108,12 +109,12 @@ export const getMatchSuggestions = functions.onCall(
         return [];
       }
       return JSON.parse(jsonText);
-    } catch (error: any) {
-      console.error("Error fetching match suggestions:", error);
+    } catch (error: unknown) {
+      console.error("Error fetching match suggestions:", formatError(error));
       throw new functions.HttpsError(
         "internal",
         "Failed to get match suggestions",
-        error.message
+        getErrorMessage(error)
       );
     }
   }
@@ -193,12 +194,12 @@ export const getRecommendedResources = functions.onCall(
         return [];
       }
       return JSON.parse(jsonText);
-    } catch (error: any) {
-      console.error("Error fetching resources:", error);
+    } catch (error: unknown) {
+      console.error("Error fetching resources:", formatError(error));
       throw new functions.HttpsError(
         "internal",
         "Failed to get resource recommendations",
-        error.message
+        getErrorMessage(error)
       );
     }
   }
@@ -268,8 +269,8 @@ export const breakdownGoal = functions.onCall(
         return { steps: [] };
       }
       return JSON.parse(jsonText);
-    } catch (error: any) {
-      console.error("Error breaking down goal", error);
+    } catch (error: unknown) {
+      console.error("Error breaking down goal", formatError(error));
       // Return fallback steps on error
       return {
         steps: [
@@ -393,8 +394,8 @@ export const suggestMilestones = functions.onCall(
       }
       const parsed = JSON.parse(jsonText);
       return parsed.milestones || [];
-    } catch (error: any) {
-      console.error("Error suggesting milestones", error);
+    } catch (error: unknown) {
+      console.error("Error suggesting milestones", formatError(error));
       // Return fallback milestones on error
       const goalDate = new Date(goalDueDate);
       const quarter1 = new Date(

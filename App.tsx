@@ -947,23 +947,48 @@ const App: React.FC = () => {
       if (!organizationId || !currentUser || !organization)
         throw new Error("Organization ID, user, and organization are required");
 
-      // Create invitation (this will auto-generate token and link)
-      const invitationId = await createInvitation({
-        organizationId,
-        name: inviteData.name || "Unknown",
-        email: inviteData.email.toLowerCase(),
-        role: inviteData.role,
-        status: "Pending",
-        sentDate: new Date().toISOString().split("T")[0],
-        inviterId: currentUser.id,
-      });
+      const { getInvitation, getInvitationByEmail } = await import("./services/database");
+      let invitationId: string;
+      let createdInvitation: any;
 
-      // Get the created invitation to retrieve the link
-      const { getInvitation } = await import("./services/database");
-      const createdInvitation = await getInvitation(invitationId);
+      // If an invitation ID is provided, reuse that invitation
+      if (inviteData.invitationId) {
+        invitationId = inviteData.invitationId;
+        createdInvitation = await getInvitation(invitationId);
+        
+        if (!createdInvitation) {
+          throw new Error("Failed to retrieve existing invitation");
+        }
+      } else {
+        // Check if there's already an existing invitation for this email
+        const existingInvitation = await getInvitationByEmail(
+          inviteData.email.toLowerCase(),
+          organizationId
+        );
 
-      if (!createdInvitation) {
-        throw new Error("Failed to retrieve created invitation");
+        if (existingInvitation) {
+          // Reuse existing invitation
+          invitationId = existingInvitation.id;
+          createdInvitation = existingInvitation;
+        } else {
+          // Create new invitation (this will auto-generate token and link)
+          invitationId = await createInvitation({
+            organizationId,
+            name: inviteData.name || "Unknown",
+            email: inviteData.email.toLowerCase(),
+            role: inviteData.role,
+            status: "Pending",
+            sentDate: new Date().toISOString().split("T")[0],
+            inviterId: currentUser.id,
+          });
+
+          // Get the created invitation to retrieve the link
+          createdInvitation = await getInvitation(invitationId);
+
+          if (!createdInvitation) {
+            throw new Error("Failed to retrieve created invitation");
+          }
+        }
       }
 
       if (createdInvitation && createdInvitation.invitationLink) {

@@ -13,6 +13,7 @@ import {
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import * as dotenv from "dotenv";
 import { resolve, dirname } from "path";
+import { getErrorMessage, getErrorCode } from "../utils/errors";
 import { fileURLToPath } from "url";
 import { readFileSync } from "fs";
 
@@ -115,10 +116,12 @@ async function createPlatformAdmin(email: string, name: string) {
     console.log(`  User ID: ${userRef.id}`);
     console.log(`\n⚠️  Note: This user will need to sign in through the app.`);
     console.log(`  They should use their email (${email}) to authenticate.`);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Failed to create platform admin:", error);
+    const errorCode = getErrorCode(error);
+    const errorMessage = getErrorMessage(error);
 
-    if (error.code === 7 || error.message?.includes("PERMISSION_DENIED")) {
+    if (errorCode === "7" || errorMessage.includes("PERMISSION_DENIED")) {
       console.error("\n🔒 Permission Denied Error");
       console.error(
         "The service account doesn't have permission to access Firestore."
