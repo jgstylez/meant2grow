@@ -28,7 +28,17 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onNavigate, onBack }) =
       }
 
       // Check if user exists
-      const user = await findUserByEmail(email.trim());
+      let user;
+      try {
+        user = await findUserByEmail(email.trim());
+      } catch (dbError: unknown) {
+        // Database error - don't reveal if email exists for security
+        console.error("Database error checking user:", dbError);
+        setSuccess(true);
+        setIsLoading(false);
+        return;
+      }
+
       if (!user) {
         // Don't reveal if email exists for security - show success anyway
         setSuccess(true);
@@ -51,8 +61,9 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onNavigate, onBack }) =
       setSuccess(true);
     } catch (err: unknown) {
       console.error("Password reset error:", err);
-      // Still show success for security (don't reveal if email exists)
-      setSuccess(true);
+      // Show error for validation errors and API failures
+      // (We've already confirmed user exists at this point, so showing error is safe)
+      setError(getErrorMessage(err) || "An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
