@@ -57,12 +57,41 @@ service cloud.firestore {
       return isPlatformAdmin() || belongsToOrg(organizationId);
     }
     
+    // Validate organization data on create
+    function isValidOrganization() {
+      let data = request.resource.data;
+      return data.name is string && 
+             data.name.size() > 0 &&
+             data.createdAt is timestamp &&
+             data.organizationCode is string &&
+             data.organizationCode.size() > 0 &&
+             (!exists(data.subscriptionTier) || 
+              data.subscriptionTier in ['free', 'starter', 'professional', 'business', 'enterprise']);
+    }
+    
+    // Validate user data on create
+    function isValidUser() {
+      let data = request.resource.data;
+      // Basic email validation (contains @ and .)
+      let emailValid = data.email is string && 
+                       data.email.size() > 0 &&
+                       data.email.matches('.*@.*\\..*');
+      return data.organizationId is string &&
+             data.organizationId.size() > 0 &&
+             data.name is string &&
+             data.name.size() > 0 &&
+             emailValid &&
+             data.role is string &&
+             data.role.size() > 0 &&
+             data.createdAt is timestamp;
+    }
+    
     // ==================== ORGANIZATIONS ====================
     
     match /organizations/{orgId} {
-      // Allow unauthenticated users to create organizations (for signup)
-      // Also allow authenticated users to create organizations
-      allow create: if true;
+      // Allow unauthenticated users to create organizations (for signup) with validation
+      // Also allow authenticated users to create organizations with validation
+      allow create: if isValidOrganization();
       
       // Users can read their own organization, platform admins can read all
       // Also allow unauthenticated reads for organization code lookups during signup
@@ -83,9 +112,9 @@ service cloud.firestore {
     // ==================== USERS ====================
     
     match /users/{userId} {
-      // Allow unauthenticated users to create accounts (for signup)
-      // Also allow authenticated users to create users
-      allow create: if true;
+      // Allow unauthenticated users to create accounts (for signup) with validation
+      // Also allow authenticated users to create users with validation
+      allow create: if isValidUser();
       
       // Users can read users in their organization, or their own profile, platform admins can read all
       // Also allow unauthenticated reads for email lookups during login

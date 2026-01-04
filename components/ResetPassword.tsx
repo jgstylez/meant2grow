@@ -29,7 +29,11 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, onBack, token
       if (!urlToken) {
         setTokenError("Invalid or missing reset token. Please request a new password reset link.");
         setIsValidatingToken(false);
+      } else {
+        setIsValidatingToken(false);
       }
+    } else {
+      setIsValidatingToken(false);
     }
   }, [token]);
 

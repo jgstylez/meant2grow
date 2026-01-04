@@ -203,7 +203,8 @@ const App: React.FC = () => {
         setPublicRoute("reset-password");
       }
     }
-  }, [publicRoute]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
   const [authInitialMode, setAuthInitialMode] = useState<
     "login" | "org-signup" | "participant-signup" | "choose"
   >("choose");

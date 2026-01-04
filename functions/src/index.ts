@@ -667,7 +667,6 @@ export const sendAdminEmail = functions.onRequest(
       res.status(500).json({
         error: "Failed to send email",
         message: getErrorMessage(error),
-        message: error.message,
       });
     }
   }
