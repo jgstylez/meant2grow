@@ -1765,7 +1765,7 @@ export const subscribeToDiscussionGuides = (
     },
     (error) => {
       logger.error("Error subscribing to platform discussion guides", error);
-      callback([]);
+      updateCallback();
     }
   );
 
@@ -1787,7 +1787,7 @@ export const subscribeToDiscussionGuides = (
       (error) => {
         logger.error("Error subscribing to org discussion guides", error);
         logger.debug("OrganizationId", { organizationId });
-        callback([]);
+        updateCallback();
       }
     );
   }
@@ -1846,7 +1846,7 @@ export const subscribeToCareerTemplates = (
     },
     (error) => {
       logger.error("Error subscribing to platform career templates", error);
-      callback([]);
+      updateCallback();
     }
   );
 
@@ -1868,7 +1868,7 @@ export const subscribeToCareerTemplates = (
       (error) => {
         logger.error("Error subscribing to org career templates", error);
         logger.debug("OrganizationId", { organizationId });
-        callback([]);
+        updateCallback();
       }
     );
   }
@@ -1927,7 +1927,7 @@ export const subscribeToTrainingVideos = (
     },
     (error) => {
       logger.error("Error subscribing to platform training videos", error);
-      callback([]);
+      updateCallback();
     }
   );
 
@@ -1949,7 +1949,7 @@ export const subscribeToTrainingVideos = (
       (error) => {
         logger.error("Error subscribing to org training videos", error);
         logger.debug("OrganizationId", { organizationId });
-        callback([]);
+        updateCallback();
       }
     );
   }
