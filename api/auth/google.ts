@@ -127,7 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .limit(1)
         .get();
 
-      let userDoc = userSnapshot.empty ? null : userSnapshot.docs[0];
+      let userDoc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFirestore.DocumentSnapshot | null = userSnapshot.empty ? null : userSnapshot.docs[0];
 
       // If not found by Google ID, check by email
       if (!userDoc) {
@@ -145,7 +145,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           await userDoc.ref.update({ googleId });
           // Refresh the document snapshot to get updated data
           const updatedDoc = await userDoc.ref.get();
-          userDoc = updatedDoc;
+          userDoc = updatedDoc as FirebaseFirestore.QueryDocumentSnapshot;
         }
 
         // Mark invitation as accepted
@@ -308,7 +308,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .limit(1)
         .get();
 
-      let userDoc = userSnapshot.empty ? null : userSnapshot.docs[0];
+      let userDoc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFirestore.DocumentSnapshot | null = userSnapshot.empty ? null : userSnapshot.docs[0];
 
       // If not found by Google ID, check by email
       if (!userDoc) {
@@ -326,7 +326,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           await userDoc.ref.update({ googleId });
           // Refresh the document snapshot to get updated data
           const updatedDoc = await userDoc.ref.get();
-          userDoc = updatedDoc;
+          userDoc = updatedDoc as FirebaseFirestore.QueryDocumentSnapshot;
         }
 
         const userData = userDoc.data();

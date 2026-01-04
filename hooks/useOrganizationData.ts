@@ -16,6 +16,7 @@ import {
   CareerTemplate,
   TrainingVideo,
 } from "../types";
+import { getErrorMessage } from "../utils/errors";
 import {
   subscribeToUser,
   subscribeToOrganization,

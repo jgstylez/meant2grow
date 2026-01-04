@@ -645,12 +645,6 @@ export const createEmailService = (config: EmailServiceConfig) => {
         ...template,
         category: "Password Reset",
       });
-    },const template = templates.trialEnding(user, organization, daysRemaining);
-      await sendEmail({
-        to: [{ email: user.email, name: user.name }],
-        ...template,
-        category: "Billing",
-      });
     },
 
     sendMeetingReminder: async (

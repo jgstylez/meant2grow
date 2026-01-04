@@ -222,10 +222,8 @@ const Participants: React.FC<ParticipantsProps> = ({
             const u = users.find((usr) => usr.id === userId);
             return u ? { email: u.email, name: u.name, userId: u.id } : null;
           })
-          .filter(
-            (r): r is { email: string; name?: string; userId?: string } =>
-              r !== null
-          );
+          .filter((r) => r !== null)
+          .map((r) => ({ email: r!.email, name: r!.name, userId: r!.userId }));
       } else if (user) {
         // Single user email
         recipients = [{ email: user.email, name: user.name, userId: user.id }];

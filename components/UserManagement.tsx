@@ -456,10 +456,8 @@ const UserManagement: React.FC<UserManagementProps> = ({
             ? { email: admin.email, name: admin.name, userId: admin.id }
             : null;
         })
-        .filter(
-          (r): r is { email: string; name?: string; userId?: string } =>
-            r !== null
-        );
+        .filter((r) => r !== null)
+        .map((r) => ({ email: r!.email, name: r!.name, userId: r!.userId }));
 
       await emailService.sendCustomEmail(
         recipients,

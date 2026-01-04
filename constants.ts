@@ -251,7 +251,8 @@ export const MOCK_INVITATIONS: Invitation[] = [
     role: Role.MENTEE,
     status: 'Pending',
     sentDate: '2023-10-25',
-    inviterId: 'u1'
+    inviterId: 'u1',
+    token: 'mock-token-1'
   },
   {
     organizationId: 'org1', id: 'i2',
@@ -260,7 +261,8 @@ export const MOCK_INVITATIONS: Invitation[] = [
     role: Role.MENTOR,
     status: 'Accepted',
     sentDate: '2023-10-20',
-    inviterId: 'u1'
+    inviterId: 'u1',
+    token: 'mock-token-2'
   }
 ];
 

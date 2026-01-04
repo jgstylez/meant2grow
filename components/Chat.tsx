@@ -1494,17 +1494,14 @@ const Chat: React.FC<ChatProps> = ({
   }, [activeChatId, activeChat, allChats]);
 
   const currentChatMessages = messages[activeChatId] || [];
-  // @ts-ignore
-  const isGroup = activeChat?.type === "group";
-  // @ts-ignore
-  const groupMembers = isGroup
+  const isGroup = activeChat && 'type' in activeChat && activeChat.type === "group";
+  const groupMembers = isGroup && activeChat && 'members' in activeChat
     ? (activeChat.members
         .map((id) => users.find((u) => u.id === id))
         .filter(Boolean) as User[])
     : [];
-  // @ts-ignore
   const chatPartner =
-    !isGroup && activeChat ? users.find((u) => u.id === activeChat.id) : null;
+    !isGroup && activeChat && !('type' in activeChat) ? users.find((u) => u.id === activeChat.id) : null;
   const isBlocked = chatPartner && blockedUsers.includes(chatPartner.id);
 
   const handleManualSentimentChange = (
