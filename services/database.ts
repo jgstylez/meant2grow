@@ -1402,17 +1402,25 @@ export const subscribeToUser = (
   callback: (user: User | null) => void
 ): Unsubscribe => {
   const userRef = doc(db, "users", userId);
-  return onSnapshot(userRef, (snap: DocumentSnapshot) => {
-    if (snap.exists()) {
-      callback({
-        id: snap.id,
-        ...snap.data(),
-        createdAt: convertTimestamp(snap.data().createdAt),
-      } as User);
-    } else {
+  return onSnapshot(
+    userRef,
+    (snap: DocumentSnapshot) => {
+      if (snap.exists()) {
+        callback({
+          id: snap.id,
+          ...snap.data(),
+          createdAt: convertTimestamp(snap.data().createdAt),
+        } as User);
+      } else {
+        callback(null);
+      }
+    },
+    (error) => {
+      logger.error("Error subscribing to user", error);
+      logger.debug("UserId", { userId });
       callback(null);
     }
-  });
+  );
 };
 
 export const subscribeToOrganization = (
@@ -1420,17 +1428,25 @@ export const subscribeToOrganization = (
   callback: (org: Organization | null) => void
 ): Unsubscribe => {
   const orgRef = doc(db, "organizations", organizationId);
-  return onSnapshot(orgRef, (snap: DocumentSnapshot) => {
-    if (snap.exists()) {
-      callback({
-        id: snap.id,
-        ...snap.data(),
-        createdAt: convertTimestamp(snap.data().createdAt),
-      } as Organization);
-    } else {
+  return onSnapshot(
+    orgRef,
+    (snap: DocumentSnapshot) => {
+      if (snap.exists()) {
+        callback({
+          id: snap.id,
+          ...snap.data(),
+          createdAt: convertTimestamp(snap.data().createdAt),
+        } as Organization);
+      } else {
+        callback(null);
+      }
+    },
+    (error) => {
+      logger.error("Error subscribing to organization", error);
+      logger.debug("OrganizationId", { organizationId });
       callback(null);
     }
-  });
+  );
 };
 
 export const subscribeToUsersByOrganization = (
@@ -1458,6 +1474,8 @@ export const subscribeToUsersByOrganization = (
     (error) => {
       logger.error("Error subscribing to users", error);
       logger.debug("OrganizationId", { organizationId });
+      // Call callback with empty array on error to prevent UI from hanging
+      callback([]);
     }
   );
 };
@@ -1474,13 +1492,21 @@ export const subscribeToMatchesByOrganization = (
     firestoreLimit(pageSize)
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const matches = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Match[];
-    callback(matches);
-  });
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot) => {
+      const matches = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Match[];
+      callback(matches);
+    },
+    (error) => {
+      logger.error("Error subscribing to matches", error);
+      logger.debug("OrganizationId", { organizationId });
+      callback([]);
+    }
+  );
 };
 
 export const subscribeToGoalsByOrganization = (
@@ -1495,13 +1521,21 @@ export const subscribeToGoalsByOrganization = (
     firestoreLimit(pageSize)
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const goals = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Goal[];
-    callback(goals);
-  });
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot) => {
+      const goals = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Goal[];
+      callback(goals);
+    },
+    (error) => {
+      logger.error("Error subscribing to goals", error);
+      logger.debug("OrganizationId", { organizationId });
+      callback([]);
+    }
+  );
 };
 
 export const subscribeToRatingsByOrganization = (
@@ -1516,13 +1550,21 @@ export const subscribeToRatingsByOrganization = (
     firestoreLimit(pageSize)
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const ratings = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Rating[];
-    callback(ratings);
-  });
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot) => {
+      const ratings = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Rating[];
+      callback(ratings);
+    },
+    (error) => {
+      logger.error("Error subscribing to ratings", error);
+      logger.debug("OrganizationId", { organizationId });
+      callback([]);
+    }
+  );
 };
 
 export const subscribeToResourcesByOrganization = (
@@ -1537,14 +1579,22 @@ export const subscribeToResourcesByOrganization = (
     firestoreLimit(pageSize)
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const resources = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: convertTimestamp(doc.data().createdAt),
-    })) as Resource[];
-    callback(resources);
-  });
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot) => {
+      const resources = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: convertTimestamp(doc.data().createdAt),
+      })) as Resource[];
+      callback(resources);
+    },
+    (error) => {
+      logger.error("Error subscribing to resources", error);
+      logger.debug("OrganizationId", { organizationId });
+      callback([]);
+    }
+  );
 };
 
 export const subscribeToCalendarEventsByOrganization = (
@@ -1559,14 +1609,22 @@ export const subscribeToCalendarEventsByOrganization = (
     firestoreLimit(pageSize)
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const events = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: convertTimestamp(doc.data().createdAt),
-    })) as CalendarEvent[];
-    callback(events);
-  });
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot) => {
+      const events = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: convertTimestamp(doc.data().createdAt),
+      })) as CalendarEvent[];
+      callback(events);
+    },
+    (error) => {
+      logger.error("Error subscribing to calendar events", error);
+      logger.debug("OrganizationId", { organizationId });
+      callback([]);
+    }
+  );
 };
 
 export const subscribeToNotificationsByUser = (
@@ -1583,16 +1641,24 @@ export const subscribeToNotificationsByUser = (
     firestoreLimit(pageSize)
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const notifications = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      timestamp:
-        doc.data().timestamp?.toDate().toISOString() ||
-        new Date().toISOString(),
-    })) as Notification[];
-    callback(notifications);
-  });
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot) => {
+      const notifications = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp:
+          doc.data().timestamp?.toDate().toISOString() ||
+          new Date().toISOString(),
+      })) as Notification[];
+      callback(notifications);
+    },
+    (error) => {
+      logger.error("Error subscribing to notifications", error);
+      logger.debug("UserId, OrganizationId", { userId, organizationId });
+      callback([]);
+    }
+  );
 };
 
 export const subscribeToInvitationsByOrganization = (
@@ -1607,13 +1673,21 @@ export const subscribeToInvitationsByOrganization = (
     firestoreLimit(pageSize)
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const invitations = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Invitation[];
-    callback(invitations);
-  });
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot) => {
+      const invitations = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Invitation[];
+      callback(invitations);
+    },
+    (error) => {
+      logger.error("Error subscribing to invitations", error);
+      logger.debug("OrganizationId", { organizationId });
+      callback([]);
+    }
+  );
 };
 
 export const subscribeToBlogPosts = (
@@ -1626,105 +1700,266 @@ export const subscribeToBlogPosts = (
     q = query(q, where("published", "==", true));
   }
 
-  return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const posts = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: convertTimestamp(doc.data().createdAt),
-    })) as BlogPost[];
-    callback(posts);
-  });
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot) => {
+      const posts = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: convertTimestamp(doc.data().createdAt),
+      })) as BlogPost[];
+      callback(posts);
+    },
+    (error) => {
+      logger.error("Error subscribing to blog posts", error);
+      callback([]);
+    }
+  );
 };
 
+// Add error handling to all remaining subscription functions
 export const subscribeToDiscussionGuides = (
   organizationId: string | undefined,
   callback: (guides: DiscussionGuide[]) => void
 ): Unsubscribe => {
-  // We need two listeners if organizationId is provided: one for platform guides and one for org-specific guides
-  // However, for simplicity and to match the 'get' implementation, we can use one query if we want all
-  // But Firestore doesn't support 'OR' queries easily for (isPlatform == true OR organizationId == X)
-  // So we just listen to all and filter in memory, or use two listeners.
-
-  // Let's use one listener for all and filter if it's not too many,
-  // or better, just listen to the collection and filter.
-  const q = query(
+  // Use two separate queries: one for platform-wide guides and one for org-specific guides
+  // This ensures Firestore security rules can properly evaluate permissions
+  const platformQuery = query(
     collection(db, "discussionGuides"),
+    where("isPlatform", "==", true),
     orderBy("createdAt", "desc")
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const allGuides = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: convertTimestamp(doc.data().createdAt),
-    })) as DiscussionGuide[];
+  let orgQuery: ReturnType<typeof query> | null = null;
+  if (organizationId) {
+    orgQuery = query(
+      collection(db, "discussionGuides"),
+      where("organizationId", "==", organizationId),
+      orderBy("createdAt", "desc")
+    );
+  }
 
-    if (!organizationId) {
-      callback(allGuides.filter((g) => g.isPlatform));
-    } else {
-      callback(
-        allGuides.filter(
-          (g) => g.isPlatform || g.organizationId === organizationId
-        )
+  const platformGuides: DiscussionGuide[] = [];
+  const orgGuides: DiscussionGuide[] = [];
+
+  const updateCallback = () => {
+    const allGuides = [...platformGuides, ...orgGuides].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    callback(allGuides);
+  };
+
+  const unsubscribePlatform = onSnapshot(
+    platformQuery,
+    (snapshot: QuerySnapshot) => {
+      platformGuides.length = 0;
+      platformGuides.push(
+        ...snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: convertTimestamp(doc.data().createdAt),
+        })) as DiscussionGuide[]
       );
+      updateCallback();
+    },
+    (error) => {
+      logger.error("Error subscribing to platform discussion guides", error);
+      callback([]);
     }
-  });
+  );
+
+  let unsubscribeOrg: Unsubscribe | null = null;
+  if (orgQuery) {
+    unsubscribeOrg = onSnapshot(
+      orgQuery,
+      (snapshot: QuerySnapshot) => {
+        orgGuides.length = 0;
+        orgGuides.push(
+          ...snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: convertTimestamp(doc.data().createdAt),
+          })) as DiscussionGuide[]
+        );
+        updateCallback();
+      },
+      (error) => {
+        logger.error("Error subscribing to org discussion guides", error);
+        logger.debug("OrganizationId", { organizationId });
+        callback([]);
+      }
+    );
+  }
+
+  return () => {
+    unsubscribePlatform();
+    if (unsubscribeOrg) {
+      unsubscribeOrg();
+    }
+  };
 };
 
 export const subscribeToCareerTemplates = (
   organizationId: string | undefined,
   callback: (templates: CareerTemplate[]) => void
 ): Unsubscribe => {
-  const q = query(
+  // Use two separate queries: one for platform-wide templates and one for org-specific templates
+  const platformQuery = query(
     collection(db, "careerTemplates"),
+    where("isPlatform", "==", true),
     orderBy("createdAt", "desc")
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const allTemplates = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: convertTimestamp(doc.data().createdAt),
-    })) as CareerTemplate[];
+  let orgQuery: ReturnType<typeof query> | null = null;
+  if (organizationId) {
+    orgQuery = query(
+      collection(db, "careerTemplates"),
+      where("organizationId", "==", organizationId),
+      orderBy("createdAt", "desc")
+    );
+  }
 
-    if (!organizationId) {
-      callback(allTemplates.filter((t) => t.isPlatform));
-    } else {
-      callback(
-        allTemplates.filter(
-          (t) => t.isPlatform || t.organizationId === organizationId
-        )
+  const platformTemplates: CareerTemplate[] = [];
+  const orgTemplates: CareerTemplate[] = [];
+
+  const updateCallback = () => {
+    const allTemplates = [...platformTemplates, ...orgTemplates].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    callback(allTemplates);
+  };
+
+  const unsubscribePlatform = onSnapshot(
+    platformQuery,
+    (snapshot: QuerySnapshot) => {
+      platformTemplates.length = 0;
+      platformTemplates.push(
+        ...snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: convertTimestamp(doc.data().createdAt),
+        })) as CareerTemplate[]
       );
+      updateCallback();
+    },
+    (error) => {
+      logger.error("Error subscribing to platform career templates", error);
+      callback([]);
     }
-  });
+  );
+
+  let unsubscribeOrg: Unsubscribe | null = null;
+  if (orgQuery) {
+    unsubscribeOrg = onSnapshot(
+      orgQuery,
+      (snapshot: QuerySnapshot) => {
+        orgTemplates.length = 0;
+        orgTemplates.push(
+          ...snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: convertTimestamp(doc.data().createdAt),
+          })) as CareerTemplate[]
+        );
+        updateCallback();
+      },
+      (error) => {
+        logger.error("Error subscribing to org career templates", error);
+        logger.debug("OrganizationId", { organizationId });
+        callback([]);
+      }
+    );
+  }
+
+  return () => {
+    unsubscribePlatform();
+    if (unsubscribeOrg) {
+      unsubscribeOrg();
+    }
+  };
 };
 
 export const subscribeToTrainingVideos = (
   organizationId: string | undefined,
   callback: (videos: TrainingVideo[]) => void
 ): Unsubscribe => {
-  const q = query(
+  // Use two separate queries: one for platform-wide videos and one for org-specific videos
+  const platformQuery = query(
     collection(db, "trainingVideos"),
+    where("isPlatform", "==", true),
     orderBy("createdAt", "desc")
   );
 
-  return onSnapshot(q, (snapshot: QuerySnapshot) => {
-    const allVideos = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: convertTimestamp(doc.data().createdAt),
-    })) as TrainingVideo[];
+  let orgQuery: ReturnType<typeof query> | null = null;
+  if (organizationId) {
+    orgQuery = query(
+      collection(db, "trainingVideos"),
+      where("organizationId", "==", organizationId),
+      orderBy("createdAt", "desc")
+    );
+  }
 
-    if (!organizationId) {
-      callback(allVideos.filter((v) => v.isPlatform));
-    } else {
-      callback(
-        allVideos.filter(
-          (v) => v.isPlatform || v.organizationId === organizationId
-        )
+  const platformVideos: TrainingVideo[] = [];
+  const orgVideos: TrainingVideo[] = [];
+
+  const updateCallback = () => {
+    const allVideos = [...platformVideos, ...orgVideos].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    callback(allVideos);
+  };
+
+  const unsubscribePlatform = onSnapshot(
+    platformQuery,
+    (snapshot: QuerySnapshot) => {
+      platformVideos.length = 0;
+      platformVideos.push(
+        ...snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: convertTimestamp(doc.data().createdAt),
+        })) as TrainingVideo[]
       );
+      updateCallback();
+    },
+    (error) => {
+      logger.error("Error subscribing to platform training videos", error);
+      callback([]);
     }
-  });
+  );
+
+  let unsubscribeOrg: Unsubscribe | null = null;
+  if (orgQuery) {
+    unsubscribeOrg = onSnapshot(
+      orgQuery,
+      (snapshot: QuerySnapshot) => {
+        orgVideos.length = 0;
+        orgVideos.push(
+          ...snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: convertTimestamp(doc.data().createdAt),
+          })) as TrainingVideo[]
+        );
+        updateCallback();
+      },
+      (error) => {
+        logger.error("Error subscribing to org training videos", error);
+        logger.debug("OrganizationId", { organizationId });
+        callback([]);
+      }
+    );
+  }
+
+  return () => {
+    unsubscribePlatform();
+    if (unsubscribeOrg) {
+      unsubscribeOrg();
+    }
+  };
 };
 
 // ==================== PAGINATION HELPERS ====================

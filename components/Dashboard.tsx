@@ -538,6 +538,25 @@ const Dashboard: React.FC<DashboardProps> = ({
           if (error instanceof Error) {
             console.error("Error message:", error.message);
             console.error("Error stack:", error.stack);
+            
+            // Check for permission errors
+            if (error.message.includes("Missing or insufficient permissions")) {
+              console.error("❌ PERMISSION ERROR DETECTED");
+              console.error("This error occurs when:");
+              console.error("1. User document doesn't exist in Firestore");
+              console.error("2. User role is not set to PLATFORM_ADMIN");
+              console.error("3. Firestore rules are checking user document before allowing access");
+              console.error("\n📝 User info:", {
+                userId: user.id,
+                role: user.role,
+                organizationId: user.organizationId,
+                isPlatformAdmin,
+              });
+              console.error("\n💡 To fix:");
+              console.error("1. Check if user document exists: firebase firestore:get users/" + user.id);
+              console.error("2. Update user role: firebase firestore:update users/" + user.id + " role=PLATFORM_ADMIN");
+              console.error("3. Or run: npx ts-node scripts/check-user-role.ts " + user.id + " --fix");
+            }
           }
           // Set empty arrays on error to prevent undefined state
           setAllUsers([]);

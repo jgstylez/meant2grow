@@ -231,7 +231,9 @@ export const useOrganizationData = (
         setDiscussionGuides([]);
         setCareerTemplates([]);
         setTrainingVideos([]);
-        // Don't return early - let user subscription complete
+        // Return early to skip organization-scoped subscriptions
+        // Platform admins use getAllX() functions in Dashboard component instead
+        return;
       }
 
       // Subscribe to organization (only for non-platform admins)

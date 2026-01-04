@@ -387,6 +387,10 @@ const UserManagement: React.FC<UserManagementProps> = ({
     localStorage.setItem("userId", user.id);
     localStorage.setItem("organizationId", user.organizationId);
     
+    // Clear lastPage to ensure impersonated user sees their dashboard, not the user management page
+    localStorage.removeItem("lastPage");
+    localStorage.setItem("lastPage", "dashboard");
+    
     // Reload the app to trigger re-initialization with new user context
     window.location.reload();
   };

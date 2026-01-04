@@ -4,6 +4,8 @@ import LandingPage from "./components/LandingPage";
 import Authentication from "./components/Authentication";
 import OrganizationSignup from "./components/OrganizationSignup";
 import PublicPages from "./components/PublicPages";
+import ForgotPassword from "./components/ForgotPassword";
+import ResetPassword from "./components/ResetPassword";
 import {
   Role,
   User,
@@ -120,7 +122,9 @@ type PublicRoute =
   | "blog"
   | "community"
   | "help"
-  | "contact";
+  | "contact"
+  | "forgot-password"
+  | "reset-password";
 
 // Helper to compute initial auth state synchronously to prevent flash
 const getInitialAuthState = () => {
@@ -129,6 +133,7 @@ const getInitialAuthState = () => {
   const storedUserId = localStorage.getItem("userId");
   const storedOrgId = localStorage.getItem("organizationId");
   const lastPage = localStorage.getItem("lastPage");
+  const isImpersonating = localStorage.getItem("isImpersonating") === "true";
   
   // Check URL params for org-signup route to determine initial route
   // Note: Auth clearing will happen in useEffect after mount, not here
@@ -138,9 +143,21 @@ const getInitialAuthState = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const inviteToken = urlParams.get("invite");
     const orgCode = urlParams.get("orgCode");
+    const resetToken = urlParams.get("token");
+    const pathname = window.location.pathname;
+    const hash = window.location.hash;
     
+    // Check if we're on reset-password route
+    // Look for reset-password in search params, hash, or pathname, and a token
+    if (resetToken && (
+      urlParams.has("reset-password") || 
+      hash.includes("reset-password") || 
+      pathname.includes("/reset-password")
+    )) {
+      initialPublicRoute = "reset-password";
+    }
     // If there's an invite token or orgCode, show org-signup page
-    if (inviteToken || orgCode) {
+    else if (inviteToken || orgCode) {
       initialPublicRoute = "org-signup";
     }
   }
@@ -153,15 +170,18 @@ const getInitialAuthState = () => {
     lastPage === "mentee-onboarding" ||
     lastPage === "setup";
 
+  // When impersonating, always show dashboard to the impersonated user
+  // Don't restore user-management or other admin pages
+  const shouldUseLastPage = isAuthenticated && lastPage && !isOnboardingPage && !isImpersonating;
+
   return {
     userId: storedUserId,
     organizationId: storedOrgId,
     publicRoute: isAuthenticated
       ? ("hidden" as const)
       : initialPublicRoute,
-    // Only restore lastPage if authenticated and it's not an onboarding page
-    currentPage:
-      isAuthenticated && lastPage && !isOnboardingPage ? lastPage : "dashboard",
+    // Only restore lastPage if authenticated, not onboarding, and not impersonating
+    currentPage: shouldUseLastPage ? lastPage : "dashboard",
   };
 };
 
@@ -173,6 +193,17 @@ const App: React.FC = () => {
   const [publicRoute, setPublicRoute] = useState<PublicRoute | "hidden">(
     initialAuthState.publicRoute
   );
+
+  // Check URL params on mount for reset-password route
+  useEffect(() => {
+    if (typeof window !== "undefined" && publicRoute === "landing") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const resetToken = urlParams.get("token");
+      if (resetToken && (urlParams.has("reset-password") || window.location.hash.includes("reset-password"))) {
+        setPublicRoute("reset-password");
+      }
+    }
+  }, [publicRoute]);
   const [authInitialMode, setAuthInitialMode] = useState<
     "login" | "org-signup" | "participant-signup" | "choose"
   >("choose");
@@ -1433,6 +1464,8 @@ const App: React.FC = () => {
       "community",
       "help",
       "contact",
+      "forgot-password",
+      "reset-password",
     ];
     setPublicRoute(
       validPublicRoutes.includes(page) ? (page as PublicRoute) : "landing"
@@ -1481,6 +1514,34 @@ const App: React.FC = () => {
               handleLogin(isNewOrg, isParticipant, role);
             }}
             onNavigate={handlePublicNavigate}
+          />
+        </CommonLayout>
+      );
+    }
+
+    if (publicRoute === "forgot-password") {
+      return (
+        <CommonLayout>
+          <ForgotPassword
+            onNavigate={handlePublicNavigate}
+            onBack={() => {
+              setAuthInitialMode("login");
+              setPublicRoute("auth");
+            }}
+          />
+        </CommonLayout>
+      );
+    }
+
+    if (publicRoute === "reset-password") {
+      return (
+        <CommonLayout>
+          <ResetPassword
+            onNavigate={handlePublicNavigate}
+            onBack={() => {
+              setAuthInitialMode("login");
+              setPublicRoute("auth");
+            }}
           />
         </CommonLayout>
       );

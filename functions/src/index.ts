@@ -673,6 +673,37 @@ export const sendAdminEmail = functions.onRequest(
   }
 );
 
+// Password reset email endpoint
+export const sendPasswordResetEmail = functions.onRequest(
+  {
+    cors: true,
+    region: "us-central1",
+  },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method not allowed" });
+      return;
+    }
+
+    try {
+      const { email, resetUrl, userName } = req.body;
+
+      if (!email || !resetUrl) {
+        res.status(400).json({ error: "Email and reset URL are required" });
+        return;
+      }
+
+      const emailService = getEmailService();
+      await emailService.sendPasswordReset(email, resetUrl, userName || "User");
+
+      res.status(200).json({ message: "Password reset email sent successfully" });
+    } catch (error: any) {
+      console.error("Error sending password reset email:", error);
+      res.status(500).json({ error: "Failed to send password reset email", message: formatError(error) });
+    }
+  }
+);
+
 // Trigger when a new user is created
 export const onUserCreated = functionsV1.firestore
   .document("users/{userId}")

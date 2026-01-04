@@ -506,6 +506,67 @@ View Calendar: ${appUrl}/calendar
       `.trim(),
     };
   },
+
+  passwordReset: (email: string, resetUrl: string, userName: string) => ({
+    subject: 'Reset Your Meant2Grow Password',
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Reset Your Password</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0;">Reset Your Password</h1>
+          </div>
+          <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+            <p style="font-size: 16px; margin-bottom: 20px;">Hi ${userName},</p>
+            <p style="font-size: 16px; margin-bottom: 20px;">
+              We received a request to reset your password for your Meant2Grow account (${email}).
+            </p>
+            <p style="font-size: 16px; margin-bottom: 20px;">
+              Click the button below to reset your password. This link will expire in 1 hour.
+            </p>
+            <div style="margin: 30px 0;">
+              <a href="${resetUrl}" 
+                 style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                Reset Password
+              </a>
+            </div>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
+              If the button doesn't work, copy and paste this link into your browser:
+            </p>
+            <p style="font-size: 12px; color: #6b7280; word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px;">
+              ${resetUrl}
+            </p>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
+              If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.
+            </p>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 20px;">
+              For security reasons, this link will expire in 1 hour.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `
+Reset Your Meant2Grow Password
+
+Hi ${userName},
+
+We received a request to reset your password for your Meant2Grow account (${email}).
+
+Click the link below to reset your password. This link will expire in 1 hour.
+
+${resetUrl}
+
+If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.
+
+For security reasons, this link will expire in 1 hour.
+    `.trim(),
+  }),
 });
 
 // Factory function to create email service with configuration
@@ -570,6 +631,21 @@ export const createEmailService = (config: EmailServiceConfig) => {
       daysRemaining: number
     ) => {
       const template = templates.trialEnding(user, organization, daysRemaining);
+      await sendEmail({
+        to: [{ email: user.email, name: user.name }],
+        ...template,
+        category: "Billing",
+      });
+    },
+
+    sendPasswordReset: async (email: string, resetUrl: string, userName: string) => {
+      const template = templates.passwordReset(email, resetUrl, userName);
+      await sendEmail({
+        to: [{ email, name: userName }],
+        ...template,
+        category: "Password Reset",
+      });
+    },const template = templates.trialEnding(user, organization, daysRemaining);
       await sendEmail({
         to: [{ email: user.email, name: user.name }],
         ...template,

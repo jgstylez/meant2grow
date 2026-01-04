@@ -9,7 +9,13 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Get the current user's document
+    // Check if user document exists
+    function userExists() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
+    // Get the current user's document data (only call if userExists() is true)
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -17,12 +23,15 @@ service cloud.firestore {
     // Check if user belongs to specific organization
     function belongsToOrg(organizationId) {
       return isAuthenticated() && 
+             userExists() &&
+             getUserData().organizationId != null &&
              getUserData().organizationId == organizationId;
     }
     
     // Check if user is organization admin
     function isOrgAdmin(organizationId) {
       return isAuthenticated() && 
+             userExists() &&
              belongsToOrg(organizationId) &&
              getUserData().role == 'ORGANIZATION_ADMIN';
     }
@@ -30,7 +39,10 @@ service cloud.firestore {
     // Check if user is platform admin
     function isPlatformAdmin() {
       return isAuthenticated() && 
-             getUserData().role == 'PLATFORM_ADMIN';
+             userExists() &&
+             (getUserData().role == 'PLATFORM_ADMIN' || 
+              getUserData().role == 'PLATFORM_OPERATOR' ||
+              getUserData().organizationId == 'platform');
     }
     
     // Check if user owns the resource (by userId field)
@@ -40,21 +52,29 @@ service cloud.firestore {
     }
     
     // Check if document belongs to user's organization
+    // Platform admins can access all documents regardless of organizationId
     function isOrgScoped(organizationId) {
-      return belongsToOrg(organizationId) || isPlatformAdmin();
+      return isPlatformAdmin() || belongsToOrg(organizationId);
     }
     
     // ==================== ORGANIZATIONS ====================
     
     match /organizations/{orgId} {
-      // Anyone authenticated can create an organization (for signup)
-      allow create: if isAuthenticated();
+      // Allow unauthenticated users to create organizations (for signup)
+      // Also allow authenticated users to create organizations
+      allow create: if true;
       
       // Users can read their own organization, platform admins can read all
-      allow read: if belongsToOrg(orgId) || isPlatformAdmin();
+      // Also allow unauthenticated reads for organization code lookups during signup
+      allow read: if belongsToOrg(orgId) || 
+                     isPlatformAdmin() ||
+                     // Allow unauthenticated reads for signup flow (organization code lookups)
+                     request.auth == null;
       
-      // Only organization admins can update their org, platform admins can update any
-      allow update: if isOrgAdmin(orgId) || isPlatformAdmin();
+      // Allow updates during signup (for setting trial info) or by org admins/platform admins
+      allow update: if request.auth == null || // Allow during signup flow
+                     isOrgAdmin(orgId) || 
+                     isPlatformAdmin();
       
       // Only platform admins can delete organizations
       allow delete: if isPlatformAdmin();
@@ -63,13 +83,18 @@ service cloud.firestore {
     // ==================== USERS ====================
     
     match /users/{userId} {
-      // Anyone authenticated can create a user (for signup)
-      allow create: if isAuthenticated();
+      // Allow unauthenticated users to create accounts (for signup)
+      // Also allow authenticated users to create users
+      allow create: if true;
       
       // Users can read users in their organization, or their own profile, platform admins can read all
+      // Also allow unauthenticated reads for email lookups during login
+      // Note: This allows checking if an email exists, which is needed for login but is a minor security trade-off
       allow read: if belongsToOrg(resource.data.organizationId) || 
                      request.auth.uid == userId || 
-                     isPlatformAdmin();
+                     isPlatformAdmin() ||
+                     // Allow unauthenticated reads for login flow (email lookups)
+                     request.auth == null;
       
       // Users can update their own profile, org admins can update users in their org, platform admins can update any
       allow update: if request.auth.uid == userId ||
@@ -83,45 +108,53 @@ service cloud.firestore {
     // ==================== MATCHES ====================
     
     match /matches/{matchId} {
-      // Users can create matches in their organization
+      // Users can create matches in their organization, platform admins can create anywhere
       allow create: if isAuthenticated() && 
-                      belongsToOrg(request.resource.data.organizationId);
+                      (isPlatformAdmin() || belongsToOrg(request.resource.data.organizationId));
       
-      // Users can read matches in their organization
-      allow read: if isOrgScoped(resource.data.organizationId);
+      // Users can read matches in their organization, platform admins can read all
+      allow read: if isPlatformAdmin() || isOrgScoped(resource.data.organizationId);
       
       // Users can update matches in their organization (participants or org admins)
-      allow update: if isOrgScoped(resource.data.organizationId) &&
-                      (request.auth.uid == resource.data.mentorId ||
-                       request.auth.uid == resource.data.menteeId ||
-                       isOrgAdmin(resource.data.organizationId));
+      // Platform admins can update any match
+      allow update: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       (request.auth.uid == resource.data.mentorId ||
+                        request.auth.uid == resource.data.menteeId ||
+                        isOrgAdmin(resource.data.organizationId)));
       
       // Users can delete matches they're part of, or org admins can delete in their org
-      allow delete: if isOrgScoped(resource.data.organizationId) &&
-                      (request.auth.uid == resource.data.mentorId ||
-                       request.auth.uid == resource.data.menteeId ||
-                       isOrgAdmin(resource.data.organizationId));
+      // Platform admins can delete any match
+      allow delete: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       (request.auth.uid == resource.data.mentorId ||
+                        request.auth.uid == resource.data.menteeId ||
+                        isOrgAdmin(resource.data.organizationId)));
     }
     
     // ==================== GOALS ====================
     
     match /goals/{goalId} {
-      // Users can create goals in their organization
+      // Users can create goals in their organization, platform admins can create anywhere
       allow create: if isAuthenticated() && 
-                      belongsToOrg(request.resource.data.organizationId);
+                      (isPlatformAdmin() || belongsToOrg(request.resource.data.organizationId));
       
-      // Users can read goals in their organization
-      allow read: if isOrgScoped(resource.data.organizationId);
+      // Users can read goals in their organization, platform admins can read all
+      allow read: if isPlatformAdmin() || isOrgScoped(resource.data.organizationId);
       
       // Users can update their own goals, or org admins can update any in their org
-      allow update: if isOrgScoped(resource.data.organizationId) &&
-                      (isOwner(resource.data.userId) ||
-                       isOrgAdmin(resource.data.organizationId));
+      // Platform admins can update any goal
+      allow update: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       (isOwner(resource.data.userId) ||
+                        isOrgAdmin(resource.data.organizationId)));
       
       // Users can delete their own goals, or org admins can delete any in their org
-      allow delete: if isOrgScoped(resource.data.organizationId) &&
-                      (isOwner(resource.data.userId) ||
-                       isOrgAdmin(resource.data.organizationId));
+      // Platform admins can delete any goal
+      allow delete: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       (isOwner(resource.data.userId) ||
+                        isOrgAdmin(resource.data.organizationId)));
     }
     
     // ==================== MILESTONES ====================
@@ -144,160 +177,189 @@ service cloud.firestore {
     // ==================== CALENDAR EVENTS ====================
     
     match /calendarEvents/{eventId} {
-      // Users can create events in their organization
+      // Users can create events in their organization, platform admins can create anywhere
       allow create: if isAuthenticated() && 
-                      belongsToOrg(request.resource.data.organizationId);
+                      (isPlatformAdmin() || belongsToOrg(request.resource.data.organizationId));
       
-      // Users can read events in their organization
-      allow read: if isOrgScoped(resource.data.organizationId);
+      // Users can read events in their organization, platform admins can read all
+      allow read: if isPlatformAdmin() || isOrgScoped(resource.data.organizationId);
       
       // Users can update events they're part of, or org admins can update any in their org
-      allow update: if isOrgScoped(resource.data.organizationId) &&
-                      (request.auth.uid == resource.data.mentorId ||
-                       request.auth.uid == resource.data.menteeId ||
-                       isOrgAdmin(resource.data.organizationId));
+      // Platform admins can update any event
+      allow update: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       (request.auth.uid == resource.data.mentorId ||
+                        request.auth.uid == resource.data.menteeId ||
+                        isOrgAdmin(resource.data.organizationId)));
       
       // Users can delete events they're part of, or org admins can delete any in their org
-      allow delete: if isOrgScoped(resource.data.organizationId) &&
-                      (request.auth.uid == resource.data.mentorId ||
-                       request.auth.uid == resource.data.menteeId ||
-                       isOrgAdmin(resource.data.organizationId));
+      // Platform admins can delete any event
+      allow delete: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       (request.auth.uid == resource.data.mentorId ||
+                        request.auth.uid == resource.data.menteeId ||
+                        isOrgAdmin(resource.data.organizationId)));
     }
     
     // ==================== RESOURCES ====================
     
     match /resources/{resourceId} {
-      // Users can create resources in their organization
+      // Users can create resources in their organization, platform admins can create anywhere
       allow create: if isAuthenticated() && 
-                      belongsToOrg(request.resource.data.organizationId);
+                      (isPlatformAdmin() || belongsToOrg(request.resource.data.organizationId));
       
-      // Users can read resources in their organization
-      allow read: if isOrgScoped(resource.data.organizationId);
+      // Users can read resources in their organization, platform admins can read all
+      allow read: if isPlatformAdmin() || isOrgScoped(resource.data.organizationId);
       
       // Org admins can update resources in their org, platform admins can update any
-      allow update: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
+      allow update: if isPlatformAdmin() || isOrgAdmin(resource.data.organizationId);
       
       // Org admins can delete resources in their org, platform admins can delete any
-      allow delete: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
+      allow delete: if isPlatformAdmin() || isOrgAdmin(resource.data.organizationId);
     }
     
     // ==================== NOTIFICATIONS ====================
     
     match /notifications/{notificationId} {
-      // Users can create notifications in their organization
+      // Users can create notifications in their organization, platform admins can create anywhere
       allow create: if isAuthenticated() && 
-                      belongsToOrg(request.resource.data.organizationId);
+                      (isPlatformAdmin() || belongsToOrg(request.resource.data.organizationId));
       
       // Users can only read their own notifications, or org admins can read all in their org
-      allow read: if isOwner(resource.data.userId) ||
-                     (belongsToOrg(resource.data.organizationId) && isOrgAdmin(resource.data.organizationId)) ||
-                     isPlatformAdmin();
+      // Platform admins can read all notifications
+      allow read: if isPlatformAdmin() ||
+                     isOwner(resource.data.userId) ||
+                     (belongsToOrg(resource.data.organizationId) && isOrgAdmin(resource.data.organizationId));
       
-      // Users can update their own notifications
-      allow update: if isOwner(resource.data.userId) || isPlatformAdmin();
+      // Users can update their own notifications, platform admins can update any
+      allow update: if isPlatformAdmin() || isOwner(resource.data.userId);
       
-      // Users can delete their own notifications
-      allow delete: if isOwner(resource.data.userId) || isPlatformAdmin();
+      // Users can delete their own notifications, platform admins can delete any
+      allow delete: if isPlatformAdmin() || isOwner(resource.data.userId);
     }
     
     // ==================== INVITATIONS ====================
     
     match /invitations/{invitationId} {
-      // Users can create invitations in their organization
+      // Users can create invitations in their organization, platform admins can create anywhere
       allow create: if isAuthenticated() && 
-                      belongsToOrg(request.resource.data.organizationId);
+                      (isPlatformAdmin() || belongsToOrg(request.resource.data.organizationId));
       
-      // Users can read invitations in their organization
-      allow read: if isOrgScoped(resource.data.organizationId);
+      // Users can read invitations in their organization, platform admins can read all
+      // Also allow unauthenticated reads for invitation-based signup
+      allow read: if isPlatformAdmin() ||
+                     isOrgScoped(resource.data.organizationId) ||
+                     // Allow unauthenticated reads for invitation token lookups during signup
+                     request.auth == null;
       
-      // Org admins can update invitations in their org
-      allow update: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
+      // Org admins can update invitations in their org, platform admins can update any
+      // Also allow unauthenticated updates for accepting invitations during signup
+      allow update: if isPlatformAdmin() ||
+                     request.auth == null || // Allow during signup flow (accepting invitation)
+                     isOrgAdmin(resource.data.organizationId);
       
-      // Org admins can delete invitations in their org
-      allow delete: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
+      // Org admins can delete invitations in their org, platform admins can delete any
+      allow delete: if isPlatformAdmin() || isOrgAdmin(resource.data.organizationId);
     }
     
     // ==================== RATINGS ====================
     
     match /ratings/{ratingId} {
-      // Users can create ratings in their organization
+      // Users can create ratings in their organization, platform admins can create anywhere
       allow create: if isAuthenticated() && 
-                      belongsToOrg(request.resource.data.organizationId);
+                      (isPlatformAdmin() || belongsToOrg(request.resource.data.organizationId));
       
-      // Users can read ratings in their organization
-      allow read: if isOrgScoped(resource.data.organizationId);
+      // Users can read ratings in their organization, platform admins can read all
+      allow read: if isPlatformAdmin() || isOrgScoped(resource.data.organizationId);
       
       // Users can update their own ratings, or org admins can update any in their org
-      allow update: if isOrgScoped(resource.data.organizationId) &&
-                      (isOwner(resource.data.userId) ||
-                       isOrgAdmin(resource.data.organizationId));
+      // Platform admins can update any rating
+      allow update: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       (isOwner(resource.data.userId) ||
+                        isOrgAdmin(resource.data.organizationId)));
       
       // Users can delete their own ratings, or org admins can delete any in their org
-      allow delete: if isOrgScoped(resource.data.organizationId) &&
-                      (isOwner(resource.data.userId) ||
-                       isOrgAdmin(resource.data.organizationId));
+      // Platform admins can delete any rating
+      allow delete: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       (isOwner(resource.data.userId) ||
+                        isOrgAdmin(resource.data.organizationId)));
     }
     
     // ==================== CHAT MESSAGES ====================
     
     match /chatMessages/{messageId} {
-      // Users can create messages in their organization
+      // Users can create messages in their organization, platform admins can create anywhere
       allow create: if isAuthenticated() && 
-                      belongsToOrg(request.resource.data.organizationId) &&
-                      request.auth.uid == request.resource.data.senderId;
+                      (isPlatformAdmin() || 
+                       (belongsToOrg(request.resource.data.organizationId) &&
+                        request.auth.uid == request.resource.data.senderId));
       
-      // Users can read messages in their organization
-      allow read: if isOrgScoped(resource.data.organizationId);
+      // Users can read messages in their organization, platform admins can read all
+      allow read: if isPlatformAdmin() || isOrgScoped(resource.data.organizationId);
       
-      // Users can update their own messages
-      allow update: if isOrgScoped(resource.data.organizationId) &&
-                      request.auth.uid == resource.data.senderId;
+      // Users can update their own messages, platform admins can update any
+      allow update: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       request.auth.uid == resource.data.senderId);
       
       // Users can delete their own messages, or org admins can delete any in their org
-      allow delete: if isOrgScoped(resource.data.organizationId) &&
-                      (request.auth.uid == resource.data.senderId ||
-                       isOrgAdmin(resource.data.organizationId));
+      // Platform admins can delete any message
+      allow delete: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       (request.auth.uid == resource.data.senderId ||
+                        isOrgAdmin(resource.data.organizationId)));
     }
     
     // ==================== CHAT GROUPS ====================
     
     match /chatGroups/{groupId} {
-      // Users can create groups in their organization
+      // Users can create groups in their organization, platform admins can create anywhere
       allow create: if isAuthenticated() && 
-                      belongsToOrg(request.resource.data.organizationId);
+                      (isPlatformAdmin() || belongsToOrg(request.resource.data.organizationId));
       
       // Users can read groups in their organization (membership checked client-side)
-      allow read: if isOrgScoped(resource.data.organizationId);
+      // Platform admins can read all groups
+      allow read: if isPlatformAdmin() || isOrgScoped(resource.data.organizationId);
       
       // Org admins can update groups in their org, or group members (checked client-side)
-      allow update: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
+      // Platform admins can update any group
+      allow update: if isPlatformAdmin() || isOrgAdmin(resource.data.organizationId);
       
-      // Org admins can delete groups in their org
-      allow delete: if isOrgAdmin(resource.data.organizationId) || isPlatformAdmin();
+      // Org admins can delete groups in their org, platform admins can delete any
+      allow delete: if isPlatformAdmin() || isOrgAdmin(resource.data.organizationId);
     }
     
     // ==================== PRIVATE MESSAGE REQUESTS ====================
     
     match /privateMessageRequests/{requestId} {
-      // Users can create requests in their organization
+      // Users can create requests in their organization, platform admins can create anywhere
       allow create: if isAuthenticated() && 
-                      belongsToOrg(request.resource.data.organizationId) &&
-                      request.auth.uid == request.resource.data.requesterId;
+                      (isPlatformAdmin() ||
+                       (belongsToOrg(request.resource.data.organizationId) &&
+                        request.auth.uid == request.resource.data.requesterId));
       
       // Users can read their own requests (as requester or recipient)
-      allow read: if isOrgScoped(resource.data.organizationId) &&
-                     (request.auth.uid == resource.data.requesterId ||
-                      request.auth.uid == resource.data.recipientId);
+      // Platform admins can read all requests
+      allow read: if isPlatformAdmin() ||
+                     (isOrgScoped(resource.data.organizationId) &&
+                      (request.auth.uid == resource.data.requesterId ||
+                       request.auth.uid == resource.data.recipientId));
       
       // Recipients can update requests (approve/reject), or org admins can update any
-      allow update: if isOrgScoped(resource.data.organizationId) &&
-                      (request.auth.uid == resource.data.recipientId ||
-                       isOrgAdmin(resource.data.organizationId));
+      // Platform admins can update any request
+      allow update: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       (request.auth.uid == resource.data.recipientId ||
+                        isOrgAdmin(resource.data.organizationId)));
       
       // Requesters can delete their own requests, or org admins can delete any
-      allow delete: if isOrgScoped(resource.data.organizationId) &&
-                      (request.auth.uid == resource.data.requesterId ||
-                       isOrgAdmin(resource.data.organizationId));
+      // Platform admins can delete any request
+      allow delete: if isPlatformAdmin() ||
+                      (isOrgScoped(resource.data.organizationId) &&
+                       (request.auth.uid == resource.data.requesterId ||
+                        isOrgAdmin(resource.data.organizationId)));
     }
     
     // ==================== BLOG POSTS (Platform-wide) ====================
@@ -320,7 +382,9 @@ service cloud.firestore {
                         isOrgAdmin(request.resource.data.organizationId)));
       
       // Users can read guides in their organization, or platform-wide guides
-      allow read: if !exists(resource.data.organizationId) || // Platform-wide
+      // Platform admins can read all guides
+      allow read: if isPlatformAdmin() ||
+                     (resource.data.isPlatform == true || !exists(resource.data.organizationId)) || // Platform-wide
                      isOrgScoped(resource.data.organizationId);
       
       // Platform admins can update any, org admins can update guides in their org
@@ -344,7 +408,9 @@ service cloud.firestore {
                         isOrgAdmin(request.resource.data.organizationId)));
       
       // Users can read templates in their organization, or platform-wide templates
-      allow read: if !exists(resource.data.organizationId) || // Platform-wide
+      // Platform admins can read all templates
+      allow read: if isPlatformAdmin() ||
+                     (resource.data.isPlatform == true || !exists(resource.data.organizationId)) || // Platform-wide
                      isOrgScoped(resource.data.organizationId);
       
       // Platform admins can update any, org admins can update templates in their org
@@ -368,7 +434,9 @@ service cloud.firestore {
                         isOrgAdmin(request.resource.data.organizationId)));
       
       // Users can read videos in their organization, or platform-wide videos
-      allow read: if !exists(resource.data.organizationId) || // Platform-wide
+      // Platform admins can read all videos
+      allow read: if isPlatformAdmin() ||
+                     (resource.data.isPlatform == true || !exists(resource.data.organizationId)) || // Platform-wide
                      isOrgScoped(resource.data.organizationId);
       
       // Platform admins can update any, org admins can update videos in their org

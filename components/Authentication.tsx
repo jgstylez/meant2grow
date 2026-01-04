@@ -1275,12 +1275,13 @@ const Authentication: React.FC<AuthenticationProps> = ({
                         </label>
                       </div>
                       <div className="text-sm">
-                        <a
-                          href="#"
+                        <button
+                          type="button"
+                          onClick={() => onNavigate("forgot-password")}
                           className="font-medium text-emerald-600 hover:text-emerald-500"
                         >
                           Forgot password?
-                        </a>
+                        </button>
                       </div>
                     </div>
                   )}
