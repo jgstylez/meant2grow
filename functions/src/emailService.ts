@@ -61,7 +61,7 @@ const createSendEmail = (config: EmailServiceConfig) => {
         text: options.text,
         category: options.category || "Transactional",
       });
-      console.log(`Email sent successfully: ${options.subject}`);
+      console.log(`Email sent successfully: ${options.subject} to ${options.to.map(t => t.email).join(", ")}`);
     } catch (error) {
       console.error("Failed to send email:", error);
       // Don't throw - email failures shouldn't break the app
@@ -567,6 +567,76 @@ If you didn't request a password reset, you can safely ignore this email. Your p
 For security reasons, this link will expire in 1 hour.
     `.trim(),
   }),
+
+  invitation: (invitationLink: string, recipientName: string, organizationName: string, role: Role, inviterName?: string, personalNote?: string) => ({
+    subject: `You're Invited to Join ${organizationName}'s Mentorship Program`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Join ${organizationName}</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0;">You're Invited!</h1>
+          </div>
+          <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+            <p style="font-size: 16px; margin-bottom: 20px;">Hi ${recipientName},</p>
+            ${inviterName ? `<p style="font-size: 16px; margin-bottom: 20px;">
+              <strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong>'s mentorship program as a <strong>${role === Role.MENTOR ? 'Mentor' : 'Mentee'}</strong>.
+            </p>` : `<p style="font-size: 16px; margin-bottom: 20px;">
+              You've been invited to join <strong>${organizationName}</strong>'s mentorship program as a <strong>${role === Role.MENTOR ? 'Mentor' : 'Mentee'}</strong>.
+            </p>`}
+            ${personalNote ? `<div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981;">
+              <p style="font-size: 15px; margin: 0; color: #374151; font-style: italic;">"${personalNote}"</p>
+            </div>` : ''}
+            ${role === Role.MENTOR 
+              ? `<p style="font-size: 16px; margin-bottom: 20px;">
+                   As a mentor, you'll share your expertise and help mentees grow in their careers. Your guidance makes a real difference!
+                 </p>`
+              : `<p style="font-size: 16px; margin-bottom: 20px;">
+                   As a mentee, you'll receive personalized guidance from experienced mentors to help you achieve your professional goals.
+                 </p>`
+            }
+            <div style="margin: 30px 0;">
+              <a href="${invitationLink}" 
+                 style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                Accept Invitation
+              </a>
+            </div>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
+              If the button doesn't work, copy and paste this link into your browser:
+            </p>
+            <p style="font-size: 12px; color: #6b7280; word-break: break-all; background: #f3f4f6; padding: 10px; border-radius: 4px;">
+              ${invitationLink}
+            </p>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
+              Questions? Reply to this email and we'll be happy to help.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `
+You're Invited to Join ${organizationName}'s Mentorship Program
+
+Hi ${recipientName},
+
+${inviterName ? `${inviterName} has invited you to join ${organizationName}'s mentorship program as a ${role === Role.MENTOR ? 'Mentor' : 'Mentee'}.` : `You've been invited to join ${organizationName}'s mentorship program as a ${role === Role.MENTOR ? 'Mentor' : 'Mentee'}.`}
+
+${personalNote ? `\nPersonal Note:\n"${personalNote}"\n` : ''}
+${role === Role.MENTOR 
+  ? 'As a mentor, you\'ll share your expertise and help mentees grow in their careers. Your guidance makes a real difference!'
+  : 'As a mentee, you\'ll receive personalized guidance from experienced mentors to help you achieve your professional goals.'
+}
+
+Accept Invitation: ${invitationLink}
+
+Questions? Reply to this email and we'll be happy to help.
+    `.trim(),
+  }),
 });
 
 // Factory function to create email service with configuration
@@ -657,6 +727,23 @@ export const createEmailService = (config: EmailServiceConfig) => {
         to: [{ email: user.email, name: user.name }],
         ...template,
         category: "Meeting",
+      });
+    },
+
+    sendInvitation: async (
+      invitationLink: string,
+      recipientEmail: string,
+      recipientName: string,
+      organizationName: string,
+      role: Role,
+      inviterName?: string,
+      personalNote?: string
+    ) => {
+      const template = templates.invitation(invitationLink, recipientName, organizationName, role, inviterName, personalNote);
+      await sendEmail({
+        to: [{ email: recipientEmail, name: recipientName }],
+        ...template,
+        category: "Invitation",
       });
     },
 

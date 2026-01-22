@@ -150,11 +150,13 @@ export async function removeFCMToken(userId: string, deviceId?: string): Promise
         devices: [],
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Silently ignore permission errors during cleanup (e.g., in dev mode double-invocation)
     // or when user is logging out and permissions are already revoked
-    if (error?.code === 'permission-denied') {
-      console.debug('FCM token removal skipped (permission denied):', error.message);
+    const errorCode = (error as { code?: string })?.code;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorCode === 'permission-denied') {
+      console.debug('FCM token removal skipped (permission denied):', errorMessage);
       return;
     }
     console.error('Error removing FCM token:', error);

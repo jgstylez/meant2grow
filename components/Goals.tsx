@@ -18,6 +18,8 @@ import {
   deleteMilestone,
   subscribeToMilestones,
 } from "../services/database";
+import { logger } from "../services/logger";
+import { getErrorMessage } from "../utils/errors";
 
 interface GoalsProps {
   user: User;
@@ -105,8 +107,8 @@ const Goals: React.FC<GoalsProps> = ({
       };
       onAddGoal(newGoal);
       setNewGoalTitle("");
-    } catch (error) {
-      console.error("Error creating goal:", error);
+    } catch (error: unknown) {
+      logger.error("Error creating goal", error);
     } finally {
       setLoadingAI(false);
     }
@@ -154,8 +156,8 @@ const Goals: React.FC<GoalsProps> = ({
         newProgress,
         newProgress === 100 ? "Completed" : "In Progress"
       );
-    } catch (error) {
-      console.error("Error creating milestone:", error);
+    } catch (error: unknown) {
+      logger.error("Error creating milestone", error);
     }
   };
 
@@ -186,8 +188,8 @@ const Goals: React.FC<GoalsProps> = ({
         newProgress,
         newProgress === 100 ? "Completed" : "In Progress"
       );
-    } catch (error) {
-      console.error("Error updating milestone:", error);
+    } catch (error: unknown) {
+      logger.error("Error updating milestone", error);
     }
   };
 
@@ -206,8 +208,8 @@ const Goals: React.FC<GoalsProps> = ({
         ...prev,
         [goal.id]: new Set(suggestions.map((_, i) => i)),
       }));
-    } catch (error) {
-      console.error("Error getting suggestions:", error);
+    } catch (error: unknown) {
+      logger.error("Error getting suggestions", error);
     } finally {
       setLoadingSuggestions((prev) => ({ ...prev, [goal.id]: false }));
     }
@@ -264,8 +266,8 @@ const Goals: React.FC<GoalsProps> = ({
         delete updated[goalId];
         return updated;
       });
-    } catch (error) {
-      console.error("Error adding suggested milestones:", error);
+    } catch (error: unknown) {
+      logger.error("Error adding suggested milestones", error);
     }
   };
 

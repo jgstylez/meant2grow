@@ -62,11 +62,15 @@ import {
   getUser,
   updateUser,
   incrementMentorHours,
+  setTypingStatus,
+  clearTypingStatus,
+  subscribeToTypingStatus,
 } from "../services/database";
 import { Unsubscribe } from "../services/database";
 import { logger } from "../services/logger";
 import { uploadFile, generateUniquePath } from "../services/storage";
 import { parseDurationToHours } from "../services/utils";
+import { getErrorMessage } from "../utils/errors";
 
 // Using ChatMessage and ChatGroup from types.ts
 
@@ -297,6 +301,7 @@ interface ChatProps {
   organizationId: string;
   initialChatId?: string;
   matches?: Match[];
+  onErrorToast?: (message: string) => void;
 }
 
 const Chat: React.FC<ChatProps> = ({
@@ -305,6 +310,7 @@ const Chat: React.FC<ChatProps> = ({
   organizationId,
   initialChatId,
   matches = [],
+  onErrorToast,
 }) => {
   const [chatGroups, setChatGroups] = useState<ChatGroup[]>([]);
   const unsubscribeMessagesRef = useRef<Record<string, Unsubscribe>>({});
@@ -478,7 +484,7 @@ const Chat: React.FC<ChatProps> = ({
             });
           }
         }
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error("Error syncing chat groups", error);
       }
     };
@@ -886,6 +892,8 @@ const Chat: React.FC<ChatProps> = ({
   }, [initialChatId, allChats, activeChatId, users, currentUser, activeMatches, approvedPrivateMessagePartners]);
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]); // User IDs who are currently typing
+  const unsubscribeTypingRef = useRef<Unsubscribe | null>(null);
   const previousMessagesHashRef = useRef<string>("");
   const previousSentimentHashRef = useRef<string>("");
   const [showMenu, setShowMenu] = useState(false);
@@ -1091,7 +1099,7 @@ const Chat: React.FC<ChatProps> = ({
     if (unsubscribeMessagesRef.current[activeChatId]) {
       try {
         unsubscribeMessagesRef.current[activeChatId]();
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error('Error cleaning up previous message subscription', error);
       }
       delete unsubscribeMessagesRef.current[activeChatId];
@@ -1225,10 +1233,7 @@ const Chat: React.FC<ChatProps> = ({
         };
       });
 
-      // TODO: Implement real-time typing detection
-      // When messages arrive, check if sender is currently typing
-      // For now, typing indicator state is functional but requires
-      // Firestore typing status collection/listener to work properly
+      // Typing detection is handled via separate subscription below
     };
 
     // Use subscribeToDMMessages for DMs to query both directions
@@ -1251,7 +1256,7 @@ const Chat: React.FC<ChatProps> = ({
         );
       }
       unsubscribeMessagesRef.current[activeChatId] = unsubscribe;
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error setting up message subscription', error);
       // Clean up on error
       if (unsubscribe) {
@@ -1268,13 +1273,50 @@ const Chat: React.FC<ChatProps> = ({
       if (unsub) {
         try {
           unsub();
-        } catch (error) {
+        } catch (error: unknown) {
           logger.error('Error unsubscribing from messages', error);
         }
         delete unsubscribeMessagesRef.current[activeChatId];
       }
     };
   }, [activeChatId, organizationId, currentUser.id, currentUser.createdAt, currentUser.role, users, MOCK_GROUPS, matches, approvedPrivateMessagePartners]);
+
+  // Subscribe to typing status for active chat
+  useEffect(() => {
+    // Cleanup previous subscription
+    if (unsubscribeTypingRef.current) {
+      unsubscribeTypingRef.current();
+      unsubscribeTypingRef.current = null;
+    }
+
+    // Only subscribe if there's an active chat
+    if (!activeChatId || !organizationId) {
+      setTypingUsers([]);
+      return;
+    }
+
+    try {
+      unsubscribeTypingRef.current = subscribeToTypingStatus(
+        activeChatId,
+        organizationId,
+        currentUser.id,
+        (typingUserIds) => {
+          setTypingUsers(typingUserIds);
+        }
+      );
+    } catch (error: unknown) {
+      logger.error("Error subscribing to typing status", error);
+      setTypingUsers([]);
+    }
+
+    return () => {
+      if (unsubscribeTypingRef.current) {
+        unsubscribeTypingRef.current();
+        unsubscribeTypingRef.current = null;
+      }
+      setTypingUsers([]);
+    };
+  }, [activeChatId, organizationId, currentUser.id]);
 
   // Cleanup all subscriptions and timeouts on unmount
   useEffect(() => {
@@ -1283,7 +1325,7 @@ const Chat: React.FC<ChatProps> = ({
       Object.entries(unsubscribeMessagesRef.current).forEach(([chatId, unsub]) => {
         try {
           unsub();
-        } catch (error) {
+        } catch (error: unknown) {
           logger.error(`Error unsubscribing from chat ${chatId}`, error);
         }
       });
@@ -1303,6 +1345,16 @@ const Chat: React.FC<ChatProps> = ({
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
         typingTimeoutRef.current = null;
+      }
+      
+      // Clean up typing subscription
+      if (unsubscribeTypingRef.current) {
+        try {
+          unsubscribeTypingRef.current();
+        } catch (error: unknown) {
+          logger.error('Error unsubscribing from typing status', error);
+        }
+        unsubscribeTypingRef.current = null;
       }
     };
   }, []);
@@ -1576,6 +1628,19 @@ const Chat: React.FC<ChatProps> = ({
 
       logger.info("Message created successfully", { messageId });
 
+      // Clear typing status after sending message
+      if (activeChatId) {
+        try {
+          await clearTypingStatus(activeChatId, currentUser.id);
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = null;
+          }
+        } catch (error) {
+          logger.error("Error clearing typing status after send", error);
+        }
+      }
+
       // Create notifications for recipients (non-blocking)
       if (chatType === "dm") {
         // Direct message - notify the recipient
@@ -1625,7 +1690,7 @@ const Chat: React.FC<ChatProps> = ({
       setAttachment(null);
       setShowEmojiPicker(false);
       setShowGifPicker(false);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error sending message", {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
@@ -1699,7 +1764,7 @@ const Chat: React.FC<ChatProps> = ({
           setGifs([]);
           setGifsError(gifSearchQuery.trim() ? "No GIFs found" : null);
         }
-      } catch (error) {
+      } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : "Failed to fetch GIFs";
         logger.error("Error fetching GIFs", {
           error: errorMessage,
@@ -1742,7 +1807,7 @@ const Chat: React.FC<ChatProps> = ({
       // Update in Firestore - real-time listener will sync
       await updateChatMessage(messageId, { reactions: newReactions });
       setReactionMenuMessageId(null);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error("Error updating reaction", error);
     }
   };
@@ -1794,7 +1859,7 @@ const Chat: React.FC<ChatProps> = ({
       });
       
       alert('Request sent! The user will be notified and can approve your request.');
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error requesting private message', error);
       alert('Failed to send request. Please try again.');
     } finally {
@@ -1859,7 +1924,7 @@ const Chat: React.FC<ChatProps> = ({
       
       // Remove from local state
       setPrivateMessageRequests(prev => prev.filter(r => r.id !== requestId));
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error('Error responding to request', error);
       alert('Failed to respond to request. Please try again.');
     }
@@ -1969,7 +2034,7 @@ const Chat: React.FC<ChatProps> = ({
             undefined
           );
           meetLink = meetResponse.meetLink;
-        } catch (error) {
+        } catch (error: unknown) {
           logger.error("Failed to create Meet link", error);
         }
 
@@ -2076,7 +2141,13 @@ const Chat: React.FC<ChatProps> = ({
       setActiveModal(null);
     } catch (error) {
       logger.error("Error scheduling meeting", error);
-      // TODO: Show error toast
+      const errorMessage = getErrorMessage(error) || "Failed to schedule meeting";
+      if (onErrorToast) {
+        onErrorToast(errorMessage);
+      } else {
+        // Fallback to alert if toast not available
+        alert(errorMessage);
+      }
     }
   };
 
@@ -3076,6 +3147,40 @@ const Chat: React.FC<ChatProps> = ({
                   </div>
                 );
               })}
+              {/* Typing Indicator for Other Users */}
+              {typingUsers.length > 0 && (
+                <div className="flex justify-start mb-4 animate-in fade-in slide-in-from-bottom-2">
+                  {typingUsers.length === 1 && (() => {
+                    const typingUser = users.find(u => u.id === typingUsers[0]);
+                    return typingUser ? (
+                      <>
+                        <img
+                          src={typingUser.avatar || "https://via.placeholder.com/40"}
+                          className="w-8 h-8 rounded-full mr-2 self-end mb-1 object-cover"
+                          alt={typingUser.name}
+                        />
+                        <div className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm flex items-center space-x-1">
+                          <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                          <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                          <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></div>
+                        </div>
+                      </>
+                    ) : null;
+                  })()}
+                  {typingUsers.length > 1 && (
+                    <div className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm flex items-center space-x-2">
+                      <div className="flex space-x-1">
+                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></div>
+                      </div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {typingUsers.length} people are typing...
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
               {isTyping && (
                 <div className="flex justify-start mb-4 animate-in fade-in slide-in-from-bottom-2">
                   <img
@@ -3296,11 +3401,43 @@ const Chat: React.FC<ChatProps> = ({
                   <input
                     type="text"
                     value={inputText}
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       setInputText(e.target.value);
-                      // TODO: Implement real-time typing detection via Firestore
-                      // For now, typing indicator state is functional but requires
-                      // real-time infrastructure to show when others are typing
+                      
+                      // Update typing status when user types
+                      if (activeChatId && organizationId && e.target.value.trim().length > 0) {
+                        try {
+                          await setTypingStatus(activeChatId, currentUser.id, organizationId);
+                          
+                          // Clear existing timeout
+                          if (typingTimeoutRef.current) {
+                            clearTimeout(typingTimeoutRef.current);
+                          }
+                          
+                          // Clear typing status after 3 seconds of inactivity
+                          typingTimeoutRef.current = setTimeout(async () => {
+                            try {
+                              await clearTypingStatus(activeChatId, currentUser.id);
+                            } catch (error) {
+                              logger.error("Error clearing typing status", error);
+                            }
+                            typingTimeoutRef.current = null;
+                          }, 3000);
+                        } catch (error) {
+                          logger.error("Error setting typing status", error);
+                        }
+                      } else if (activeChatId && e.target.value.trim().length === 0) {
+                        // Clear typing status when input is empty
+                        if (typingTimeoutRef.current) {
+                          clearTimeout(typingTimeoutRef.current);
+                          typingTimeoutRef.current = null;
+                        }
+                        try {
+                          await clearTypingStatus(activeChatId, currentUser.id);
+                        } catch (error) {
+                          logger.error("Error clearing typing status", error);
+                        }
+                      }
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {

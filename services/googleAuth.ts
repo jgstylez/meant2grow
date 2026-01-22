@@ -138,9 +138,11 @@ export const signInToFirebaseAuth = async (idToken: string): Promise<void> => {
       uid: userCredential.user.uid,
       email: userCredential.user.email,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Check if error is due to expired token
-    if (error?.code === 'auth/invalid-credential' || error?.message?.includes('expired')) {
+    const errorCode = (error as { code?: string })?.code;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorCode === 'auth/invalid-credential' || errorMessage.includes('expired')) {
       console.error('Google ID token is expired or invalid. User needs to sign in again.');
       throw new Error('Token expired. Please sign in again.');
     }

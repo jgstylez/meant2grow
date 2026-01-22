@@ -4,6 +4,8 @@ import { User, Match, Role, MatchStatus } from '../types';
 import { INPUT_CLASS } from '../styles/common';
 import { Users, Search, X, CheckCircle, ArrowRight, Briefcase, GraduationCap, Sparkles, MessageSquare, Loader2, Repeat, List, Link2, Calendar, Menu } from 'lucide-react';
 import { getMatchSuggestions } from '../services/geminiService';
+import { logger } from '../services/logger';
+import { getErrorMessage } from '../utils/errors';
 
 interface MatchingProps {
   users: User[];
@@ -63,9 +65,10 @@ const Matching: React.FC<MatchingProps> = ({ users, matches, onCreateMatch }) =>
         alert('AI suggestions are currently unavailable. Please ensure the API key is configured.');
       }
       setAiSuggestions(suggestions.map(s => s.mentorId));
-    } catch (error) {
-      console.error('Error getting AI suggestions:', error);
-      alert('Failed to get AI suggestions. Please try again later.');
+    } catch (error: unknown) {
+      logger.error('Error getting AI suggestions', error);
+      const errorMessage = getErrorMessage(error) || 'Failed to get AI suggestions. Please try again later.';
+      alert(errorMessage);
       setAiSuggestions([]);
     } finally {
       setIsAiLoading(false);

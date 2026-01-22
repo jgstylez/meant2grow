@@ -2807,6 +2807,77 @@ export const updateChatGroup = async (
   await updateDoc(groupRef, updates);
 };
 
+// ==================== TYPING INDICATOR OPERATIONS ====================
+
+/**
+ * Set typing status for a user in a chat
+ * @param chatId - The chat ID (can be userId for DMs or groupId for group chats)
+ * @param userId - The user who is typing
+ * @param organizationId - The organization ID
+ */
+export const setTypingStatus = async (
+  chatId: string,
+  userId: string,
+  organizationId: string
+): Promise<void> => {
+  const typingRef = doc(db, "typingStatus", `${chatId}_${userId}`);
+  await setDoc(typingRef, {
+    chatId,
+    userId,
+    organizationId,
+    isTyping: true,
+    timestamp: Timestamp.now(),
+  }, { merge: true });
+};
+
+/**
+ * Clear typing status for a user in a chat
+ * @param chatId - The chat ID
+ * @param userId - The user who stopped typing
+ */
+export const clearTypingStatus = async (
+  chatId: string,
+  userId: string
+): Promise<void> => {
+  const typingRef = doc(db, "typingStatus", `${chatId}_${userId}`);
+  await deleteDoc(typingRef);
+};
+
+/**
+ * Subscribe to typing status for a chat
+ * @param chatId - The chat ID to monitor
+ * @param organizationId - The organization ID
+ * @param currentUserId - Current user ID (to exclude from typing indicators)
+ * @param callback - Callback function that receives array of user IDs who are typing
+ */
+export const subscribeToTypingStatus = (
+  chatId: string,
+  organizationId: string,
+  currentUserId: string,
+  callback: (typingUserIds: string[]) => void
+): Unsubscribe => {
+  const q = query(
+    collection(db, "typingStatus"),
+    where("chatId", "==", chatId),
+    where("organizationId", "==", organizationId),
+    where("isTyping", "==", true)
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot: QuerySnapshot) => {
+      const typingUserIds = snapshot.docs
+        .map((doc) => doc.data().userId)
+        .filter((userId) => userId !== currentUserId); // Exclude current user
+      callback(typingUserIds);
+    },
+    (error) => {
+      logger.error("Error subscribing to typing status", error);
+      callback([]);
+    }
+  );
+};
+
 // ==================== PRIVATE MESSAGE REQUEST OPERATIONS ====================
 
 export const createPrivateMessageRequest = async (

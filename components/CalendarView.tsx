@@ -26,6 +26,7 @@ import {
   generateAppleCalendarICS,
 } from "../services/calendarDeepLinks";
 import { getErrorMessage } from "../utils/errors";
+import { logger } from "../services/logger";
 
 interface CalendarViewProps {
   events: CalendarEvent[];
@@ -157,7 +158,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error: unknown) {
-      console.error("Error syncing calendar:", error);
+      logger.error("Error syncing calendar", error);
       alert(getErrorMessage(error) || "Failed to sync calendar");
     } finally {
       setSyncing(false);
@@ -262,7 +263,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     } catch (error) {
       // Error handling is done in onUpdateEvent (toast shown there)
       // Don't reset state on error so user can retry
-      console.error("Error updating event:", error);
+      logger.error("Error updating event", error);
     }
   };
 

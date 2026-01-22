@@ -300,7 +300,12 @@ const App: React.FC = () => {
         role: Role.PLATFORM_ADMIN, // Assume platform admin if we can't verify
         email: '',
         name: 'Original Operator',
-        createdAt: new Date(),
+        avatar: '',
+        title: '',
+        company: '',
+        skills: [],
+        bio: '',
+        createdAt: new Date().toISOString(),
       };
       
       // Try to load original operator's data for access control
@@ -1204,28 +1209,63 @@ const App: React.FC = () => {
       }
 
       if (createdInvitation && createdInvitation.invitationLink) {
-        // Note: Email sending should be done via Cloud Function
-        // For now, the invitation link is created and can be shared manually
-        // TODO: Create Cloud Function endpoint to send invitation emails
-        console.log(
-          "Invitation created with link:",
-          createdInvitation.invitationLink
-        );
+        // Send invitation email via Cloud Function
+        try {
+          const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
+            ? `${import.meta.env.VITE_FUNCTIONS_URL}/sendInvitationEmail`
+            : (import.meta.env.DEV 
+              ? 'http://localhost:5001/meant2grow-dev/us-central1/sendInvitationEmail'
+              : 'https://us-central1-meant2grow-dev.cloudfunctions.net/sendInvitationEmail');
 
-        // Optionally copy link to clipboard for easy sharing
-        if (navigator.clipboard) {
-          try {
-            await navigator.clipboard.writeText(
-              createdInvitation.invitationLink
+          const response = await fetch(functionsUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              invitationId,
+              invitationLink: createdInvitation.invitationLink,
+              recipientEmail: inviteData.email.toLowerCase(),
+              recipientName: inviteData.name || "User",
+              organizationName: organization.name,
+              role: inviteData.role,
+              inviterName: currentUser.name,
+              personalNote: inviteData.personalNote,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to send invitation email');
+          }
+
+          addToast(`Invitation email sent to ${inviteData.email}`, "success");
+        } catch (emailError) {
+          logger.error("Error sending invitation email", emailError);
+          // Fallback: copy link to clipboard if email fails
+          if (navigator.clipboard) {
+            try {
+              await navigator.clipboard.writeText(
+                createdInvitation.invitationLink
+              );
+              addToast(`Email failed, but invitation link copied to clipboard!`, "info");
+            } catch (clipboardError) {
+              logger.error("Failed to copy to clipboard", clipboardError);
+              addToast(
+                getErrorMessage(emailError) || "Failed to send invitation email. Please copy the link manually.",
+                "error"
+              );
+            }
+          } else {
+            addToast(
+              getErrorMessage(emailError) || "Failed to send invitation email. Please copy the link manually.",
+              "error"
             );
-            addToast(`Invitation link copied to clipboard!`, "success");
-          } catch (clipboardError) {
-            logger.error("Failed to copy to clipboard", clipboardError);
           }
         }
+      } else {
+        throw new Error("Invitation link not found");
       }
-
-      addToast(`Invitation sent to ${inviteData.email}`, "success");
     } catch (error: unknown) {
       logger.error("Error sending invitation", error);
       addToast(getErrorMessage(error) || "Failed to send invitation", "error");
@@ -1462,6 +1502,7 @@ const App: React.FC = () => {
                 organizationId={organizationId}
                 initialChatId={chatId}
                 matches={matches}
+                onErrorToast={(message) => addToast(message, "error")}
               />
             </ErrorBoundary>
           </Suspense>
@@ -1560,6 +1601,7 @@ const App: React.FC = () => {
                   organizationId={organizationId}
                   initialChatId={chatId}
                   matches={matches}
+                  onErrorToast={(message) => addToast(message, "error")}
                 />
               </ErrorBoundary>
             </Suspense>

@@ -537,29 +537,28 @@ const Dashboard: React.FC<DashboardProps> = ({
           setAllRatings(ratingsData);
         } catch (error) {
           if (cancelled) return;
-          console.error("Error loading platform operator data:", error);
+          logger.error("Error loading platform operator data", error);
           // Log more details about the error
           if (error instanceof Error) {
-            console.error("Error message:", error.message);
-            console.error("Error stack:", error.stack);
+            logger.error("Error message", { message: error.message });
+            logger.error("Error stack", { stack: error.stack });
             
             // Check for permission errors
             if (error.message.includes("Missing or insufficient permissions")) {
-              console.error("❌ PERMISSION ERROR DETECTED");
-              console.error("This error occurs when:");
-              console.error("1. User document doesn't exist in Firestore");
-              console.error("2. User role is not set to PLATFORM_ADMIN");
-              console.error("3. Firestore rules are checking user document before allowing access");
-              console.error("\n📝 User info:", {
+              logger.error("PERMISSION ERROR DETECTED", {
                 userId: user.id,
                 role: user.role,
                 organizationId: user.organizationId,
                 isPlatformAdmin,
+                errorDetails: {
+                  message: "1. User document doesn't exist in Firestore",
+                  message2: "2. User role is not set to PLATFORM_ADMIN",
+                  message3: "3. Firestore rules are checking user document before allowing access",
+                  fix1: `Check if user document exists: firebase firestore:get users/${user.id}`,
+                  fix2: `Update user role: firebase firestore:update users/${user.id} role=PLATFORM_ADMIN`,
+                  fix3: `Or run: npx ts-node scripts/check-user-role.ts ${user.id} --fix`,
+                },
               });
-              console.error("\n💡 To fix:");
-              console.error("1. Check if user document exists: firebase firestore:get users/" + user.id);
-              console.error("2. Update user role: firebase firestore:update users/" + user.id + " role=PLATFORM_ADMIN");
-              console.error("3. Or run: npx ts-node scripts/check-user-role.ts " + user.id + " --fix");
             }
           }
           // Set empty arrays on error to prevent undefined state

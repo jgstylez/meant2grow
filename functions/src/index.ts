@@ -48,7 +48,7 @@ const mailtrapFromEmail = defineString("MAILTRAP_FROM_EMAIL", {
 
 const mailtrapReplyToEmail = defineString("MAILTRAP_REPLY_TO_EMAIL", {
   description: "Reply-to email address for Mailtrap",
-  default: "support@meant2grow.com",
+  default: "meantogrow@gmail.com",
 });
 
 const appUrl = defineString("VITE_APP_URL", {
@@ -703,7 +703,7 @@ export const sendPasswordResetEmail = functions.onRequest(
       await emailService.sendPasswordReset(email, resetUrl, userName || "User");
 
       res.status(200).json({ message: "Password reset email sent successfully" });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error sending password reset email:", error);
       res.status(500).json({ error: "Failed to send password reset email", message: formatError(error) });
     }
@@ -1453,6 +1453,68 @@ async function sendFCMPushNotification(
     }
   }
 }
+
+// Send invitation email endpoint
+export const sendInvitationEmail = functions.onRequest(
+  {
+    cors: true,
+    region: "us-central1",
+  },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method not allowed" });
+      return;
+    }
+
+    try {
+      const { invitationId, invitationLink, recipientEmail, recipientName, organizationName, role, inviterName, personalNote } = req.body;
+
+      // Validate required fields
+      if (!invitationLink || !recipientEmail || !recipientName || !organizationName || !role) {
+        res.status(400).json({ error: "Missing required fields: invitationLink, recipientEmail, recipientName, organizationName, role" });
+        return;
+      }
+
+      // Validate role
+      if (!Object.values(Role).includes(role)) {
+        res.status(400).json({ error: "Invalid role" });
+        return;
+      }
+
+      // Send invitation email
+      await getEmailService().sendInvitation(
+        invitationLink,
+        recipientEmail,
+        recipientName,
+        organizationName,
+        role,
+        inviterName,
+        personalNote
+      );
+
+      // Update invitation status if invitationId is provided
+      if (invitationId) {
+        try {
+          await db.collection("invitations").doc(invitationId).update({
+            status: "Pending",
+            sentDate: admin.firestore.Timestamp.now(),
+          });
+        } catch (updateError) {
+          // Log but don't fail - email was sent successfully
+          console.error("Error updating invitation status:", formatError(updateError));
+        }
+      }
+
+      res.status(200).json({ success: true, message: "Invitation email sent successfully" });
+    } catch (error: unknown) {
+      console.error("Error sending invitation email:", formatError(error));
+      res.status(500).json({ 
+        error: "Failed to send invitation email",
+        message: getErrorMessage(error) || "Unknown error"
+      });
+    }
+  }
+);
 
 // Firestore trigger: Send FCM push notification when a notification is created
 export const onNotificationCreated = functionsV1.firestore

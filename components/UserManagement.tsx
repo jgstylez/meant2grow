@@ -11,6 +11,7 @@ import {
 import { emailService } from "../services/emailService";
 import { CARD_CLASS, INPUT_CLASS, BUTTON_PRIMARY } from "../styles/common";
 import { getErrorMessage } from "../utils/errors";
+import { logger } from "../services/logger";
 import {
   Users,
   Search,
@@ -111,14 +112,14 @@ const UserManagement: React.FC<UserManagementProps> = ({
   const loadData = useCallback(async () => {
     // Prevent concurrent loads
     if (isLoadingRef.current) {
-      console.log("[UserManagement] Already loading, skipping...");
+      logger.debug("[UserManagement] Already loading, skipping...");
       return;
     }
 
     try {
       isLoadingRef.current = true;
       setLoading(true);
-      console.log("[UserManagement] Loading data...");
+      logger.debug("[UserManagement] Loading data...");
       
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) => 
@@ -137,7 +138,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
           ),
         ]);
       } catch (error: unknown) {
-        console.error("[UserManagement] Error loading users:", error);
+        logger.error("[UserManagement] Error loading users", error);
         // Continue with empty array if users fail
         allUsers = [];
       }
@@ -153,12 +154,12 @@ const UserManagement: React.FC<UserManagementProps> = ({
           ),
         ]);
       } catch (error: unknown) {
-        console.error("[UserManagement] Error loading organizations:", error);
+        logger.error("[UserManagement] Error loading organizations", error);
         // Continue with empty array if orgs fail
         allOrgs = [];
       }
 
-      console.log("[UserManagement] Data loaded:", {
+      logger.debug("[UserManagement] Data loaded", {
         users: allUsers.length,
         orgs: allOrgs.length,
       });
@@ -188,7 +189,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
         totalOrgs: allOrgs.length,
       });
     } catch (error) {
-      console.error("[UserManagement] Error loading data:", error);
+      logger.error("[UserManagement] Error loading data", error);
       // Set empty arrays on error to prevent undefined state
       setUsers([]);
       setOrganizations([]);
@@ -214,7 +215,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
     // Set a safety timeout to ensure loading doesn't hang forever
     const safetyTimeout = setTimeout(() => {
       if (isLoadingRef.current) {
-        console.warn(
+        logger.warn(
           "[UserManagement] Loading timeout after 10s - forcing loading to stop"
         );
         setLoading(false);
@@ -338,7 +339,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
       await refreshData();
       setEditingUser(null);
     } catch (error: unknown) {
-      console.error("Error updating user:", error);
+      logger.error("Error updating user", error);
       alert("Failed to update user: " + getErrorMessage(error));
     }
   };
@@ -349,7 +350,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
       await refreshData();
       setShowDeleteConfirm(null);
     } catch (error: unknown) {
-      console.error("Error deleting user:", error);
+      logger.error("Error deleting user", error);
       alert("Failed to delete user: " + getErrorMessage(error));
     }
   };
@@ -360,7 +361,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
       await refreshData();
       setShowDeleteConfirm(null);
     } catch (error: unknown) {
-      console.error("Error deleting organization:", error);
+      logger.error("Error deleting organization", error);
       alert("Failed to delete organization: " + getErrorMessage(error));
     }
   };
@@ -485,7 +486,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
       setEmailSubject("");
       setEmailBody("");
     } catch (error: unknown) {
-      console.error("Error sending email:", error);
+      logger.error("Error sending email", error);
       alert(`Failed to send email: ${getErrorMessage(error) || "Unknown error"}`);
     } finally {
       setSendingEmail(false);
