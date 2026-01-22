@@ -74,7 +74,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSignup, onLogin, onNavigate
           </button>
           <button
             onClick={onSignup}
-            className="bg-emerald-600 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:bg-emerald-700 transition-shadow shadow-lg shadow-emerald-900/10"
+            className="hidden md:block bg-emerald-600 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold hover:bg-emerald-700 transition-shadow shadow-lg shadow-emerald-900/10"
           >
             Get Started
           </button>
