@@ -2268,7 +2268,7 @@ export interface PlatformAdminFilters {
 export const getAllUsersPaginated = async (
   options: PaginationOptions & { filters?: PlatformAdminFilters } = {}
 ): Promise<PaginatedResult<User>> => {
-  const pageSize = options.pageSize || 50;
+  const pageSize = options.pageSize || 20;
   let q = query(collection(db, "users"), orderBy("createdAt", "desc"));
 
   // Apply filters
@@ -2429,48 +2429,65 @@ export const subscribeToAllUsers = (
 
   const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
   
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const users = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: convertTimestamp(doc.data().createdAt),
-      })) as User[];
-      
-      if (cache) {
-        cache.set(cacheKey, users);
+  let unsubscribe: Unsubscribe | null = null;
+  
+  try {
+    unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const users = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: convertTimestamp(doc.data().createdAt),
+        })) as User[];
+        
+        if (cache) {
+          cache.set(cacheKey, users);
+        }
+        callback(users);
+      },
+      (error) => {
+        logger.error("Error in subscribeToAllUsers", error);
+        // Try fallback without orderBy
+        const fallbackQ = query(collection(db, "users"));
+        if (unsubscribe) {
+          unsubscribe(); // Unsubscribe from original query
+        }
+        unsubscribe = onSnapshot(
+          fallbackQ,
+          (snapshot) => {
+            const users = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+              createdAt: convertTimestamp(doc.data().createdAt),
+            })) as User[];
+            
+            const sorted = users.sort((a, b) => {
+              const aDate = new Date(a.createdAt).getTime();
+              const bDate = new Date(b.createdAt).getTime();
+              return bDate - aDate;
+            });
+            
+            if (cache) {
+              cache.set(cacheKey, sorted);
+            }
+            callback(sorted);
+          },
+          (err) => logger.error("Error in subscribeToAllUsers fallback", err)
+        );
       }
-      callback(users);
-    },
-    (error) => {
-      logger.error("Error in subscribeToAllUsers", error);
-      // Try fallback without orderBy
-      const fallbackQ = query(collection(db, "users"));
-      return onSnapshot(
-        fallbackQ,
-        (snapshot) => {
-          const users = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: convertTimestamp(doc.data().createdAt),
-          })) as User[];
-          
-          const sorted = users.sort((a, b) => {
-            const aDate = new Date(a.createdAt).getTime();
-            const bDate = new Date(b.createdAt).getTime();
-            return bDate - aDate;
-          });
-          
-          if (cache) {
-            cache.set(cacheKey, sorted);
-          }
-          callback(sorted);
-        },
-        (err) => logger.error("Error in subscribeToAllUsers fallback", err)
-      );
+    );
+  } catch (error) {
+    logger.error("Error setting up subscribeToAllUsers", error);
+    // Return a no-op unsubscribe function
+    return () => {};
+  }
+  
+  return () => {
+    if (unsubscribe) {
+      unsubscribe();
     }
-  );
+  };
 };
 
 export const subscribeToAllOrganizations = (

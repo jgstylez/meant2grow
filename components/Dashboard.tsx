@@ -795,13 +795,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       recentUsers,
     };
 
-    const recentUsersList = allUsers
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
-      .slice(0, 5);
-
     // Use paginated users if not using real-time, otherwise use filtered allUsers
     const usersToDisplay = useRealTime ? allUsers : paginatedUsers;
     const filteredUsers = userSearchQuery
@@ -1181,36 +1174,59 @@ const Dashboard: React.FC<DashboardProps> = ({
               </h2>
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => {
-                    exportUsersToCSV(useRealTime ? allUsers : paginatedUsers, allOrganizations);
+                  onClick={async () => {
+                    try {
+                      const usersToExport = useRealTime ? allUsers : paginatedUsers;
+                      if (usersToExport.length === 0) {
+                        alert("No users to export");
+                        return;
+                      }
+                      exportUsersToCSV(usersToExport, allOrganizations);
+                    } catch (error) {
+                      logger.error("Error exporting users to CSV", error);
+                      alert("Failed to export users. Please try again.");
+                    }
                   }}
-                  className="text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 min-h-[32px] touch-manipulation"
-                  title="Export to CSV"
+                  className="text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 min-h-[44px] sm:min-h-[32px] px-2 py-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors touch-manipulation"
+                  aria-label={`Export ${useRealTime ? allUsers.length : paginatedUsers.length} users to CSV`}
+                  title={`Export ${useRealTime ? allUsers.length : paginatedUsers.length} users to CSV`}
                 >
-                  <Copy className="w-3 h-3" /> Export CSV
+                  <Copy className="w-3 h-3" aria-hidden="true" /> <span className="hidden sm:inline">Export CSV</span><span className="sm:hidden">CSV</span>
                 </button>
                 <button
-                  onClick={() => {
-                    const exportData = (useRealTime ? allUsers : paginatedUsers).map((u) => ({
-                      Name: u.name,
-                      Email: u.email,
-                      Role: u.role,
-                      Organization: getOrganizationName(u.organizationId),
-                      Company: u.company || "",
-                      "Created At": new Date(u.createdAt).toLocaleDateString(),
-                    }));
-                    exportToPDF("Platform Users", exportData, "users");
+                  onClick={async () => {
+                    try {
+                      const usersToExport = useRealTime ? allUsers : paginatedUsers;
+                      if (usersToExport.length === 0) {
+                        alert("No users to export");
+                        return;
+                      }
+                      const exportData = usersToExport.map((u) => ({
+                        Name: u.name,
+                        Email: u.email,
+                        Role: u.role,
+                        Organization: getOrganizationName(u.organizationId),
+                        Company: u.company || "",
+                        "Created At": new Date(u.createdAt).toLocaleDateString(),
+                      }));
+                      await exportToPDF("Platform Users", exportData, "users");
+                    } catch (error) {
+                      logger.error("Error exporting users to PDF", error);
+                      alert("Failed to export users. Please try again.");
+                    }
                   }}
-                  className="text-xs sm:text-sm font-medium text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 min-h-[32px] touch-manipulation"
-                  title="Export to PDF"
+                  className="text-xs sm:text-sm font-medium text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 min-h-[44px] sm:min-h-[32px] px-2 py-1 rounded hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors touch-manipulation"
+                  aria-label={`Export ${useRealTime ? allUsers.length : paginatedUsers.length} users to PDF`}
+                  title={`Export ${useRealTime ? allUsers.length : paginatedUsers.length} users to PDF`}
                 >
-                  <Copy className="w-3 h-3" /> Export PDF
+                  <Copy className="w-3 h-3" aria-hidden="true" /> <span className="hidden sm:inline">Export PDF</span><span className="sm:hidden">PDF</span>
                 </button>
                 <button
                   onClick={() => onNavigate("user-management:users")}
-                  className="text-xs sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 min-h-[32px] touch-manipulation"
+                  className="text-xs sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 min-h-[44px] sm:min-h-[32px] px-2 py-1 rounded hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors touch-manipulation"
+                  aria-label="View all users in user management"
                 >
-                  View All <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">View All</span><span className="sm:hidden">All</span> <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -1219,85 +1235,141 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="space-y-3 mb-4">
               {/* Search */}
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <label htmlFor="user-search" className="sr-only">
+                  Search users by name, email, or company
+                </label>
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" aria-hidden="true" />
                 <input
+                  id="user-search"
                   type="text"
                   placeholder="Search users by name, email, or company..."
                   value={userSearchQuery}
                   onChange={(e) => setUserSearchQuery(e.target.value)}
                   className={INPUT_CLASS + " pl-10 text-sm min-h-[44px]"}
+                  aria-label="Search users by name, email, or company"
                 />
               </div>
 
               {/* Advanced Filters */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {/* Role Filter */}
-                <select
-                  value={roleFilter}
-                  onChange={(e) => {
-                    setRoleFilter(e.target.value as Role | "ALL");
-                    setUsersPage(1);
-                    setUsersLastDoc(null);
-                    platformAdminCache.invalidatePattern("users:page:");
-                  }}
-                  className={INPUT_CLASS + " text-sm min-h-[44px]"}
-                >
-                  <option value="ALL">All Roles</option>
-                  <option value={Role.PLATFORM_ADMIN}>Platform Admin</option>
-                  <option value={Role.ADMIN}>Organization Admin</option>
-                  <option value={Role.MENTOR}>Mentor</option>
-                  <option value={Role.MENTEE}>Mentee</option>
-                </select>
+                <div>
+                  <label htmlFor="role-filter" className="sr-only">
+                    Filter by role
+                  </label>
+                  <select
+                    id="role-filter"
+                    value={roleFilter}
+                    onChange={(e) => {
+                      setRoleFilter(e.target.value as Role | "ALL");
+                      setUsersPage(1);
+                      setUsersLastDoc(null);
+                      platformAdminCache.invalidatePattern("users:page:");
+                    }}
+                    className={INPUT_CLASS + " text-sm min-h-[44px]"}
+                    aria-label="Filter users by role"
+                  >
+                    <option value="ALL">All Roles</option>
+                    <option value={Role.PLATFORM_ADMIN}>Platform Admin</option>
+                    <option value={Role.ADMIN}>Organization Admin</option>
+                    <option value={Role.MENTOR}>Mentor</option>
+                    <option value={Role.MENTEE}>Mentee</option>
+                  </select>
+                </div>
 
                 {/* Organization Filter */}
-                <select
-                  value={orgFilter}
-                  onChange={(e) => {
-                    setOrgFilter(e.target.value);
-                    setUsersPage(1);
-                    setUsersLastDoc(null);
-                    platformAdminCache.invalidatePattern("users:page:");
-                  }}
-                  className={INPUT_CLASS + " text-sm min-h-[44px]"}
-                >
-                  <option value="ALL">All Organizations</option>
-                  {allOrganizations.map((org) => (
-                    <option key={org.id} value={org.id}>
-                      {org.name}
-                    </option>
-                  ))}
-                </select>
+                <div>
+                  <label htmlFor="org-filter" className="sr-only">
+                    Filter by organization
+                  </label>
+                  <select
+                    id="org-filter"
+                    value={orgFilter}
+                    onChange={(e) => {
+                      setOrgFilter(e.target.value);
+                      setUsersPage(1);
+                      setUsersLastDoc(null);
+                      platformAdminCache.invalidatePattern("users:page:");
+                    }}
+                    className={INPUT_CLASS + " text-sm min-h-[44px]"}
+                    aria-label="Filter users by organization"
+                  >
+                    <option value="ALL">All Organizations</option>
+                    {allOrganizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 {/* Date Range Filter */}
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={dateRangeFilter?.start || ""}
-                    onChange={(e) => {
-                      setDateRangeFilter({
-                        start: e.target.value,
-                        end: dateRangeFilter?.end || new Date().toISOString().split("T")[0],
-                      });
-                      setUsersPage(1);
-                      setUsersLastDoc(null);
-                    }}
-                    className={INPUT_CLASS + " text-sm min-h-[44px] flex-1"}
-                    placeholder="Start Date"
-                  />
-                  <input
-                    type="date"
-                    value={dateRangeFilter?.end || ""}
-                    onChange={(e) => {
-                      setDateRangeFilter({
-                        start: dateRangeFilter?.start || "",
-                        end: e.target.value,
-                      });
-                      setUsersPage(1);
-                      setUsersLastDoc(null);
-                    }}
-                    className={INPUT_CLASS + " text-sm min-h-[44px] flex-1"}
-                    placeholder="End Date"
-                  />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex-1">
+                    <label htmlFor="date-start" className="sr-only">
+                      Filter by start date
+                    </label>
+                    <input
+                      id="date-start"
+                      type="date"
+                      value={dateRangeFilter?.start || ""}
+                      onChange={(e) => {
+                        const startDate = e.target.value;
+                        const endDate = dateRangeFilter?.end || new Date().toISOString().split("T")[0];
+                        // Validate start <= end
+                        if (startDate && endDate && startDate > endDate) {
+                          // Auto-adjust end date if start > end
+                          setDateRangeFilter({
+                            start: startDate,
+                            end: startDate,
+                          });
+                        } else {
+                          setDateRangeFilter({
+                            start: startDate,
+                            end: endDate,
+                          });
+                        }
+                        setUsersPage(1);
+                        setUsersLastDoc(null);
+                      }}
+                      max={dateRangeFilter?.end || new Date().toISOString().split("T")[0]}
+                      className={INPUT_CLASS + " text-sm min-h-[44px] w-full"}
+                      aria-label="Filter by start date"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label htmlFor="date-end" className="sr-only">
+                      Filter by end date
+                    </label>
+                    <input
+                      id="date-end"
+                      type="date"
+                      value={dateRangeFilter?.end || ""}
+                      onChange={(e) => {
+                        const endDate = e.target.value;
+                        const startDate = dateRangeFilter?.start || "";
+                        // Validate start <= end
+                        if (startDate && endDate && startDate > endDate) {
+                          // Auto-adjust start date if end < start
+                          setDateRangeFilter({
+                            start: endDate,
+                            end: endDate,
+                          });
+                        } else {
+                          setDateRangeFilter({
+                            start: startDate,
+                            end: endDate,
+                          });
+                        }
+                        setUsersPage(1);
+                        setUsersLastDoc(null);
+                      }}
+                      min={dateRangeFilter?.start || undefined}
+                      max={new Date().toISOString().split("T")[0]}
+                      className={INPUT_CLASS + " text-sm min-h-[44px] w-full"}
+                      aria-label="Filter by end date"
+                    />
+                  </div>
                   {dateRangeFilter && (
                     <button
                       onClick={() => {
@@ -1305,14 +1377,53 @@ const Dashboard: React.FC<DashboardProps> = ({
                         setUsersPage(1);
                         setUsersLastDoc(null);
                       }}
-                      className="px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 min-h-[44px]"
+                      className="px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 min-h-[44px] rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex-shrink-0"
+                      aria-label="Clear date filter"
                       title="Clear date filter"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-4 h-4" aria-hidden="true" />
                     </button>
                   )}
                 </div>
               </div>
+
+              {/* Active Filters Indicator & Clear All */}
+              {(roleFilter !== "ALL" || orgFilter !== "ALL" || dateRangeFilter) && (
+                <div className="flex items-center justify-between flex-wrap gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Active filters:</span>
+                    {roleFilter !== "ALL" && (
+                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs">
+                        Role: {roleFilter}
+                      </span>
+                    )}
+                    {orgFilter !== "ALL" && (
+                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs">
+                        Org: {allOrganizations.find((o) => o.id === orgFilter)?.name || "Unknown"}
+                      </span>
+                    )}
+                    {dateRangeFilter && (
+                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs">
+                        {dateRangeFilter.start} to {dateRangeFilter.end}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setRoleFilter("ALL");
+                      setOrgFilter("ALL");
+                      setDateRangeFilter(null);
+                      setUsersPage(1);
+                      setUsersLastDoc(null);
+                      platformAdminCache.invalidatePattern("users:page:");
+                    }}
+                    className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline min-h-[32px] touch-manipulation"
+                    aria-label="Clear all filters"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
 
               {/* Real-time Toggle */}
               <div className="flex items-center gap-2">
@@ -1325,10 +1436,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                     setUsersPage(1);
                     setUsersLastDoc(null);
                   }}
-                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  className="w-4 h-4 text-emerald-600 rounded focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                  aria-describedby="realtime-description"
                 />
-                <label htmlFor="realtime-toggle" className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                  Enable real-time updates (uses more resources)
+                <label htmlFor="realtime-toggle" className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 cursor-pointer">
+                  <span id="realtime-description">Enable real-time updates (uses more resources)</span>
                 </label>
               </div>
             </div>
@@ -1348,12 +1460,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                   {filteredUsers.map((u) => (
                   <div
                     key={u.id}
-                    className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer min-h-[60px] sm:min-h-0 touch-manipulation"
+                    className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer min-h-[60px] sm:min-h-0 touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       setSelectedUser(u);
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedUser(u);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View details for ${u.name}, ${u.role}`}
                   >
                     <img
                       src={u.avatar}
@@ -1391,27 +1512,30 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                 {/* Pagination Controls */}
                 {!useRealTime && (
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <nav className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-800" aria-label="User pagination">
                     <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                      Showing {paginatedUsers.length} users
-                      {usersHasMore && " (more available)"}
+                      <span aria-live="polite" aria-atomic="true">
+                        Showing {paginatedUsers.length} user{paginatedUsers.length !== 1 ? "s" : ""}
+                        {usersHasMore && " (more available)"}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap justify-center">
                       <button
                         onClick={() => {
                           if (usersPage > 1) {
                             setUsersPage(usersPage - 1);
-                            // Reset to previous page's lastDoc would require tracking history
-                            // For simplicity, we'll reload from start
                             setUsersLastDoc(null);
                           }
                         }}
                         disabled={usersPage === 1 || usersLoading}
-                        className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
+                        className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                        aria-label={`Go to previous page, currently on page ${usersPage}`}
+                        aria-disabled={usersPage === 1 || usersLoading}
                       >
-                        Previous
+                        <span className="hidden sm:inline">Previous</span>
+                        <span className="sm:hidden">Prev</span>
                       </button>
-                      <span className="text-sm text-slate-600 dark:text-slate-400 px-2">
+                      <span className="text-sm text-slate-600 dark:text-slate-400 px-2 font-medium" aria-current="page">
                         Page {usersPage}
                       </span>
                       <button
@@ -1421,12 +1545,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                           }
                         }}
                         disabled={!usersHasMore || usersLoading}
-                        className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
+                        className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                        aria-label={`Go to next page, currently on page ${usersPage}`}
+                        aria-disabled={!usersHasMore || usersLoading}
                       >
                         Next
                       </button>
                     </div>
-                  </div>
+                  </nav>
                 )}
               </>
             )}
