@@ -18,7 +18,22 @@ import {
   getAllMatches,
   getAllGoals,
   getAllRatings,
+  getAllUsersPaginated,
+  subscribeToAllUsers,
+  subscribeToAllOrganizations,
+  PlatformAdminFilters,
+  PaginatedResult,
 } from "../services/database";
+import { QueryDocumentSnapshot } from "firebase/firestore";
+import {
+  exportUsersToCSV,
+  exportMatchesToCSV,
+  exportGoalsToCSV,
+  exportRatingsToCSV,
+  exportToPDF,
+} from "../utils/exportUtils";
+import { platformAdminCache, cacheKeys } from "../utils/cache";
+import { platformAdminRateLimiter } from "../utils/rateLimiter";
 import { logger } from "../services/logger";
 import { parseDurationToHours } from "../services/utils";
 import {
@@ -152,6 +167,20 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [platformAdminLoading, setPlatformAdminLoading] = useState(true);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  
+  // Pagination state
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersPerPage] = useState(20);
+  const [usersLastDoc, setUsersLastDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [usersHasMore, setUsersHasMore] = useState(true);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [paginatedUsers, setPaginatedUsers] = useState<User[]>([]);
+  
+  // Filtering state
+  const [roleFilter, setRoleFilter] = useState<Role | "ALL">("ALL");
+  const [orgFilter, setOrgFilter] = useState<string>("ALL");
+  const [dateRangeFilter, setDateRangeFilter] = useState<{ start: string; end: string } | null>(null);
+  const [useRealTime, setUseRealTime] = useState(false);
 
   const handleSubmitRating = () => {
     if (ratingTarget && ratingScore > 0) {
@@ -493,6 +522,129 @@ const Dashboard: React.FC<DashboardProps> = ({
     [user.role, userRoleString]
   );
 
+  // Load paginated users
+  useEffect(() => {
+    if (isPlatformAdminMemo && !useRealTime) {
+      let cancelled = false;
+      const loadPaginatedUsers = async () => {
+        try {
+          setUsersLoading(true);
+          
+          // Check rate limit
+          if (!platformAdminRateLimiter.isAllowed(`users:${user.id}`)) {
+            const remaining = platformAdminRateLimiter.getRemaining(`users:${user.id}`);
+            logger.warn(`Rate limit reached. ${remaining} requests remaining.`);
+            return;
+          }
+
+          // Check cache first
+          const cacheKey = `users:page:${usersPage}:filter:${roleFilter}:${orgFilter}`;
+          const cached = platformAdminCache.get<User[]>(cacheKey);
+          if (cached) {
+            setPaginatedUsers(cached);
+            setUsersLoading(false);
+            return;
+          }
+
+          const filters: PlatformAdminFilters = {
+            role: roleFilter !== "ALL" ? roleFilter : undefined,
+            organizationId: orgFilter !== "ALL" ? orgFilter : undefined,
+            dateRange: dateRangeFilter || undefined,
+          };
+
+          const result: PaginatedResult<User> = await getAllUsersPaginated({
+            pageSize: usersPerPage,
+            lastDoc: usersPage === 1 ? undefined : usersLastDoc,
+            filters,
+          });
+
+          if (cancelled) return;
+
+          if (usersPage === 1) {
+            setPaginatedUsers(result.data);
+          } else {
+            setPaginatedUsers((prev) => [...prev, ...result.data]);
+          }
+
+          setUsersLastDoc(result.lastDoc);
+          setUsersHasMore(result.hasMore);
+
+          // Cache the result
+          platformAdminCache.set(cacheKey, result.data, 30000); // 30 second cache
+        } catch (error) {
+          if (cancelled) return;
+          logger.error("Error loading paginated users", error);
+        } finally {
+          if (!cancelled) {
+            setUsersLoading(false);
+          }
+        }
+      };
+
+      loadPaginatedUsers();
+
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [isPlatformAdminMemo, usersPage, roleFilter, orgFilter, dateRangeFilter, useRealTime, usersLastDoc, usersPerPage, user.id]);
+
+  // Real-time subscriptions for platform admin
+  useEffect(() => {
+    if (isPlatformAdminMemo && useRealTime) {
+      let cancelled = false;
+
+      // Check rate limit for subscriptions
+      if (!platformAdminRateLimiter.isAllowed(`subscriptions:${user.id}`)) {
+        logger.warn("Rate limit reached for subscriptions. Falling back to one-time fetch.");
+        setUseRealTime(false);
+        return;
+      }
+
+      const unsubscribeUsers = subscribeToAllUsers(
+        (users) => {
+          if (!cancelled) {
+            setAllUsers(users);
+            // Apply filters to real-time data
+            let filtered = users;
+            if (roleFilter !== "ALL") {
+              filtered = filtered.filter((u) => u.role === roleFilter);
+            }
+            if (orgFilter !== "ALL") {
+              filtered = filtered.filter((u) => u.organizationId === orgFilter);
+            }
+            if (dateRangeFilter) {
+              const start = new Date(dateRangeFilter.start);
+              const end = new Date(dateRangeFilter.end);
+              filtered = filtered.filter((u) => {
+                const createdAt = new Date(u.createdAt);
+                return createdAt >= start && createdAt <= end;
+              });
+            }
+            setPaginatedUsers(filtered.slice(0, usersPerPage * usersPage));
+          }
+        },
+        platformAdminCache
+      );
+
+      const unsubscribeOrgs = subscribeToAllOrganizations(
+        (orgs) => {
+          if (!cancelled) {
+            setAllOrganizations(orgs);
+          }
+        },
+        platformAdminCache
+      );
+
+      return () => {
+        cancelled = true;
+        unsubscribeUsers();
+        unsubscribeOrgs();
+      };
+    }
+  }, [isPlatformAdminMemo, useRealTime, roleFilter, orgFilter, dateRangeFilter, usersPage, usersPerPage, user.id]);
+
+  // Load other platform data (matches, goals, ratings, events)
   useEffect(() => {
     if (isPlatformAdminMemo) {
       let cancelled = false;
@@ -501,69 +653,77 @@ const Dashboard: React.FC<DashboardProps> = ({
           setPlatformAdminLoading(true);
           logger.debug("Loading platform operator data...");
 
+          // Check cache first
+          const matchesCacheKey = cacheKeys.allMatches();
+          const goalsCacheKey = cacheKeys.allGoals();
+          const ratingsCacheKey = cacheKeys.allRatings();
+          const eventsCacheKey = cacheKeys.allCalendarEvents();
+
+          const cachedMatches = platformAdminCache.get<Match[]>(matchesCacheKey);
+          const cachedGoals = platformAdminCache.get<Goal[]>(goalsCacheKey);
+          const cachedRatings = platformAdminCache.get<Rating[]>(ratingsCacheKey);
+          const cachedEvents = platformAdminCache.get<CalendarEvent[]>(eventsCacheKey);
+
+          if (cachedMatches && cachedGoals && cachedRatings && cachedEvents) {
+            setAllMatches(cachedMatches);
+            setAllGoals(cachedGoals);
+            setAllRatings(cachedRatings);
+            setAllCalendarEvents(cachedEvents);
+            setPlatformAdminLoading(false);
+            return;
+          }
+
+          // Check rate limit
+          if (!platformAdminRateLimiter.isAllowed(`platform-data:${user.id}`)) {
+            logger.warn("Rate limit reached for platform data");
+            return;
+          }
+
           const [
-            usersData,
-            orgsData,
             eventsData,
             matchesData,
             goalsData,
             ratingsData,
           ] = await Promise.all([
-            getAllUsers(),
-            getAllOrganizations(),
             getAllCalendarEvents(),
             getAllMatches(),
             getAllGoals(),
             getAllRatings(),
           ]);
 
-          // Check if component was unmounted or effect was cancelled
           if (cancelled) return;
 
           logger.debug("Platform operator data loaded", {
-            users: usersData.length,
-            organizations: orgsData.length,
             events: eventsData.length,
             matches: matchesData.length,
             goals: goalsData.length,
             ratings: ratingsData.length,
           });
 
-          setAllUsers(usersData);
-          setAllOrganizations(orgsData);
           setAllCalendarEvents(eventsData);
           setAllMatches(matchesData);
           setAllGoals(goalsData);
           setAllRatings(ratingsData);
+
+          // Cache the results
+          platformAdminCache.set(matchesCacheKey, matchesData, 60000);
+          platformAdminCache.set(goalsCacheKey, goalsData, 60000);
+          platformAdminCache.set(ratingsCacheKey, ratingsData, 60000);
+          platformAdminCache.set(eventsCacheKey, eventsData, 60000);
         } catch (error) {
           if (cancelled) return;
           logger.error("Error loading platform operator data", error);
-          // Log more details about the error
           if (error instanceof Error) {
             logger.error("Error message", { message: error.message });
-            logger.error("Error stack", { stack: error.stack });
-            
-            // Check for permission errors
             if (error.message.includes("Missing or insufficient permissions")) {
               logger.error("PERMISSION ERROR DETECTED", {
                 userId: user.id,
                 role: user.role,
                 organizationId: user.organizationId,
                 isPlatformAdmin,
-                errorDetails: {
-                  message: "1. User document doesn't exist in Firestore",
-                  message2: "2. User role is not set to PLATFORM_ADMIN",
-                  message3: "3. Firestore rules are checking user document before allowing access",
-                  fix1: `Check if user document exists: firebase firestore:get users/${user.id}`,
-                  fix2: `Update user role: firebase firestore:update users/${user.id} role=PLATFORM_ADMIN`,
-                  fix3: `Or run: npx ts-node scripts/check-user-role.ts ${user.id} --fix`,
-                },
               });
             }
           }
-          // Set empty arrays on error to prevent undefined state
-          setAllUsers([]);
-          setAllOrganizations([]);
           setAllCalendarEvents([]);
           setAllMatches([]);
           setAllGoals([]);
@@ -580,7 +740,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         cancelled = true;
       };
     }
-  }, [isPlatformAdminMemo]);
+  }, [isPlatformAdminMemo, user.id]);
 
   // Check both the role enum and string comparison for safety - Platform Operator should see platform dashboard
   // This check MUST come first before admin/mentor/mentee checks
@@ -642,16 +802,18 @@ const Dashboard: React.FC<DashboardProps> = ({
       )
       .slice(0, 5);
 
+    // Use paginated users if not using real-time, otherwise use filtered allUsers
+    const usersToDisplay = useRealTime ? allUsers : paginatedUsers;
     const filteredUsers = userSearchQuery
-      ? allUsers
+      ? usersToDisplay
           .filter(
             (u) =>
               u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
               u.email.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-              u.company.toLowerCase().includes(userSearchQuery.toLowerCase())
+              (u.company && u.company.toLowerCase().includes(userSearchQuery.toLowerCase()))
           )
           .slice(0, 10)
-      : recentUsersList;
+      : usersToDisplay.slice(0, usersPerPage);
 
     const getRoleIcon = (role: Role) => {
       switch (role) {
@@ -1017,28 +1179,162 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <Users className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 flex-shrink-0" />
                 <span>Users</span>
               </h2>
-              <button
-                onClick={() => onNavigate("user-management:users")}
-                className="text-xs sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 self-start sm:self-auto min-h-[32px] touch-manipulation"
-              >
-                View All <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => {
+                    exportUsersToCSV(useRealTime ? allUsers : paginatedUsers, allOrganizations);
+                  }}
+                  className="text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 min-h-[32px] touch-manipulation"
+                  title="Export to CSV"
+                >
+                  <Copy className="w-3 h-3" /> Export CSV
+                </button>
+                <button
+                  onClick={() => {
+                    const exportData = (useRealTime ? allUsers : paginatedUsers).map((u) => ({
+                      Name: u.name,
+                      Email: u.email,
+                      Role: u.role,
+                      Organization: getOrganizationName(u.organizationId),
+                      Company: u.company || "",
+                      "Created At": new Date(u.createdAt).toLocaleDateString(),
+                    }));
+                    exportToPDF("Platform Users", exportData, "users");
+                  }}
+                  className="text-xs sm:text-sm font-medium text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 min-h-[32px] touch-manipulation"
+                  title="Export to PDF"
+                >
+                  <Copy className="w-3 h-3" /> Export PDF
+                </button>
+                <button
+                  onClick={() => onNavigate("user-management:users")}
+                  className="text-xs sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 min-h-[32px] touch-manipulation"
+                >
+                  View All <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Search */}
-            <div className="relative mb-4">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                placeholder="Search users by name, email, or company..."
-                value={userSearchQuery}
-                onChange={(e) => setUserSearchQuery(e.target.value)}
-                className={INPUT_CLASS + " pl-10 text-sm min-h-[44px]"}
-              />
+            {/* Filters and Search */}
+            <div className="space-y-3 mb-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search users by name, email, or company..."
+                  value={userSearchQuery}
+                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                  className={INPUT_CLASS + " pl-10 text-sm min-h-[44px]"}
+                />
+              </div>
+
+              {/* Advanced Filters */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {/* Role Filter */}
+                <select
+                  value={roleFilter}
+                  onChange={(e) => {
+                    setRoleFilter(e.target.value as Role | "ALL");
+                    setUsersPage(1);
+                    setUsersLastDoc(null);
+                    platformAdminCache.invalidatePattern("users:page:");
+                  }}
+                  className={INPUT_CLASS + " text-sm min-h-[44px]"}
+                >
+                  <option value="ALL">All Roles</option>
+                  <option value={Role.PLATFORM_ADMIN}>Platform Admin</option>
+                  <option value={Role.ADMIN}>Organization Admin</option>
+                  <option value={Role.MENTOR}>Mentor</option>
+                  <option value={Role.MENTEE}>Mentee</option>
+                </select>
+
+                {/* Organization Filter */}
+                <select
+                  value={orgFilter}
+                  onChange={(e) => {
+                    setOrgFilter(e.target.value);
+                    setUsersPage(1);
+                    setUsersLastDoc(null);
+                    platformAdminCache.invalidatePattern("users:page:");
+                  }}
+                  className={INPUT_CLASS + " text-sm min-h-[44px]"}
+                >
+                  <option value="ALL">All Organizations</option>
+                  {allOrganizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Date Range Filter */}
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={dateRangeFilter?.start || ""}
+                    onChange={(e) => {
+                      setDateRangeFilter({
+                        start: e.target.value,
+                        end: dateRangeFilter?.end || new Date().toISOString().split("T")[0],
+                      });
+                      setUsersPage(1);
+                      setUsersLastDoc(null);
+                    }}
+                    className={INPUT_CLASS + " text-sm min-h-[44px] flex-1"}
+                    placeholder="Start Date"
+                  />
+                  <input
+                    type="date"
+                    value={dateRangeFilter?.end || ""}
+                    onChange={(e) => {
+                      setDateRangeFilter({
+                        start: dateRangeFilter?.start || "",
+                        end: e.target.value,
+                      });
+                      setUsersPage(1);
+                      setUsersLastDoc(null);
+                    }}
+                    className={INPUT_CLASS + " text-sm min-h-[44px] flex-1"}
+                    placeholder="End Date"
+                  />
+                  {dateRangeFilter && (
+                    <button
+                      onClick={() => {
+                        setDateRangeFilter(null);
+                        setUsersPage(1);
+                        setUsersLastDoc(null);
+                      }}
+                      className="px-3 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 min-h-[44px]"
+                      title="Clear date filter"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Real-time Toggle */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="realtime-toggle"
+                  checked={useRealTime}
+                  onChange={(e) => {
+                    setUseRealTime(e.target.checked);
+                    setUsersPage(1);
+                    setUsersLastDoc(null);
+                  }}
+                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                />
+                <label htmlFor="realtime-toggle" className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                  Enable real-time updates (uses more resources)
+                </label>
+              </div>
             </div>
 
             {/* Users List */}
-            {platformAdminLoading ? (
+            {(platformAdminLoading || usersLoading) ? (
               <div className="text-center py-8 text-slate-500">
                 Loading users...
               </div>
@@ -1047,8 +1343,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                 No users found
               </div>
             ) : (
-              <div className="space-y-2">
-                {filteredUsers.map((u) => (
+              <>
+                <div className="space-y-2">
+                  {filteredUsers.map((u) => (
                   <div
                     key={u.id}
                     className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer min-h-[60px] sm:min-h-0 touch-manipulation"
@@ -1089,8 +1386,49 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                {!useRealTime && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                      Showing {paginatedUsers.length} users
+                      {usersHasMore && " (more available)"}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          if (usersPage > 1) {
+                            setUsersPage(usersPage - 1);
+                            // Reset to previous page's lastDoc would require tracking history
+                            // For simplicity, we'll reload from start
+                            setUsersLastDoc(null);
+                          }
+                        }}
+                        disabled={usersPage === 1 || usersLoading}
+                        className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-slate-600 dark:text-slate-400 px-2">
+                        Page {usersPage}
+                      </span>
+                      <button
+                        onClick={() => {
+                          if (usersHasMore) {
+                            setUsersPage(usersPage + 1);
+                          }
+                        }}
+                        disabled={!usersHasMore || usersLoading}
+                        className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] touch-manipulation"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

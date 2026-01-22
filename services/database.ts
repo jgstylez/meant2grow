@@ -20,6 +20,7 @@ import {
   Unsubscribe,
   increment,
 } from "firebase/firestore";
+import { Role } from "../types";
 
 // Helper function to safely convert Firestore Timestamp to ISO string
 const convertTimestamp = (value: any): string => {
@@ -2254,6 +2255,102 @@ export const getMatchesByOrganizationPaginated = async (
   };
 };
 
+// Platform Admin Pagination Functions
+export interface PlatformAdminFilters {
+  role?: Role | "ALL";
+  organizationId?: string | "ALL";
+  dateRange?: {
+    start: string;
+    end: string;
+  };
+}
+
+export const getAllUsersPaginated = async (
+  options: PaginationOptions & { filters?: PlatformAdminFilters } = {}
+): Promise<PaginatedResult<User>> => {
+  const pageSize = options.pageSize || 50;
+  let q = query(collection(db, "users"), orderBy("createdAt", "desc"));
+
+  // Apply filters
+  if (options.filters) {
+    if (options.filters.role && options.filters.role !== "ALL") {
+      q = query(q, where("role", "==", options.filters.role));
+    }
+    if (options.filters.organizationId && options.filters.organizationId !== "ALL") {
+      q = query(q, where("organizationId", "==", options.filters.organizationId));
+    }
+  }
+
+  q = query(q, firestoreLimit(pageSize + 1));
+
+  if (options.lastDoc) {
+    q = query(q, startAfter(options.lastDoc));
+  }
+
+  let snapshot;
+  try {
+    snapshot = await getDocs(q);
+  } catch (error: unknown) {
+    const errorCode = getErrorCode(error);
+    const errorMessage = getErrorMessage(error);
+    if (
+      errorCode === "failed-precondition" ||
+      errorMessage.includes("index")
+    ) {
+      // Fallback: fetch without orderBy and filter in memory
+      console.warn("Index missing, fetching without orderBy");
+      q = query(collection(db, "users"), firestoreLimit(pageSize + 1));
+      if (options.lastDoc) {
+        q = query(q, startAfter(options.lastDoc));
+      }
+      snapshot = await getDocs(q);
+    } else {
+      throw error;
+    }
+  }
+
+  const docs = snapshot.docs;
+  let data = docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: convertTimestamp(doc.data().createdAt),
+  })) as User[];
+
+  // Apply filters in memory if needed
+  if (options.filters) {
+    if (options.filters.role && options.filters.role !== "ALL") {
+      data = data.filter((u) => u.role === options.filters!.role);
+    }
+    if (options.filters.organizationId && options.filters.organizationId !== "ALL") {
+      data = data.filter((u) => u.organizationId === options.filters!.organizationId);
+    }
+    if (options.filters.dateRange) {
+      const start = new Date(options.filters.dateRange.start);
+      const end = new Date(options.filters.dateRange.end);
+      data = data.filter((u) => {
+        const createdAt = new Date(u.createdAt);
+        return createdAt >= start && createdAt <= end;
+      });
+    }
+  }
+
+  // Sort in memory if orderBy wasn't used
+  if (!snapshot.docs.length || !data[0]?.createdAt) {
+    data = data.sort((a, b) => {
+      const aDate = new Date(a.createdAt).getTime();
+      const bDate = new Date(b.createdAt).getTime();
+      return bDate - aDate;
+    });
+  }
+
+  const hasMore = docs.length > pageSize;
+  return {
+    data: hasMore ? data.slice(0, pageSize) : data,
+    lastDoc: hasMore ? docs[pageSize - 1] : null,
+    hasMore,
+  };
+};
+
 // ==================== CHAT MESSAGE OPERATIONS ====================
 
 export const createChatMessage = async (
@@ -2313,6 +2410,102 @@ export const updateChatMessage = async (
 export const deleteChatMessage = async (messageId: string): Promise<void> => {
   const messageRef = doc(db, "chatMessages", messageId);
   await deleteDoc(messageRef);
+};
+
+// Real-time subscriptions for platform admin dashboard with caching
+export const subscribeToAllUsers = (
+  callback: (users: User[]) => void,
+  cache?: { get: (key: string) => User[] | null; set: (key: string, data: User[]) => void }
+): Unsubscribe => {
+  const cacheKey = "platform:users:all";
+  
+  // Return cached data immediately if available
+  if (cache) {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      callback(cached);
+    }
+  }
+
+  const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
+  
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const users = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: convertTimestamp(doc.data().createdAt),
+      })) as User[];
+      
+      if (cache) {
+        cache.set(cacheKey, users);
+      }
+      callback(users);
+    },
+    (error) => {
+      logger.error("Error in subscribeToAllUsers", error);
+      // Try fallback without orderBy
+      const fallbackQ = query(collection(db, "users"));
+      return onSnapshot(
+        fallbackQ,
+        (snapshot) => {
+          const users = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: convertTimestamp(doc.data().createdAt),
+          })) as User[];
+          
+          const sorted = users.sort((a, b) => {
+            const aDate = new Date(a.createdAt).getTime();
+            const bDate = new Date(b.createdAt).getTime();
+            return bDate - aDate;
+          });
+          
+          if (cache) {
+            cache.set(cacheKey, sorted);
+          }
+          callback(sorted);
+        },
+        (err) => logger.error("Error in subscribeToAllUsers fallback", err)
+      );
+    }
+  );
+};
+
+export const subscribeToAllOrganizations = (
+  callback: (organizations: Organization[]) => void,
+  cache?: { get: (key: string) => Organization[] | null; set: (key: string, data: Organization[]) => void }
+): Unsubscribe => {
+  const cacheKey = "platform:organizations:all";
+  
+  if (cache) {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      callback(cached);
+    }
+  }
+
+  const q = query(collection(db, "organizations"), orderBy("createdAt", "desc"));
+  
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const organizations = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: convertTimestamp(doc.data().createdAt),
+      })) as Organization[];
+      
+      if (cache) {
+        cache.set(cacheKey, organizations);
+      }
+      callback(organizations);
+    },
+    (error) => {
+      logger.error("Error in subscribeToAllOrganizations", error);
+    }
+  );
 };
 
 export const subscribeToChatMessages = (
