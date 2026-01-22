@@ -13,7 +13,26 @@ import {
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import * as dotenv from "dotenv";
 import { resolve, dirname } from "path";
-import { getErrorMessage, getErrorCode } from "../utils/errors";
+// Error handling utilities (inlined to avoid ES module import issues)
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return 'An unknown error occurred';
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    return String((error as { code: unknown }).code);
+  }
+  return undefined;
+}
 import { fileURLToPath } from "url";
 import { readFileSync } from "fs";
 
@@ -24,36 +43,87 @@ const __dirname = dirname(__filename);
 // Load environment variables
 dotenv.config({ path: resolve(__dirname, "../.env.local") });
 
+// Store the detected project ID at module level
+let detectedProjectId = "meant2grow-prod";
+
 // Initialize Firebase Admin
 if (getApps().length === 0) {
   // Not initialized, so initialize it
   // Try to use service account key file if it exists
-  const serviceAccountPath = resolve(
+  // Try production first, then fall back to dev
+  const prodServiceAccountPath = resolve(
+    __dirname,
+    "../meant2grow-prod-0587fbfd09ba.json"
+  );
+  const devServiceAccountPath = resolve(
     __dirname,
     "../meant2grow-dev-dfcfbc9ebeaa.json"
   );
+  
+  let serviceAccountPath: string | null = null;
+  let projectId = "meant2grow-prod";
+  
+  // Check if production service account exists
   try {
-    const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, "utf8"));
-    initializeApp({
-      credential: cert(serviceAccount),
-      projectId: process.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-dev",
-    });
-    const serviceAccountEmail =
-      serviceAccount.client_email || serviceAccount.clientEmail;
-    console.log("✅ Initialized Firebase Admin with service account");
-    console.log(`   Service Account: ${serviceAccountEmail}`);
-  } catch (fileError) {
-    // Fallback to default credentials (if running on GCP or with GOOGLE_APPLICATION_CREDENTIALS)
+    readFileSync(prodServiceAccountPath, "utf8");
+    serviceAccountPath = prodServiceAccountPath;
+    projectId = "meant2grow-prod";
+    detectedProjectId = "meant2grow-prod";
+  } catch {
+    // Fall back to dev service account
+    try {
+      readFileSync(devServiceAccountPath, "utf8");
+      serviceAccountPath = devServiceAccountPath;
+      projectId = "meant2grow-dev";
+      detectedProjectId = "meant2grow-dev";
+    } catch {
+      // Neither exists, will use default credentials
+    }
+  }
+  
+  if (serviceAccountPath) {
+    try {
+      const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, "utf8"));
+      // Use detected projectId, not env var (env var might be wrong)
+      initializeApp({
+        credential: cert(serviceAccount),
+        projectId: projectId,
+      });
+      const serviceAccountEmail =
+        serviceAccount.client_email || serviceAccount.clientEmail;
+      console.log("✅ Initialized Firebase Admin with service account");
+      console.log(`   Service Account: ${serviceAccountEmail}`);
+      console.log(`   Project: ${projectId}`);
+    } catch (fileError) {
+      // Fallback to default credentials (if running on GCP or with GOOGLE_APPLICATION_CREDENTIALS)
+      try {
+        initializeApp({
+          credential: applicationDefault(),
+          projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId,
+        });
+        console.log("✅ Initialized Firebase Admin with default credentials");
+      } catch (defaultError) {
+        // Last resort: initialize without credentials (will use environment variables)
+        initializeApp({
+          projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId,
+        });
+        console.log(
+          "✅ Initialized Firebase Admin (using environment variables)"
+        );
+      }
+    }
+  } else {
+    // No service account file found, use default credentials
     try {
       initializeApp({
         credential: applicationDefault(),
-        projectId: process.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-dev",
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-prod",
       });
       console.log("✅ Initialized Firebase Admin with default credentials");
     } catch (defaultError) {
       // Last resort: initialize without credentials (will use environment variables)
       initializeApp({
-        projectId: process.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-dev",
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-prod",
       });
       console.log(
         "✅ Initialized Firebase Admin (using environment variables)"
@@ -63,6 +133,12 @@ if (getApps().length === 0) {
 }
 
 const db = getFirestore();
+
+// Get the actual project ID from the initialized app
+function getProjectId(): string {
+  // Use the detected project ID from initialization
+  return detectedProjectId;
+}
 
 async function createPlatformAdmin(email: string, name: string) {
   console.log(`🔐 Creating platform admin user...\n`);
@@ -127,13 +203,14 @@ async function createPlatformAdmin(email: string, name: string) {
         "The service account doesn't have permission to access Firestore."
       );
       console.error("\n📋 To fix this:");
+      const currentProject = getProjectId();
       console.error("1. Go to Google Cloud Console IAM:");
       console.error(
-        "   https://console.cloud.google.com/iam-admin/iam?project=meant2grow-dev"
+        `   https://console.cloud.google.com/iam-admin/iam?project=${currentProject}`
       );
       console.error("\n2. Find the service account:");
       console.error(
-        "   meant2grow-meet-service@meant2grow-dev.iam.gserviceaccount.com"
+        `   meant2grow-meet-service@${currentProject}.iam.gserviceaccount.com`
       );
       console.error("\n3. Click the pencil icon (Edit)");
       console.error("\n4. Click 'ADD ANOTHER ROLE'");

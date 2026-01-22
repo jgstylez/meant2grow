@@ -239,12 +239,14 @@ gh auth login
 
 ## Step 4: Configure Production Environment Protection
 
-For production deployments, set up environment protection rules:
+For production deployments, set up environment protection rules with approval gates:
 
 1. Go to Settings > Environments
 2. Create or edit "production" environment
-3. Enable "Required reviewers" (optional but recommended)
+3. Enable "Required reviewers" (recommended for production)
 4. Add required reviewers who can approve production deployments
+
+**📖 Detailed Guide**: See [Production Approval Setup Guide](./PRODUCTION_APPROVAL_SETUP.md) for complete step-by-step instructions on setting up the approval process.
 
 ## Step 5: Set Up Firebase Functions Secrets
 
@@ -330,7 +332,8 @@ firebase functions:secrets:set VITE_APP_URL
   - Manual workflow dispatch (requires confirmation)
   - Release tag creation (e.g., `v1.0.0`)
 - **Purpose**: Deploy to production environment
-- **May require approval** (if configured)
+- **Requires approval** (if environment protection rules are configured)
+- **Approval Process**: See [Production Approval Setup Guide](./PRODUCTION_APPROVAL_SETUP.md)
 
 ## Troubleshooting
 
