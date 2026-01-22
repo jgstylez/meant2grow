@@ -16,7 +16,7 @@ const db = admin.firestore();
 // Detect environment from Firebase project ID
 const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || admin.app().options.projectId || '';
 const isProduction = projectId.includes('prod') || projectId === 'meant2grow-prod';
-const isSandbox = projectId.includes('dev') || projectId === 'meant2grow-dev' || !isProduction;
+// const isSandbox = projectId.includes('dev') || projectId === 'meant2grow-dev' || !isProduction;
 
 // Define environment parameters (migrated from deprecated functions.config())
 const serviceAccountEmail = defineString("GOOGLE_SERVICE_ACCOUNT_EMAIL", {
