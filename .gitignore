@@ -50,9 +50,16 @@ service-account-key.json
 meant2grow-dev-*.json
 *.dfcfbc9ebeaa.json
 
+# Google OAuth client secrets (NEVER commit these!)
+client_secret_*.json
+*client_secret*.json
+
 # Compiled TypeScript files in root (should only be in functions/lib)
 types.js
 types.js.map
 
 # Vercel (contains sensitive project IDs)
 .vercel/
+meant2grow-prod-0587fbfd09ba.json
+meant2grow-dev-dfcfbc9ebeaa.json
+client_secret_783951843343-09fi644a3qlj83s04a7du3ao7o0vj4k2.apps.googleusercontent.com.json
