@@ -29,11 +29,13 @@ service cloud.firestore {
     }
     
     // Check if user is organization admin
+    // Also check for 'ADMIN' role for backwards compatibility
     function isOrgAdmin(organizationId) {
       return isAuthenticated() && 
              userExists() &&
              belongsToOrg(organizationId) &&
-             getUserData().role == 'ORGANIZATION_ADMIN';
+             (getUserData().role == 'ORGANIZATION_ADMIN' ||
+              getUserData().role == 'ADMIN');
     }
     
     // Check if user is platform admin
@@ -138,8 +140,14 @@ service cloud.firestore {
     
     match /matches/{matchId} {
       // Users can create matches in their organization, platform admins can create anywhere
+      // Platform admins can create matches in any organization (including when impersonating)
+      // Regular users (including org admins) can create matches in their own organization
+      // Note: When impersonating, the authenticated user is the original operator.
+      //       If the original operator is a platform admin, isPlatformAdmin() will allow creation.
+      //       If the original operator is an org admin in the target org, belongsToOrg() will allow creation.
       allow create: if isAuthenticated() && 
-                      (isPlatformAdmin() || belongsToOrg(request.resource.data.organizationId));
+                      (isPlatformAdmin() || 
+                       belongsToOrg(request.resource.data.organizationId));
       
       // Users can read matches in their organization, platform admins can read all
       allow read: if isPlatformAdmin() || isOrgScoped(resource.data.organizationId);

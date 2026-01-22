@@ -1,0 +1,104 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production deployment'
+        required: true
+        type: string
+  release:
+    types: [created]
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Verify deployment confirmation
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+            echo "❌ Deployment not confirmed. Please type 'deploy' to confirm."
+            exit 1
+          fi
+          echo "✅ Deployment confirmed"
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install root dependencies
+        run: npm ci
+      
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: ./functions
+      
+      - name: Build frontend (Production)
+        run: npm run build:production
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.PROD_GOOGLE_CLIENT_ID }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.PROD_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.PROD_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.PROD_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.PROD_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.PROD_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.PROD_FIREBASE_APP_ID }}
+          VITE_FIREBASE_VAPID_KEY: ${{ secrets.PROD_FIREBASE_VAPID_KEY }}
+          VITE_FUNCTIONS_URL: ${{ secrets.PROD_FUNCTIONS_URL }}
+          VITE_APP_URL: ${{ secrets.PROD_APP_URL }}
+          VITE_MAILTRAP_API_TOKEN: ${{ secrets.PROD_MAILTRAP_API_TOKEN }}
+          VITE_MAILTRAP_USE_SANDBOX: 'false'
+          VITE_MAILTRAP_INBOX_ID: ${{ secrets.PROD_MAILTRAP_INBOX_ID }}
+          VITE_MAILTRAP_FROM_EMAIL: ${{ secrets.PROD_MAILTRAP_FROM_EMAIL }}
+          VITE_MAILTRAP_REPLY_TO_EMAIL: ${{ secrets.PROD_MAILTRAP_REPLY_TO_EMAIL }}
+          VITE_GIPHY_API_KEY: ${{ secrets.PROD_GIPHY_API_KEY }}
+      
+      - name: Build functions
+        run: npm run build
+        working-directory: ./functions
+      
+      - name: Setup Firebase CLI
+        run: npm install -g firebase-tools
+      
+      - name: Set Firebase project
+        run: firebase use production --token ${{ secrets.FIREBASE_TOKEN_PRODUCTION }}
+      
+      - name: Deploy to Firebase (Production)
+        run: |
+          firebase deploy --only hosting,functions,firestore:rules,storage:rules --token ${{ secrets.FIREBASE_TOKEN_PRODUCTION }} --project ${{ secrets.PROD_FIREBASE_PROJECT_ID }}
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_PRODUCTION }}
+      
+      - name: Create deployment summary
+        if: success()
+        run: |
+          echo "## 🚀 Production Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed at:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Frontend deployed to Firebase Hosting" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Functions deployed to Cloud Functions" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Firestore rules deployed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Storage rules deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Production URL:** https://meant2grow.com" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Post deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Production deployment successful"
+          else
+            echo "❌ Production deployment failed"
+          fi

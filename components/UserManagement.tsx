@@ -383,7 +383,14 @@ const UserManagement: React.FC<UserManagementProps> = ({
     localStorage.setItem("originalOrganizationId", currentUser.organizationId);
     localStorage.setItem("isImpersonating", "true");
     
-    // Switch to target user
+    // CRITICAL: Store the original operator's Google ID token for Firebase Auth
+    // Firebase Auth must remain authenticated as the original operator for Firestore rules
+    const originalOperatorIdToken = localStorage.getItem('google_id_token');
+    if (originalOperatorIdToken) {
+      localStorage.setItem('originalOperatorIdToken', originalOperatorIdToken);
+    }
+    
+    // Switch to target user (for UI display only)
     localStorage.setItem("userId", user.id);
     localStorage.setItem("organizationId", user.organizationId);
     

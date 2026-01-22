@@ -77,6 +77,7 @@ interface DashboardProps {
   onRejectRating?: (id: string) => void;
   onAddRating: (rating: Omit<Rating, "id">) => void;
   onNavigate: (page: string) => void;
+  isImpersonating?: boolean; // When true, never show platform operator dashboard
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -93,6 +94,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   onRejectRating,
   onAddRating,
   onNavigate,
+  isImpersonating = false,
 }) => {
   // Role checks - handle both enum and string values for robustness
   const userRoleString = String(user.role);
@@ -100,10 +102,12 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Check both enum and string value for platform operator (database stores as string "PLATFORM_ADMIN")
   // Also check for legacy "PLATFORM_OPERATOR" value for backwards compatibility
   // THIS CHECK MUST COME FIRST before admin/mentor checks
+  // IMPORTANT: When impersonating, NEVER show platform operator dashboard - always show impersonated user's dashboard
   const isPlatformAdmin =
-    user.role === Role.PLATFORM_ADMIN ||
-    userRoleString === "PLATFORM_ADMIN" ||
-    userRoleString === "PLATFORM_OPERATOR";
+    !isImpersonating &&
+    (user.role === Role.PLATFORM_ADMIN ||
+      userRoleString === "PLATFORM_ADMIN" ||
+      userRoleString === "PLATFORM_OPERATOR");
 
   // Check for organization admin - handle both "ORGANIZATION_ADMIN" and "ADMIN" values
   // Must check AFTER platform operator to avoid conflicts

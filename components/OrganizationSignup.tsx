@@ -284,10 +284,30 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
       const { user, idToken } = await signInWithGoogle();
 
       // Sign in to Firebase Auth with Google ID token
+      // This is required for Firebase Cloud Functions and Firestore security rules
+      // Firebase Auth will automatically handle token refresh
+      let firebaseAuthUid: string | null = null;
       try {
         await signInToFirebaseAuth(idToken);
-      } catch (firebaseAuthError) {
-        console.warn('Failed to sign in to Firebase Auth (Cloud Functions may not work):', firebaseAuthError);
+        console.log('Successfully authenticated with Firebase Auth');
+        
+        // Get Firebase Auth UID after successful authentication
+        const { auth } = await import("../services/firebase");
+        firebaseAuthUid = auth.currentUser?.uid || null;
+      } catch (firebaseAuthError: any) {
+        const errorMessage = firebaseAuthError?.message || String(firebaseAuthError);
+        console.error('Failed to sign in to Firebase Auth:', firebaseAuthError);
+        
+        // If token is invalid/expired, clear it and show error
+        if (errorMessage.includes('expired') || errorMessage.includes('invalid-credential')) {
+          localStorage.removeItem('google_id_token');
+          setError('Authentication token expired. Please try signing in again.');
+          setIsGoogleLoading(false);
+          return;
+        }
+        
+        // For other errors, continue but warn that Firestore operations may fail
+        console.warn('Firebase Auth sign-in failed, but continuing. Firestore operations may fail.');
       }
 
       // Join existing organization via invitation
@@ -387,6 +407,17 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
         organizationId,
         token,
       } = await response.json();
+
+      // Update user's Firebase Auth UID if we have it
+      if (firebaseAuthUid && joinedUser.id) {
+        try {
+          const { updateUser } = await import("../services/database");
+          await updateUser(joinedUser.id, { firebaseAuthUid });
+        } catch (updateError) {
+          console.error("Failed to update Firebase Auth UID:", updateError);
+          // Continue with login even if update fails
+        }
+      }
 
       // Mark invitation as accepted (only if using invitation)
       if (invitationToUse) {

@@ -116,38 +116,45 @@ const Layout: React.FC<LayoutProps> = ({
   };
 
   // Determine which user to use for role checks
-  // When impersonating, use originalOperator for access control (navigation visibility, etc.)
-  // but currentUser for display purposes
-  const isImpersonating = originalOperator !== null;
-  const userForRoleChecks = isImpersonating && originalOperator ? originalOperator : currentUser;
+  // When impersonating, use currentUser (impersonated user) for navigation visibility
+  // Use originalOperator only for specific access control checks (e.g., platform-operator-management page access)
+  // Check localStorage directly to detect impersonation, not just originalOperator (which might be null if getUser failed)
+  const isImpersonating = localStorage.getItem('isImpersonating') === 'true' || originalOperator !== null;
   
-  // Role checks - handle both enum and string values for robustness
-  // Use originalOperator's role when impersonating to ensure correct access control
-  const userRoleString = String(userForRoleChecks.role);
+  // For navigation visibility, always use the impersonated user's role (currentUser)
+  // This ensures the sidebar shows the correct navigation items for the impersonated user
+  const userForNavigationChecks = currentUser;
+  const userRoleString = String(userForNavigationChecks.role);
 
   // Check platform admin first (must come before other checks)
+  // IMPORTANT: When impersonating, this should be false to hide platform operator navigation
   const isPlatformAdmin =
-    userForRoleChecks.role === Role.PLATFORM_ADMIN ||
-    userRoleString === "PLATFORM_ADMIN" ||
-    userRoleString === "PLATFORM_OPERATOR";
+    !isImpersonating &&
+    (userForNavigationChecks.role === Role.PLATFORM_ADMIN ||
+      userRoleString === "PLATFORM_ADMIN" ||
+      userRoleString === "PLATFORM_OPERATOR");
 
   // Check organization admin (must come after platform admin check)
   const isAdmin =
     !isPlatformAdmin &&
-    (userForRoleChecks.role === Role.ADMIN ||
+    (userForNavigationChecks.role === Role.ADMIN ||
       userRoleString === "ORGANIZATION_ADMIN" ||
       userRoleString === "ADMIN");
 
   const isMentor =
     !isPlatformAdmin &&
     !isAdmin &&
-    (userForRoleChecks.role === Role.MENTOR || userRoleString === "MENTOR");
+    (userForNavigationChecks.role === Role.MENTOR || userRoleString === "MENTOR");
 
   const isMentee =
     !isPlatformAdmin &&
     !isAdmin &&
     !isMentor &&
-    (userForRoleChecks.role === Role.MENTEE || userRoleString === "MENTEE");
+    (userForNavigationChecks.role === Role.MENTEE || userRoleString === "MENTEE");
+  
+  // For access control to platform operator pages, use originalOperator when impersonating
+  // This ensures platform operator pages can only be accessed by actual platform operators
+  const userForAccessControl = isImpersonating && originalOperator ? originalOperator : currentUser;
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const brandColor = programSettings?.accentColor || "#10b981"; // Default Emerald
@@ -162,9 +169,18 @@ const Layout: React.FC<LayoutProps> = ({
       // Restore original operator session
       localStorage.setItem('userId', originalId);
       localStorage.setItem('organizationId', originalOrgId);
+      
+      // CRITICAL: Restore the original operator's Google ID token for Firebase Auth
+      const originalOperatorIdToken = localStorage.getItem('originalOperatorIdToken');
+      if (originalOperatorIdToken) {
+        localStorage.setItem('google_id_token', originalOperatorIdToken);
+      }
+      
+      // Clear impersonation state
       localStorage.removeItem('isImpersonating');
       localStorage.removeItem('originalOperatorId');
       localStorage.removeItem('originalOrganizationId');
+      localStorage.removeItem('originalOperatorIdToken');
       
       // Reload app to trigger re-initialization
       window.location.reload();

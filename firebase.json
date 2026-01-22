@@ -75,7 +75,6 @@
   },
   "storage": [
     {
-      "bucket": "meant2grow-dev.appspot.com",
       "rules": "storage.rules"
     }
   ]

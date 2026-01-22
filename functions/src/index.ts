@@ -6,12 +6,17 @@ import { google } from "googleapis";
 import { Role, User, Organization, Match, Goal } from "./types";
 import { createEmailService } from "./emailService";
 import { setTrialPeriod } from "./organizationUtils";
-import { getErrorMessage, formatError } from "./utils/errors";
+import { getErrorMessage, getErrorCode, formatError } from "./utils/errors";
 
 // Initialize Firebase Admin
 admin.initializeApp();
 
 const db = admin.firestore();
+
+// Detect environment from Firebase project ID
+const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || admin.app().options.projectId || '';
+const isProduction = projectId.includes('prod') || projectId === 'meant2grow-prod';
+const isSandbox = projectId.includes('dev') || projectId === 'meant2grow-dev' || !isProduction;
 
 // Define environment parameters (migrated from deprecated functions.config())
 const serviceAccountEmail = defineString("GOOGLE_SERVICE_ACCOUNT_EMAIL", {
@@ -28,7 +33,7 @@ const mailtrapApiToken = defineString("MAILTRAP_API_TOKEN", {
 
 const mailtrapUseSandbox = defineString("MAILTRAP_USE_SANDBOX", {
   description: "Use Mailtrap sandbox mode (true/false)",
-  default: "true",
+  default: isProduction ? "false" : "true",
 });
 
 const mailtrapInboxId = defineString("MAILTRAP_INBOX_ID", {
@@ -48,7 +53,7 @@ const mailtrapReplyToEmail = defineString("MAILTRAP_REPLY_TO_EMAIL", {
 
 const appUrl = defineString("VITE_APP_URL", {
   description: "Application URL for email links",
-  default: "https://meant2grow.com",
+  default: isProduction ? "https://meant2grow.com" : "https://sandbox.meant2grow.com",
 });
 
 // Helper function to get email service instance with current config values
@@ -562,7 +567,9 @@ export const createMeetLink = functions.onRequest(
       console.error("Error creating Meet link:", formatError(error));
 
       // If Meet API fails, return a fallback link format
-      if (error.code === "ENOTFOUND" || error.message?.includes("meet")) {
+      const errorCode = getErrorCode(error);
+      const errorMessage = getErrorMessage(error);
+      if (errorCode === "ENOTFOUND" || errorMessage.includes("meet")) {
         // Generate a temporary meeting code (for development)
         const tempCode = `temp-${Date.now().toString(36)}`;
         res.json({
@@ -575,7 +582,7 @@ export const createMeetLink = functions.onRequest(
 
       res.status(500).json({
         error: "Failed to create meeting",
-        message: error.message,
+        message: errorMessage,
       });
     }
   }
@@ -1019,7 +1026,6 @@ export const syncCalendarEvent = functions.onRequest(
       res.status(500).json({
         error: "Failed to sync calendar",
         message: getErrorMessage(error),
-        message: error.message,
       });
     }
   }
@@ -1200,7 +1206,6 @@ export const syncOutlookCalendar = functions.onRequest(
       res.status(500).json({
         error: "Failed to sync Outlook calendar",
         message: getErrorMessage(error),
-        message: error.message,
       });
     }
   }
@@ -1267,7 +1272,6 @@ export const outlookAuth = functions.onRequest(
       res.status(500).json({
         error: "Failed to authenticate with Outlook",
         message: getErrorMessage(error),
-        message: error.message,
       });
     }
   }
@@ -1335,7 +1339,6 @@ export const syncAppleCalendar = functions.onRequest(
       res.status(500).json({
         error: "Failed to sync Apple calendar",
         message: getErrorMessage(error),
-        message: error.message,
       });
     }
   }
@@ -1435,8 +1438,9 @@ async function sendFCMPushNotification(
     console.error(`Error sending FCM push notification to user ${userId}:`, formatError(error));
     
     // If token is invalid, remove it from user document
-    if (error.code === 'messaging/invalid-registration-token' || 
-        error.code === 'messaging/registration-token-not-registered') {
+    const errorCode = getErrorCode(error);
+    if (errorCode === 'messaging/invalid-registration-token' || 
+        errorCode === 'messaging/registration-token-not-registered') {
       try {
         await db.collection("users").doc(userId).update({
           fcmToken: admin.firestore.FieldValue.delete(),

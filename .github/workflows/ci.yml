@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install root dependencies
+        run: npm ci
+      
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: ./functions
+      
+      - name: Lint code (skip for now)
+        run: echo "Linting skipped - add linting script when ready"
+        continue-on-error: true
+      
+      - name: Build frontend
+        run: npm run build
+        env:
+          # Use sandbox values for CI builds (non-sensitive)
+          VITE_FIREBASE_API_KEY: ${{ secrets.SANDBOX_FIREBASE_API_KEY || 'dummy-key-for-ci' }}
+          VITE_FIREBASE_AUTH_DOMAIN: meant2grow-dev.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: meant2grow-dev
+          VITE_FIREBASE_STORAGE_BUCKET: meant2grow-dev.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.SANDBOX_FIREBASE_MESSAGING_SENDER_ID || 'dummy-sender-id' }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.SANDBOX_FIREBASE_APP_ID || 'dummy-app-id' }}
+          VITE_FUNCTIONS_URL: https://us-central1-meant2grow-dev.cloudfunctions.net
+          VITE_APP_URL: https://sandbox.meant2grow.com
+      
+      - name: Build functions
+        run: npm run build
+        working-directory: ./functions
+      
+      - name: Run tests (if any)
+        run: echo "Tests skipped - add test script when ready"
+        continue-on-error: true

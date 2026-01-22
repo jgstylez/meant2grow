@@ -125,12 +125,25 @@ export const signInWithGoogle = (): Promise<{ user: GoogleUser; idToken: string 
 /**
  * Sign in to Firebase Auth using Google ID token
  * This is required for Firebase Cloud Functions to authenticate requests
+ * Firebase Auth will automatically handle token refresh
  */
 export const signInToFirebaseAuth = async (idToken: string): Promise<void> => {
   try {
     const credential = GoogleAuthProvider.credential(idToken);
-    await signInWithCredential(auth, credential);
-  } catch (error) {
+    const userCredential = await signInWithCredential(auth, credential);
+    
+    // Firebase Auth automatically persists the session and handles token refresh
+    // The user is now authenticated and Firestore operations will work
+    console.log('Successfully signed in to Firebase Auth', {
+      uid: userCredential.user.uid,
+      email: userCredential.user.email,
+    });
+  } catch (error: any) {
+    // Check if error is due to expired token
+    if (error?.code === 'auth/invalid-credential' || error?.message?.includes('expired')) {
+      console.error('Google ID token is expired or invalid. User needs to sign in again.');
+      throw new Error('Token expired. Please sign in again.');
+    }
     console.error('Error signing in to Firebase Auth:', error);
     throw error;
   }

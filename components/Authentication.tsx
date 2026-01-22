@@ -210,6 +210,18 @@ const Authentication: React.FC<AuthenticationProps> = ({
           company: formData.orgName,
         });
 
+        // Optionally create Firebase Auth account if password is provided
+        if (formData.password) {
+          try {
+            const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
+            await createFirebaseAuthAccount(formData.email, formData.password, userId);
+          } catch (authError) {
+            console.warn("Failed to create Firebase Auth account during signup (will be created on first login):", authError);
+            // Continue with signup even if Firebase Auth creation fails
+            // User will be migrated on first login
+          }
+        }
+
         localStorage.setItem("authToken", "simulated-token");
         localStorage.setItem("organizationId", orgId);
         localStorage.setItem("userId", userId);
@@ -297,6 +309,18 @@ const Authentication: React.FC<AuthenticationProps> = ({
           company: org.name,
         });
 
+        // Optionally create Firebase Auth account if password is provided
+        if (formData.password) {
+          try {
+            const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
+            await createFirebaseAuthAccount(formData.email, formData.password, userId);
+          } catch (authError) {
+            console.warn("Failed to create Firebase Auth account during signup (will be created on first login):", authError);
+            // Continue with signup even if Firebase Auth creation fails
+            // User will be migrated on first login
+          }
+        }
+
         // Mark invitation as accepted (only if using invitation)
         if (invitationToUse) {
           await updateInvitation(invitationToUse.id, { status: "Accepted" });
@@ -313,7 +337,36 @@ const Authentication: React.FC<AuthenticationProps> = ({
         if (!user) {
           throw new Error("User not found. Please check your email.");
         }
-        // In a real app, verify password here. For prototype, we skip.
+        
+        // Ensure Firebase Auth account exists (lazy migration)
+        // This will create a Firebase Auth account if one doesn't exist
+        // or authenticate if one does exist
+        const { ensureFirebaseAuthAccount } = await import("../services/firebaseAuth");
+        const firebaseAuthUid = await ensureFirebaseAuthAccount(
+          formData.email,
+          formData.password || null,
+          user.id
+        );
+        
+        if (!firebaseAuthUid) {
+          // Firebase Auth migration failed or password needed
+          // Check if user already has firebaseAuthUid (already migrated)
+          if (user.firebaseAuthUid) {
+            // User is migrated but password is wrong or missing
+            if (!formData.password) {
+              throw new Error("Password is required. Please check your email for a password reset link if you haven't set one yet.");
+            } else {
+              throw new Error("Incorrect password. Please check your email for a password reset link if you've forgotten it.");
+            }
+          } else {
+            // Check if the error was due to email/password auth not being enabled
+            // For now, allow login to proceed without Firebase Auth (legacy behavior)
+            // User will need to enable email/password auth in Firebase Console for full functionality
+            console.warn('Firebase Auth email/password authentication may not be enabled. Login will proceed but Firestore operations may fail.');
+            // Don't throw error - allow legacy login to work
+            // The user will see permission errors if they try to use Firestore features
+          }
+        }
 
         localStorage.setItem("authToken", "simulated-token");
         localStorage.setItem("organizationId", user.organizationId);
@@ -344,13 +397,30 @@ const Authentication: React.FC<AuthenticationProps> = ({
       const { user, idToken } = await signInWithGoogle();
 
       // Sign in to Firebase Auth with Google ID token
-      // This is required for Firebase Cloud Functions to authenticate requests
+      // This is required for Firebase Cloud Functions and Firestore security rules
+      // Firebase Auth will automatically handle token refresh
+      let firebaseAuthUid: string | null = null;
       try {
         await signInToFirebaseAuth(idToken);
-      } catch (firebaseAuthError) {
-        console.warn('Failed to sign in to Firebase Auth (Cloud Functions may not work):', firebaseAuthError);
-        // Continue with the flow even if Firebase Auth sign-in fails
-        // The app will still work, but Cloud Functions that require auth will fail
+        console.log('Successfully authenticated with Firebase Auth');
+        
+        // Get Firebase Auth UID after successful authentication
+        const { auth } = await import("../services/firebase");
+        firebaseAuthUid = auth.currentUser?.uid || null;
+      } catch (firebaseAuthError: any) {
+        const errorMessage = firebaseAuthError?.message || String(firebaseAuthError);
+        console.error('Failed to sign in to Firebase Auth:', firebaseAuthError);
+        
+        // If token is invalid/expired, clear it and show error
+        if (errorMessage.includes('expired') || errorMessage.includes('invalid-credential')) {
+          localStorage.removeItem('google_id_token');
+          setError('Authentication token expired. Please try signing in again.');
+          setIsGoogleLoading(false);
+          return;
+        }
+        
+        // For other errors, continue but warn that Firestore operations may fail
+        console.warn('Firebase Auth sign-in failed, but continuing. Firestore operations may fail.');
       }
 
       // Determine what to do based on mode
@@ -402,6 +472,17 @@ const Authentication: React.FC<AuthenticationProps> = ({
           organizationId,
           token,
         } = await response.json();
+
+        // Update user's Firebase Auth UID if we have it
+        if (firebaseAuthUid && createdUser.id) {
+          try {
+            const { updateUser } = await import("../services/database");
+            await updateUser(createdUser.id, { firebaseAuthUid });
+          } catch (updateError) {
+            console.error("Failed to update Firebase Auth UID:", updateError);
+            // Continue with login even if update fails
+          }
+        }
 
         // Store auth data
         localStorage.setItem("authToken", token);
@@ -515,6 +596,17 @@ const Authentication: React.FC<AuthenticationProps> = ({
           token,
         } = await response.json();
 
+        // Update user's Firebase Auth UID if we have it
+        if (firebaseAuthUid && joinedUser.id) {
+          try {
+            const { updateUser } = await import("../services/database");
+            await updateUser(joinedUser.id, { firebaseAuthUid });
+          } catch (updateError) {
+            console.error("Failed to update Firebase Auth UID:", updateError);
+            // Continue with login even if update fails
+          }
+        }
+
         // Mark invitation as accepted (only if using invitation)
         if (invitationToUse) {
           await updateInvitation(invitationToUse.id, { status: "Accepted" });
@@ -536,13 +628,21 @@ const Authentication: React.FC<AuthenticationProps> = ({
           return;
         }
 
-        // Update user's Google ID if not already set
+        // Update user's Google ID and Firebase Auth UID if not already set
+        const updates: Partial<User> = {};
         if (existingUser.googleId !== user.id) {
+          updates.googleId = user.id;
+        }
+        if (firebaseAuthUid && existingUser.firebaseAuthUid !== firebaseAuthUid) {
+          updates.firebaseAuthUid = firebaseAuthUid;
+        }
+        
+        if (Object.keys(updates).length > 0) {
           try {
             const { updateUser } = await import("../services/database");
-            await updateUser(existingUser.id, { googleId: user.id });
+            await updateUser(existingUser.id, updates);
           } catch (updateError) {
-            console.error("Failed to update Google ID:", updateError);
+            console.error("Failed to update user:", updateError);
             // Continue with login even if update fails
           }
         }

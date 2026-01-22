@@ -27,6 +27,7 @@ dist-ssr
 .env
 .env.local
 .env.production
+.env.sandbox
 .env.*.local
 
 # Firebase
@@ -40,6 +41,8 @@ ui-debug.log
 # Functions
 functions/lib/
 functions/node_modules/
+functions/.env.*
+functions/.env
 
 # Service account keys (NEVER commit these!)
 *-service-account-key.json
@@ -53,5 +56,3 @@ types.js.map
 
 # Vercel (contains sensitive project IDs)
 .vercel/
-env.local.example
-env.local.example

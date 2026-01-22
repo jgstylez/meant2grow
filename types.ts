@@ -47,6 +47,7 @@ export interface User {
   experience?: string;
   mood?: Mood; // User's current mood
   googleId?: string; // For OAuth linking
+  firebaseAuthUid?: string; // Link to Firebase Auth account (for email/password and Google Sign-In)
   goalsPublic?: boolean; // Whether goals are visible to others (default: true)
   acceptingNewMentees?: boolean; // Whether mentor is accepting new mentees (default: true)
   maxMentees?: number; // Maximum number of mentees a mentor can have

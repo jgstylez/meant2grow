@@ -94,9 +94,11 @@ import { useVideoActions } from "./hooks/useVideoActions";
 import { useOnboardingActions } from "./hooks/useOnboardingActions";
 import { useGoalActions } from "./hooks/useGoalActions";
 import { useFCM } from "./hooks/useFCM";
-import { getErrorMessage, formatError } from "./utils/errors";
+import { getErrorMessage, getErrorCode, formatError } from "./utils/errors";
 import { logger } from "./services/logger";
 import { signInToFirebaseAuth, getIdToken, signOut as signOutGoogle } from "./services/googleAuth";
+import { auth } from "./services/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 // Loading component for Suspense fallback
 const LoadingSpinner: React.FC<{ message?: string }> = ({
@@ -245,7 +247,10 @@ const App: React.FC = () => {
   
   // Impersonation state - track original operator for access control
   const [originalOperator, setOriginalOperator] = useState<User | null>(null);
-  const [isImpersonating, setIsImpersonating] = useState(false);
+  // Initialize impersonation state from localStorage
+  const [isImpersonating, setIsImpersonating] = useState(() => {
+    return localStorage.getItem('isImpersonating') === 'true';
+  });
   const [originalOperatorLoading, setOriginalOperatorLoading] = useState(false);
 
   // Load published blog posts for public pages
@@ -272,32 +277,48 @@ const App: React.FC = () => {
   useEffect(() => {
     const impersonating = localStorage.getItem('isImpersonating') === 'true';
     const originalOperatorId = localStorage.getItem('originalOperatorId');
+    const originalOrganizationId = localStorage.getItem('originalOrganizationId');
+    
+    logger.debug('Checking impersonation status', {
+      impersonating,
+      originalOperatorId,
+      originalOrganizationId,
+      currentUserId: userId,
+      currentOrgId: organizationId,
+    });
+    
     setIsImpersonating(impersonating);
     
     if (impersonating && originalOperatorId) {
       // Set loading state before async operation
       setOriginalOperatorLoading(true);
-      // Load original operator's data for access control
+      
+      // Create a minimal originalOperator object from localStorage if getUser fails
+      const fallbackOperator: User = {
+        id: originalOperatorId,
+        organizationId: originalOrganizationId || '',
+        role: Role.PLATFORM_ADMIN, // Assume platform admin if we can't verify
+        email: '',
+        name: 'Original Operator',
+        createdAt: new Date(),
+      };
+      
+      // Try to load original operator's data for access control
+      // But don't exit impersonation if this fails - use fallback instead
       getUser(originalOperatorId).then((operator) => {
         if (operator) {
           setOriginalOperator(operator);
         } else {
-          logger.warn('Original operator not found');
-          // If operator not found, exit impersonation for security
-          localStorage.removeItem('isImpersonating');
-          localStorage.removeItem('originalOperatorId');
-          localStorage.removeItem('originalOrganizationId');
-          setIsImpersonating(false);
+          logger.warn('Original operator not found in Firestore, using fallback from localStorage');
+          // Use fallback operator instead of exiting impersonation
+          setOriginalOperator(fallbackOperator);
         }
         setOriginalOperatorLoading(false);
       }).catch((error) => {
-        logger.error('Error loading original operator', error);
-        // On error, exit impersonation for security
-        localStorage.removeItem('isImpersonating');
-        localStorage.removeItem('originalOperatorId');
-        localStorage.removeItem('originalOrganizationId');
-        setIsImpersonating(false);
-        setOriginalOperator(null);
+        logger.warn('Error loading original operator from Firestore, using fallback', error);
+        // Don't exit impersonation on error - use fallback operator instead
+        // This allows impersonation to work even if Firestore queries fail
+        setOriginalOperator(fallbackOperator);
         setOriginalOperatorLoading(false);
       });
     } else {
@@ -343,18 +364,33 @@ const App: React.FC = () => {
           // Restore original operator's session
           localStorage.setItem('userId', originalOperatorId);
           localStorage.setItem('organizationId', originalOrganizationId);
+          
+          // CRITICAL: Restore the original operator's Google ID token for Firebase Auth
+          const originalOperatorIdToken = localStorage.getItem('originalOperatorIdToken');
+          if (originalOperatorIdToken) {
+            localStorage.setItem('google_id_token', originalOperatorIdToken);
+          }
+          
           // Clear impersonation state
           localStorage.removeItem('isImpersonating');
           localStorage.removeItem('originalOperatorId');
           localStorage.removeItem('originalOrganizationId');
+          localStorage.removeItem('originalOperatorIdToken');
+          
           // Reload to reinitialize with original operator's context
           window.location.href = `${window.location.pathname}?${urlParams.toString()}`;
           return; // Exit early, reload will handle the rest
         } else {
           // If original operator data is missing, clear impersonation state
+          // Restore original operator's Google ID token if it exists
+          const originalOperatorIdToken = localStorage.getItem('originalOperatorIdToken');
+          if (originalOperatorIdToken) {
+            localStorage.setItem('google_id_token', originalOperatorIdToken);
+          }
           localStorage.removeItem('isImpersonating');
           localStorage.removeItem('originalOperatorId');
           localStorage.removeItem('originalOrganizationId');
+          localStorage.removeItem('originalOperatorIdToken');
         }
       }
       
@@ -378,19 +414,119 @@ const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
 
+  // Set up Firebase Auth state listener to handle auth state changes and token refresh
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        logger.debug('Firebase Auth state changed: user authenticated', {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+        });
+        
+        // Firebase Auth automatically refreshes tokens, so we don't need to do anything
+        // The user is authenticated and Firestore operations will work
+      } else {
+        logger.debug('Firebase Auth state changed: user signed out');
+        
+        // If user is signed out but we have userId in localStorage, try to restore
+        // This handles cases where Firebase Auth session expired but user is still "logged in" to the app
+        if (userId && !localStorage.getItem('isImpersonating')) {
+          const storedToken = getIdToken();
+          if (storedToken) {
+            logger.info('Firebase Auth signed out but user has token, attempting to restore...');
+            try {
+              await signInToFirebaseAuth(storedToken);
+            } catch (error) {
+              logger.warn('Failed to restore Firebase Auth with stored token (may be expired)', error);
+            }
+          }
+        }
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [userId]);
+
   // Restore Firebase Auth session on app load if Google ID token exists
   useEffect(() => {
     const restoreFirebaseAuth = async () => {
-      const idToken = getIdToken();
+      // Check if Firebase Auth already has a user (from persistence)
+      if (auth.currentUser) {
+        logger.info('Firebase Auth already authenticated', {
+          uid: auth.currentUser.uid,
+          email: auth.currentUser.email,
+        });
+        return;
+      }
+      
+      // When impersonating, use the original operator's Google ID token for Firebase Auth
+      // This ensures Firestore rules see the original operator, not the impersonated user
+      const isImpersonatingSession = localStorage.getItem('isImpersonating') === 'true';
+      let idToken: string | null = null;
+      
+      if (isImpersonatingSession) {
+        // Try to use original operator's stored token first
+        idToken = localStorage.getItem('originalOperatorIdToken');
+        
+        if (!idToken) {
+          // Fallback: Use regular google_id_token
+          // This handles sessions started before we added originalOperatorIdToken storage
+          idToken = getIdToken();
+          
+          if (idToken) {
+            // Store it for future use
+            localStorage.setItem('originalOperatorIdToken', idToken);
+            logger.info('Migrated impersonation session: stored originalOperatorIdToken');
+          } else {
+            // Don't exit impersonation - just log a warning
+            // Impersonation can work without Firebase Auth (though Firestore operations will fail)
+            logger.warn('Impersonating but no Google ID token found. Firebase Auth will not work, but impersonation continues.');
+            // Continue without token - impersonation UI will still work
+            return;
+          }
+        }
+      } else {
+        // Normal case: use current user's token
+        idToken = getIdToken();
+      }
+      
       if (idToken && userId) {
         // User is authenticated and has a Google ID token
-        // Sign in to Firebase Auth to enable Cloud Functions
+        // Sign in to Firebase Auth to enable Cloud Functions and Firestore rules
         try {
           await signInToFirebaseAuth(idToken);
-        } catch (error) {
-          logger.warn('Failed to restore Firebase Auth session', error);
-          // Don't block the app if Firebase Auth restoration fails
+          logger.info('Firebase Auth restored', {
+            isImpersonating: isImpersonatingSession,
+            authenticatedUserId: auth.currentUser?.uid,
+            authenticatedUserEmail: auth.currentUser?.email,
+          });
+        } catch (error: any) {
+          const errorMessage = getErrorMessage(error);
+          const errorCode = getErrorCode(error);
+          
+          logger.error('Failed to restore Firebase Auth session', {
+            error: errorMessage,
+            code: errorCode,
+            isImpersonating: isImpersonatingSession,
+          });
+          
+          // If token is expired or invalid
+          if (errorCode === 'auth/invalid-credential' || errorMessage.includes('expired') || errorMessage.includes('Token expired')) {
+            if (isImpersonatingSession) {
+              logger.warn('Google ID token expired during impersonation. Firestore operations will fail until user signs in again.');
+              // Don't exit impersonation - just warn
+            } else {
+              logger.warn('Google ID token expired. User needs to sign in again for Firestore operations to work.');
+              // Clear the expired token
+              localStorage.removeItem('google_id_token');
+              if (localStorage.getItem('originalOperatorIdToken')) {
+                localStorage.removeItem('originalOperatorIdToken');
+              }
+            }
+          }
         }
+      } else if (userId) {
+        logger.warn('No Google ID token found for user', { userId, isImpersonating: isImpersonatingSession });
       }
     };
     restoreFirebaseAuth();
@@ -697,8 +833,7 @@ const App: React.FC = () => {
         throw new Error("Selected user is not a mentee");
       }
       
-      const newMatch: Match = {
-        id: `temp-${Date.now()}`,
+      const newMatch: Omit<Match, "id"> = {
         organizationId,
         mentorId,
         menteeId,
@@ -771,8 +906,52 @@ const App: React.FC = () => {
           );
       }
     } catch (error: unknown) {
-      logger.error("Error creating match", error);
-      addToast(getErrorMessage(error) || "Failed to create match", "error");
+      const errorMessage = getErrorMessage(error);
+      const errorCode = getErrorCode(error);
+      const formattedError = formatError(error);
+      
+      // Log detailed error info for debugging permission issues
+      const authUser = auth.currentUser;
+      logger.error("Error creating match", {
+        ...formattedError,
+        organizationId,
+        mentorId,
+        menteeId,
+        isImpersonating,
+        // Authenticated Firebase Auth user (this is what Firestore rules check)
+        authenticatedUserId: authUser?.uid || "not authenticated",
+        authenticatedUserEmail: authUser?.email || "no email",
+        // Original operator (from client-side state)
+        originalOperatorId: originalOperator?.id,
+        originalOperatorRole: originalOperator?.role,
+        originalOperatorOrgId: originalOperator?.organizationId,
+        // Impersonated user (from client-side state)
+        currentUserId: currentUser?.id,
+        currentUserRole: currentUser?.role,
+        currentUserOrgId: currentUser?.organizationId,
+        // Note: Firestore rules check the authenticated user's document (authUser.uid)
+        // The authenticated user's role in Firestore must be PLATFORM_ADMIN or PLATFORM_OPERATOR
+        // for isPlatformAdmin() to return true when impersonating
+      });
+      
+      // Provide more helpful error message
+      let userFriendlyMessage = errorMessage || "Failed to create match";
+      if (errorCode === "permission-denied") {
+        if (isImpersonating && originalOperator) {
+          const isPlatformOp = originalOperator.role === Role.PLATFORM_ADMIN || 
+                               String(originalOperator.role) === "PLATFORM_ADMIN" ||
+                               String(originalOperator.role) === "PLATFORM_OPERATOR";
+          if (!isPlatformOp) {
+            userFriendlyMessage = "Permission denied: Only platform operators can create matches when impersonating users from different organizations.";
+          } else {
+            userFriendlyMessage = "Permission denied: Unable to create match. Please verify your platform operator permissions in Firestore.";
+          }
+        } else {
+          userFriendlyMessage = "Permission denied: You don't have permission to create matches in this organization";
+        }
+      }
+      
+      addToast(userFriendlyMessage, "error");
     }
   };
 
@@ -1123,6 +1302,7 @@ const App: React.FC = () => {
                 programSettings={programSettings}
                 organizationCode={organization?.organizationCode}
                 organization={organization}
+                isImpersonating={isImpersonating}
                 onApproveRating={async (id) => {
                   try {
                     await updateRating(id, { isApproved: true });

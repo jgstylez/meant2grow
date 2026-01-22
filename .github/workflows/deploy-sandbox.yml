@@ -1,0 +1,73 @@
+name: Deploy to Sandbox
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  deploy-sandbox:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install root dependencies
+        run: npm ci
+      
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: ./functions
+      
+      - name: Build frontend (Sandbox)
+        run: npm run build:sandbox
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.SANDBOX_GOOGLE_CLIENT_ID }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.SANDBOX_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.SANDBOX_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.SANDBOX_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.SANDBOX_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.SANDBOX_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.SANDBOX_FIREBASE_APP_ID }}
+          VITE_FIREBASE_VAPID_KEY: ${{ secrets.SANDBOX_FIREBASE_VAPID_KEY }}
+          VITE_FUNCTIONS_URL: ${{ secrets.SANDBOX_FUNCTIONS_URL }}
+          VITE_APP_URL: ${{ secrets.SANDBOX_APP_URL }}
+          VITE_MAILTRAP_API_TOKEN: ${{ secrets.SANDBOX_MAILTRAP_API_TOKEN }}
+          VITE_MAILTRAP_USE_SANDBOX: 'true'
+          VITE_MAILTRAP_INBOX_ID: ${{ secrets.SANDBOX_MAILTRAP_INBOX_ID }}
+          VITE_MAILTRAP_FROM_EMAIL: ${{ secrets.SANDBOX_MAILTRAP_FROM_EMAIL }}
+          VITE_MAILTRAP_REPLY_TO_EMAIL: ${{ secrets.SANDBOX_MAILTRAP_REPLY_TO_EMAIL }}
+          VITE_GIPHY_API_KEY: ${{ secrets.SANDBOX_GIPHY_API_KEY }}
+      
+      - name: Build functions
+        run: npm run build
+        working-directory: ./functions
+      
+      - name: Setup Firebase CLI
+        run: npm install -g firebase-tools
+      
+      - name: Set Firebase project
+        run: firebase use sandbox --token ${{ secrets.FIREBASE_TOKEN_SANDBOX }}
+      
+      - name: Deploy to Firebase (Sandbox)
+        run: |
+          firebase deploy --only hosting,functions,firestore:rules,storage:rules --token ${{ secrets.FIREBASE_TOKEN_SANDBOX }} --project ${{ secrets.SANDBOX_FIREBASE_PROJECT_ID }}
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_SANDBOX }}
+      
+      - name: Post deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Sandbox deployment successful"
+          else
+            echo "❌ Sandbox deployment failed"
+          fi

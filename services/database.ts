@@ -66,7 +66,115 @@ import {
   TrainingVideo,
   PrivateMessageRequest,
 } from "../types";
-import { getErrorCode, getErrorMessage } from "../utils/errors";
+import { getErrorCode, getErrorMessage, formatError } from "../utils/errors";
+import { auth } from "./firebase";
+
+/**
+ * Helper function to check if an error is a Firestore internal assertion error
+ * These errors typically indicate missing composite indexes or query state corruption
+ */
+function isInternalAssertionError(error: unknown): boolean {
+  const errorMessage = getErrorMessage(error);
+  return (
+    errorMessage.includes("INTERNAL ASSERTION FAILED") ||
+    errorMessage.includes("Unexpected state") ||
+    getErrorCode(error) === "internal"
+  );
+}
+
+/**
+ * Safely wrap onSnapshot to catch internal assertion errors and handle them gracefully
+ * This prevents listener state corruption when queries require missing composite indexes
+ * Note: This function is currently unused but kept for future use
+ */
+function safeOnSnapshot(
+  queryOrDoc: Parameters<typeof onSnapshot>[0],
+  onNext: (snapshot: QuerySnapshot | DocumentSnapshot) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  let unsubscribe: Unsubscribe | null = null;
+  let isUnsubscribed = false;
+
+  try {
+    unsubscribe = onSnapshot(
+      queryOrDoc,
+      (snapshot: QuerySnapshot | DocumentSnapshot) => {
+        if (isUnsubscribed) return;
+        try {
+          onNext(snapshot);
+        } catch (error) {
+          logger.error("Error in onSnapshot next callback", error);
+          if (onError) {
+            onError(error instanceof Error ? error : new Error(String(error)));
+          }
+        }
+      },
+      (error: Error) => {
+        if (isUnsubscribed) return;
+
+        // Check if this is an internal assertion error
+        if (isInternalAssertionError(error)) {
+          logger.error(
+            "Firestore internal assertion error detected - likely missing composite index",
+            {
+              error: getErrorMessage(error),
+              code: getErrorCode(error),
+              suggestion:
+                "This query requires a composite index. Check the Firebase console for index creation links.",
+            }
+          );
+
+          // Immediately unsubscribe to prevent further state corruption
+          if (unsubscribe) {
+            try {
+              unsubscribe();
+              isUnsubscribed = true;
+            } catch (cleanupError) {
+              logger.error("Error cleaning up after assertion error", cleanupError);
+            }
+          }
+
+          // Call error callback with a more user-friendly error
+          if (onError) {
+            const friendlyError = new Error(
+              "Query requires a composite index. Please check the Firebase console for index creation."
+            );
+            (friendlyError as any).code = "failed-precondition";
+            (friendlyError as any).originalError = error;
+            onError(friendlyError);
+          }
+          return;
+        }
+
+        // Handle other errors normally
+        logger.error("Error in onSnapshot listener", error);
+        if (onError) {
+          onError(error);
+        }
+      }
+    );
+  } catch (error) {
+    logger.error("Error creating onSnapshot listener", error);
+    if (onError) {
+      onError(error instanceof Error ? error : new Error(String(error)));
+    }
+    // Return no-op unsubscribe if listener creation failed
+    return () => {};
+  }
+
+  // Return unsubscribe function that safely cleans up
+  return () => {
+    isUnsubscribed = true;
+    if (unsubscribe) {
+      try {
+        unsubscribe();
+      } catch (error) {
+        logger.error("Error unsubscribing from listener", error);
+      }
+      unsubscribe = null;
+    }
+  };
+}
 
 // ==================== ORGANIZATION OPERATIONS ====================
 
@@ -383,9 +491,96 @@ export const getAllUsers = async (): Promise<User[]> => {
 export const createMatch = async (
   matchData: Omit<Match, "id">
 ): Promise<string> => {
-  const matchRef = doc(collection(db, "matches"));
-  await setDoc(matchRef, matchData);
-  return matchRef.id;
+  try {
+    // Validate required fields
+    if (!matchData.organizationId) {
+      throw new Error("Organization ID is required");
+    }
+    if (!matchData.mentorId) {
+      throw new Error("Mentor ID is required");
+    }
+    if (!matchData.menteeId) {
+      throw new Error("Mentee ID is required");
+    }
+    if (!matchData.status) {
+      throw new Error("Match status is required");
+    }
+    
+    // Debug: Fetch authenticated user's document to verify role
+    const authUser = auth.currentUser;
+    if (authUser?.uid) {
+      try {
+        const authUserDoc = await getDoc(doc(db, "users", authUser.uid));
+        if (authUserDoc.exists()) {
+          const authUserData = authUserDoc.data();
+          logger.info("Authenticated user document (Firestore rules check this)", {
+            uid: authUser.uid,
+            email: authUser.email,
+            role: authUserData.role,
+            organizationId: authUserData.organizationId,
+            isPlatformAdmin: authUserData.role === 'PLATFORM_ADMIN' || 
+                           authUserData.role === 'PLATFORM_OPERATOR' ||
+                           authUserData.organizationId === 'platform',
+            belongsToTargetOrg: authUserData.organizationId === matchData.organizationId,
+            targetOrgId: matchData.organizationId,
+          });
+        } else {
+          logger.error("CRITICAL: Authenticated user document does not exist in Firestore", {
+            uid: authUser.uid,
+            email: authUser.email,
+            message: "Firestore rules will fail because userExists() returns false. User document must be created in Firestore.",
+          });
+        }
+      } catch (debugError) {
+        logger.error("Could not fetch authenticated user document for debugging", debugError);
+      }
+    } else {
+      logger.error("CRITICAL: No authenticated Firebase Auth user", {
+        message: "auth.currentUser is null. User must be authenticated with Firebase Auth.",
+      });
+    }
+    
+    const matchRef = doc(collection(db, "matches"));
+    await setDoc(matchRef, matchData);
+    return matchRef.id;
+  } catch (error: unknown) {
+    const formattedError = formatError(error);
+    // Get authenticated user info for debugging
+    const authUser = auth.currentUser;
+    
+    // Try to fetch authenticated user's document to see what Firestore sees
+    let authUserDocData = null;
+    if (authUser?.uid) {
+      try {
+        const authUserDoc = await getDoc(doc(db, "users", authUser.uid));
+        if (authUserDoc.exists()) {
+          authUserDocData = authUserDoc.data();
+        }
+      } catch (docError) {
+        // Ignore - we're already in error handling
+      }
+    }
+    
+    logger.error("Error creating match in database", {
+      ...formattedError,
+      matchData: {
+        organizationId: matchData.organizationId,
+        mentorId: matchData.mentorId,
+        menteeId: matchData.menteeId,
+        status: matchData.status,
+      },
+      authenticatedUserId: authUser?.uid || "not authenticated",
+      authenticatedUserEmail: authUser?.email || "no email",
+      authenticatedUserDocExists: authUserDocData !== null,
+      authenticatedUserRole: authUserDocData?.role || "unknown (document may not exist)",
+      authenticatedUserOrgId: authUserDocData?.organizationId || "unknown",
+      // Note: The authenticated user's role is checked by Firestore rules
+      // This is the user whose document Firestore will check for permissions
+      // If authenticatedUserDocExists is false, the user document doesn't exist in Firestore
+      // and all permission checks will fail
+    });
+    throw error; // Re-throw to let caller handle
+  }
 };
 
 export const getMatchesByOrganization = async (
@@ -776,22 +971,30 @@ export const createBlogPost = async (
 export const getBlogPosts = async (
   publishedOnly: boolean = false
 ): Promise<BlogPost[]> => {
-  let q = query(collection(db, "blogPosts"), orderBy("createdAt", "desc"));
-
+  let q: ReturnType<typeof query>;
+  
   if (publishedOnly) {
     q = query(
       collection(db, "blogPosts"),
       where("published", "==", true),
       orderBy("createdAt", "desc")
     );
+  } else {
+    q = query(collection(db, "blogPosts"), orderBy("createdAt", "desc"));
   }
 
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: convertTimestamp(doc.data().createdAt),
-  })) as BlogPost[];
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    if (!data || typeof data !== 'object') {
+      throw new Error(`Invalid blog post data for document ${doc.id}`);
+    }
+    return {
+      id: doc.id,
+      ...(data as Record<string, unknown>),
+      createdAt: convertTimestamp((data as Record<string, unknown>).createdAt),
+    } as BlogPost;
+  });
 };
 
 export const updateBlogPost = async (
@@ -1106,11 +1309,18 @@ export const getAllCalendarEvents = async (
   endDate?: string
 ): Promise<CalendarEvent[]> => {
   try {
-    // Try with orderBy first, but fallback to no orderBy if index missing
-    let q = query(collection(db, "calendarEvents"), orderBy("date", "asc"));
-
+    // Try with orderBy, but fallback to no orderBy if index missing
+    // Note: where clauses must come before orderBy clauses
+    let q: ReturnType<typeof query>;
+    
     if (startDate) {
-      q = query(q, where("date", ">=", startDate));
+      q = query(
+        collection(db, "calendarEvents"),
+        where("date", ">=", startDate),
+        orderBy("date", "asc")
+      );
+    } else {
+      q = query(collection(db, "calendarEvents"), orderBy("date", "asc"));
     }
 
     let snapshot;
@@ -1694,10 +1904,16 @@ export const subscribeToBlogPosts = (
   callback: (posts: BlogPost[]) => void,
   publishedOnly: boolean = false
 ): Unsubscribe => {
-  let q = query(collection(db, "blogPosts"), orderBy("createdAt", "desc"));
-
+  let q: ReturnType<typeof query>;
+  
   if (publishedOnly) {
-    q = query(q, where("published", "==", true));
+    q = query(
+      collection(db, "blogPosts"),
+      where("published", "==", true),
+      orderBy("createdAt", "desc")
+    );
+  } else {
+    q = query(collection(db, "blogPosts"), orderBy("createdAt", "desc"));
   }
 
   return onSnapshot(
@@ -2122,19 +2338,60 @@ export const subscribeToChatMessages = (
       (snapshot: QuerySnapshot) => {
         if (isUnsubscribed) return;
 
-        const messages = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp:
-            doc.data().timestamp?.toDate().toISOString() ||
-            new Date().toISOString(),
-          createdAt: convertTimestamp(doc.data().createdAt),
-        })) as ChatMessage[];
-        // Reverse to show oldest first
-        callback(messages.reverse());
+        try {
+          const messages = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            timestamp:
+              doc.data().timestamp?.toDate().toISOString() ||
+              new Date().toISOString(),
+            createdAt: convertTimestamp(doc.data().createdAt),
+          })) as ChatMessage[];
+          // Reverse to show oldest first
+          callback(messages.reverse());
+        } catch (error) {
+          logger.error("Error processing chat messages snapshot", error);
+          if (isInternalAssertionError(error)) {
+            // If internal assertion error, unsubscribe immediately
+            isUnsubscribed = true;
+            if (unsubscribe) {
+              try {
+                unsubscribe();
+              } catch (cleanupError) {
+                logger.error("Error cleaning up after assertion error", cleanupError);
+              }
+            }
+            callback([]);
+          }
+        }
       },
       (error) => {
         if (isUnsubscribed) return;
+        
+        // Check for internal assertion errors
+        if (isInternalAssertionError(error)) {
+          logger.error(
+            "Firestore internal assertion error in chat messages - likely missing composite index",
+            {
+              error: getErrorMessage(error),
+              code: getErrorCode(error),
+              chatId,
+              organizationId,
+            }
+          );
+          // Immediately unsubscribe to prevent state corruption
+          isUnsubscribed = true;
+          if (unsubscribe) {
+            try {
+              unsubscribe();
+            } catch (cleanupError) {
+              logger.error("Error cleaning up after assertion error", cleanupError);
+            }
+          }
+          callback([]);
+          return;
+        }
+
         logger.error("Error subscribing to chat messages", error);
         logger.debug("Chat subscription error details", { chatId, organizationId });
         // Call callback with empty array on error to prevent UI from hanging
@@ -2225,33 +2482,75 @@ export const subscribeToDMMessages = (
   }
 
   try {
-    // Create first listener
+    // Create first listener with enhanced error handling
     unsubscribe1 = onSnapshot(q1, {
       next: (snapshot: QuerySnapshot) => {
         if (isUnsubscribed) return;
 
-        // Use docChanges() to handle added, modified, and removed documents
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === "removed") {
-            // Remove deleted messages from the map
-            messagesMap.delete(change.doc.id);
-          } else if (change.type === "added" || change.type === "modified") {
-            // Add or update messages in the map
-            const message = {
-              id: change.doc.id,
-              ...change.doc.data(),
-              timestamp:
-                change.doc.data().timestamp?.toDate().toISOString() ||
-                new Date().toISOString(),
-              createdAt: convertTimestamp(change.doc.data().createdAt),
-            } as ChatMessage;
-            messagesMap.set(change.doc.id, message);
+        try {
+          // Use docChanges() to handle added, modified, and removed documents
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === "removed") {
+              // Remove deleted messages from the map
+              messagesMap.delete(change.doc.id);
+            } else if (change.type === "added" || change.type === "modified") {
+              // Add or update messages in the map
+              const message = {
+                id: change.doc.id,
+                ...change.doc.data(),
+                timestamp:
+                  change.doc.data().timestamp?.toDate().toISOString() ||
+                  new Date().toISOString(),
+                createdAt: convertTimestamp(change.doc.data().createdAt),
+              } as ChatMessage;
+              messagesMap.set(change.doc.id, message);
+            }
+          });
+          mergeAndCallback();
+        } catch (error) {
+          logger.error("Error processing DM messages snapshot (query 1)", error);
+          if (isInternalAssertionError(error)) {
+            // If internal assertion error, unsubscribe immediately
+            isUnsubscribed = true;
+            if (unsubscribe1) {
+              try {
+                unsubscribe1();
+              } catch (cleanupError) {
+                logger.error("Error cleaning up after assertion error", cleanupError);
+              }
+            }
+            callback([]);
           }
-        });
-        mergeAndCallback();
+        }
       },
       error: (error) => {
         if (isUnsubscribed) return;
+        
+        // Check for internal assertion errors
+        if (isInternalAssertionError(error)) {
+          logger.error(
+            "Firestore internal assertion error in DM messages (query 1) - likely missing composite index",
+            {
+              error: getErrorMessage(error),
+              code: getErrorCode(error),
+              partnerId,
+              currentUserId,
+              organizationId,
+            }
+          );
+          // Immediately unsubscribe to prevent state corruption
+          isUnsubscribed = true;
+          if (unsubscribe1) {
+            try {
+              unsubscribe1();
+            } catch (cleanupError) {
+              logger.error("Error cleaning up after assertion error", cleanupError);
+            }
+          }
+          callback([]);
+          return;
+        }
+
         logger.error("Error subscribing to DM messages (query 1)", error);
         logger.debug("DM subscription error details", {
           partnerId,
@@ -2273,31 +2572,87 @@ export const subscribeToDMMessages = (
           next: (snapshot: QuerySnapshot) => {
             if (isUnsubscribed) return;
 
-            // Use docChanges() to handle added, modified, and removed documents
-            snapshot.docChanges().forEach((change) => {
-              if (change.type === "removed") {
-                // Remove deleted messages from the map
-                messagesMap.delete(change.doc.id);
-              } else if (
-                change.type === "added" ||
-                change.type === "modified"
-              ) {
-                // Add or update messages in the map
-                const message = {
-                  id: change.doc.id,
-                  ...change.doc.data(),
-                  timestamp:
-                    change.doc.data().timestamp?.toDate().toISOString() ||
-                    new Date().toISOString(),
-                  createdAt: convertTimestamp(change.doc.data().createdAt),
-                } as ChatMessage;
-                messagesMap.set(change.doc.id, message);
+            try {
+              // Use docChanges() to handle added, modified, and removed documents
+              snapshot.docChanges().forEach((change) => {
+                if (change.type === "removed") {
+                  // Remove deleted messages from the map
+                  messagesMap.delete(change.doc.id);
+                } else if (
+                  change.type === "added" ||
+                  change.type === "modified"
+                ) {
+                  // Add or update messages in the map
+                  const message = {
+                    id: change.doc.id,
+                    ...change.doc.data(),
+                    timestamp:
+                      change.doc.data().timestamp?.toDate().toISOString() ||
+                      new Date().toISOString(),
+                    createdAt: convertTimestamp(change.doc.data().createdAt),
+                  } as ChatMessage;
+                  messagesMap.set(change.doc.id, message);
+                }
+              });
+              mergeAndCallback();
+            } catch (error) {
+              logger.error("Error processing DM messages snapshot (query 2)", error);
+              if (isInternalAssertionError(error)) {
+                // If internal assertion error, unsubscribe immediately
+                isUnsubscribed = true;
+                if (unsubscribe1) {
+                  try {
+                    unsubscribe1();
+                  } catch (cleanupError) {
+                    logger.error("Error cleaning up first listener after assertion error", cleanupError);
+                  }
+                }
+                if (unsubscribe2) {
+                  try {
+                    unsubscribe2();
+                  } catch (cleanupError) {
+                    logger.error("Error cleaning up second listener after assertion error", cleanupError);
+                  }
+                }
+                callback([]);
               }
-            });
-            mergeAndCallback();
+            }
           },
           error: (error) => {
             if (isUnsubscribed) return;
+            
+            // Check for internal assertion errors
+            if (isInternalAssertionError(error)) {
+              logger.error(
+                "Firestore internal assertion error in DM messages (query 2) - likely missing composite index",
+                {
+                  error: getErrorMessage(error),
+                  code: getErrorCode(error),
+                  partnerId,
+                  currentUserId,
+                  organizationId,
+                }
+              );
+              // Immediately unsubscribe to prevent state corruption
+              isUnsubscribed = true;
+              if (unsubscribe1) {
+                try {
+                  unsubscribe1();
+                } catch (cleanupError) {
+                  logger.error("Error cleaning up first listener after assertion error", cleanupError);
+                }
+              }
+              if (unsubscribe2) {
+                try {
+                  unsubscribe2();
+                } catch (cleanupError) {
+                  logger.error("Error cleaning up second listener after assertion error", cleanupError);
+                }
+              }
+              callback([]);
+              return;
+            }
+
             logger.error("Error subscribing to DM messages (query 2)", error);
             logger.debug("DM subscription error details (query 2)", {
               partnerId,

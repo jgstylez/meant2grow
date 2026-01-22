@@ -5,8 +5,19 @@ import { readFileSync, writeFileSync } from 'fs';
 import { getErrorCode } from './utils/errors';
 
 export default defineConfig(({ mode }) => {
-  // Load environment variables from .env files (local) or Vercel environment (production)
-  const env = loadEnv(mode, process.cwd(), '');
+  // Determine environment from NODE_ENV or mode
+  // NODE_ENV can be: development, sandbox, production
+  // mode is typically: development, production
+  const nodeEnv = process.env.NODE_ENV || mode;
+  const isSandbox = nodeEnv === 'sandbox';
+  const isProduction = nodeEnv === 'production' && !isSandbox;
+  
+  // Load environment variables from .env files (local) or CI/CD environment
+  // Priority: process.env (CI/CD) > .env files (local)
+  const env = {
+    ...loadEnv(mode, process.cwd(), ''),
+    ...process.env, // CI/CD environment variables take precedence
+  };
   
   return {
     server: {
