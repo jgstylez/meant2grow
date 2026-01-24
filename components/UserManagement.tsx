@@ -386,12 +386,22 @@ const UserManagement: React.FC<UserManagementProps> = ({
     
     // CRITICAL: Store the original operator's Google ID token for Firebase Auth
     // Firebase Auth must remain authenticated as the original operator for Firestore rules
+    // Store this BEFORE changing userId/orgId to ensure we capture the correct token
     const originalOperatorIdToken = localStorage.getItem('google_id_token');
     if (originalOperatorIdToken) {
       localStorage.setItem('originalOperatorIdToken', originalOperatorIdToken);
+      logger.info('Stored original operator token for impersonation', {
+        originalOperatorId: currentUser.id,
+        targetUserId: user.id,
+      });
+    } else {
+      logger.warn('No Google ID token found for original operator. Firestore operations may fail during impersonation.', {
+        originalOperatorId: currentUser.id,
+      });
     }
     
     // Switch to target user (for UI display only)
+    // NOTE: Do NOT change google_id_token - it must remain as the original operator's token
     localStorage.setItem("userId", user.id);
     localStorage.setItem("organizationId", user.organizationId);
     

@@ -35,6 +35,9 @@ import {
 } from '../services/appleCalendarService';
 import { useDevices } from '../hooks/useDevices';
 import { getErrorMessage } from '../utils/errors';
+import { logger } from '../services/logger';
+import { LocationInput } from './LocationInput';
+import { CityStateZip } from './CityStateZipInput';
 
 interface SettingsViewProps {
     user: User;
@@ -188,7 +191,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                     const data = await getBillingData(organizationId);
                     setBillingData(data);
                 } catch (error: unknown) {
-                    console.error('Error fetching billing data:', error);
+                    logger.error('Error fetching billing data', error);
                     setBillingError(getErrorMessage(error) || 'Failed to load billing data');
                 } finally {
                     setIsBillingLoading(false);
@@ -215,7 +218,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
             // Redirect to Flowglad's hosted checkout page
             window.location.href = checkoutUrl;
         } catch (error: unknown) {
-            console.error('Error starting checkout:', error);
+            logger.error('Error starting checkout', error);
             alert(getErrorMessage(error) || 'Failed to start checkout session');
             setIsBillingLoading(false);
         }
@@ -231,7 +234,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
             setIsBillingLoading(true);
             await openBillingPortal(organizationId);
         } catch (error: unknown) {
-            console.error('Error opening billing portal:', error);
+            logger.error('Error opening billing portal', error);
             alert(getErrorMessage(error) || 'Failed to open billing portal');
             setIsBillingLoading(false);
         }
@@ -272,7 +275,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                     // Clean up URL
                     window.history.replaceState({}, document.title, window.location.pathname);
                 } catch (error: unknown) {
-                    console.error('Error connecting Outlook:', error);
+                    logger.error('Error connecting Outlook', error);
                     alert(getErrorMessage(error) || 'Failed to connect Outlook calendar');
                 } finally {
                     setCalendarSyncing(prev => ({ ...prev, outlook: false }));
@@ -481,7 +484,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                             setShowSuccess(true);
                                                             setTimeout(() => setShowSuccess(false), 3000);
                                                         } catch (error) {
-                                                            console.error('Error updating program name:', error);
+                                                            logger.error('Error updating program name', error);
                                                         }
                                                     }
                                                 }}
@@ -555,6 +558,25 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                         onSkillsChange={(skills) => setFormData({ ...formData, skills })}
                                         placeholder="Select or type a skill"
                                         label="Skills"
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <LocationInput
+                                        value={{
+                                            city: formData.city || '',
+                                            state: formData.state || '',
+                                            zip: formData.zip || '',
+                                        }}
+                                        onChange={(location) => {
+                                            setFormData({
+                                                ...formData,
+                                                city: location.city,
+                                                state: location.state,
+                                                zip: location.zip,
+                                            });
+                                        }}
+                                        placeholder="City, State, ZIP"
+                                        showLabels={true}
                                     />
                                 </div>
                                 <div className="col-span-2">
@@ -857,7 +879,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                                         try {
                                                                             await revokeDevice(device.deviceId);
                                                                         } catch (error) {
-                                                                            console.error('Error revoking device:', error);
+                                                                            logger.error('Error revoking device', error);
                                                                             alert('Failed to revoke device. Please try again.');
                                                                         } finally {
                                                                             setRevokingDeviceId(null);
@@ -943,7 +965,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                     setShowSuccess(true);
                                                     setTimeout(() => setShowSuccess(false), 3000);
                                                 } catch (error: unknown) {
-                                                    console.error('Error connecting Google Calendar:', error);
+                                                    logger.error('Error connecting Google Calendar', error);
                                                     alert(getErrorMessage(error) || 'Failed to connect Google Calendar');
                                                 } finally {
                                                     setCalendarSyncing(prev => ({ ...prev, google: false }));
@@ -1072,7 +1094,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                                 setShowSuccess(true);
                                                                 setTimeout(() => setShowSuccess(false), 3000);
                                                             } catch (error) {
-                                                                console.error('Error updating accent color:', error);
+                                                                logger.error('Error updating accent color', error);
                                                             }
                                                         }
                                                     }}
@@ -1134,7 +1156,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                                         setShowSuccess(true);
                                                                         setTimeout(() => setShowSuccess(false), 3000);
                                                                     } catch (error) {
-                                                                        console.error('Error uploading logo:', error);
+                                                                        logger.error('Error uploading logo', error);
                                                                         alert('Failed to upload logo. Please try again.');
                                                                     } finally {
                                                                         setIsUploadingLogo(false);
@@ -1161,7 +1183,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                                     setShowSuccess(true);
                                                                     setTimeout(() => setShowSuccess(false), 3000);
                                                                 } catch (error) {
-                                                                    console.error('Error removing logo:', error);
+                                                                    logger.error('Error removing logo', error);
                                                                 }
                                                             }
                                                         }}
@@ -1207,7 +1229,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                         setShowSuccess(true);
                                                         setTimeout(() => setShowSuccess(false), 3000);
                                                     } catch (error) {
-                                                        console.error('Error updating intro text:', error);
+                                                        logger.error('Error updating intro text', error);
                                                     }
                                                 }
                                             }}

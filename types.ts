@@ -53,6 +53,9 @@ export interface User {
   maxMentees?: number; // Maximum number of mentees a mentor can have
   linkedinUrl?: string; // LinkedIn profile URL
   phoneNumber?: string; // Phone number
+  city?: string; // City
+  state?: string; // State (2-letter code)
+  zip?: string; // ZIP code
   totalHoursCommitted?: number; // Total hours committed by mentor (sum of all scheduled appointment durations)
   createdAt: string;
 }

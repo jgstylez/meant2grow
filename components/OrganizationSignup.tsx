@@ -22,6 +22,7 @@ import {
 } from "../services/database";
 import { Role, User, Invitation, Organization } from "../types";
 import { getErrorMessage } from "../utils/errors";
+import { logger } from "../services/logger";
 
 interface OrganizationSignupProps {
   onLogin: (
@@ -120,7 +121,7 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
         }
       } catch (err: unknown) {
         if (!ignore) {
-          console.error("Error loading organization:", err);
+          logger.error("Error loading organization", err);
           setError(getErrorMessage(err) || "Failed to load organization");
         }
       } finally {
@@ -262,7 +263,7 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
 
       onLogin(false, true, participantRole);
     } catch (err: unknown) {
-      console.error("Authentication error:", err);
+      logger.error("Authentication error", err);
       setError(getErrorMessage(err) || "Authentication failed");
     } finally {
       setIsLoading(false);
@@ -289,7 +290,7 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
       let firebaseAuthUid: string | null = null;
       try {
         await signInToFirebaseAuth(idToken);
-        console.log('Successfully authenticated with Firebase Auth');
+        logger.info('Successfully authenticated with Firebase Auth');
         
         // Get Firebase Auth UID after successful authentication
         const { auth } = await import("../services/firebase");
@@ -307,7 +308,7 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
         }
         
         // For other errors, continue but warn that Firestore operations may fail
-        console.warn('Firebase Auth sign-in failed, but continuing. Firestore operations may fail.');
+        logger.warn('Firebase Auth sign-in failed, but continuing. Firestore operations may fail.');
       }
 
       // Join existing organization via invitation
@@ -431,7 +432,7 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
 
       onLogin(false, true, participantRole);
     } catch (err: unknown) {
-      console.error("Google sign-in error:", err);
+      logger.error("Google sign-in error", err);
       setError(getErrorMessage(err) || "Failed to sign in with Google");
     } finally {
       setIsGoogleLoading(false);

@@ -2,6 +2,7 @@
 
 import { signInWithCredential, GoogleAuthProvider, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from './firebase';
+import { logger } from './logger';
 
 declare global {
   interface Window {
@@ -134,7 +135,7 @@ export const signInToFirebaseAuth = async (idToken: string): Promise<void> => {
     
     // Firebase Auth automatically persists the session and handles token refresh
     // The user is now authenticated and Firestore operations will work
-    console.log('Successfully signed in to Firebase Auth', {
+    logger.info('Successfully signed in to Firebase Auth', {
       uid: userCredential.user.uid,
       email: userCredential.user.email,
     });
@@ -143,10 +144,10 @@ export const signInToFirebaseAuth = async (idToken: string): Promise<void> => {
     const errorCode = (error as { code?: string })?.code;
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorCode === 'auth/invalid-credential' || errorMessage.includes('expired')) {
-      console.error('Google ID token is expired or invalid. User needs to sign in again.');
+      logger.error('Google ID token is expired or invalid. User needs to sign in again.', error);
       throw new Error('Token expired. Please sign in again.');
     }
-    console.error('Error signing in to Firebase Auth:', error);
+    logger.error('Error signing in to Firebase Auth', error);
     throw error;
   }
 };
@@ -156,7 +157,7 @@ export const signOut = async (): Promise<void> => {
   try {
     await firebaseSignOut(auth);
   } catch (error) {
-    console.error('Error signing out from Firebase Auth:', error);
+    logger.error('Error signing out from Firebase Auth', error);
   }
   
   // Clear localStorage

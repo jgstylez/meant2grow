@@ -3,6 +3,7 @@ import { INPUT_CLASS, BUTTON_PRIMARY } from "../styles/common";
 import { ArrowLeft, Lock, CheckCircle, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Logo } from "./Logo";
 import { getErrorMessage } from "../utils/errors";
+import { logger } from "../services/logger";
 
 interface ResetPasswordProps {
   onNavigate: (page: string) => void;
@@ -93,7 +94,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, onBack, token
 
       setSuccess(true);
     } catch (err: unknown) {
-      console.error("Password reset error:", err);
+      logger.error("Password reset error", err);
       setError(getErrorMessage(err) || "Failed to reset password");
     } finally {
       setIsLoading(false);

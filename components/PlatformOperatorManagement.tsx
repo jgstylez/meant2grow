@@ -6,6 +6,7 @@ import { createUser, updateUser, getAllUsers, deleteUser } from '../services/dat
 import { query, collection, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { getErrorMessage } from '../utils/errors';
+import { logger } from '../services/logger';
 
 interface PlatformOperatorManagementProps {
     currentUser: User;
@@ -42,7 +43,7 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
             });
             setPlatformOperators(operators);
         } catch (error) {
-            console.error('Error loading platform operators:', error);
+            logger.error('Error loading platform operators', error);
             setPlatformOperators([]);
         } finally {
             setLoading(false);
@@ -104,7 +105,7 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
             setNewAdminName('');
             await loadPlatformOperators();
         } catch (error: unknown) {
-            console.error('Error creating platform admin:', error);
+            logger.error('Error creating platform admin', error);
             setAdminMessage({
                 type: 'error',
                 text: getErrorMessage(error) || 'Failed to create platform operator'
@@ -125,7 +126,7 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
             await loadPlatformOperators();
             setAdminMessage({ type: 'success', text: 'Platform operator deleted successfully' });
         } catch (error: unknown) {
-            console.error('Error deleting platform operator:', error);
+            logger.error('Error deleting platform operator', error);
             setAdminMessage({ type: 'error', text: getErrorMessage(error) || 'Failed to delete platform operator' });
         }
     };

@@ -54,19 +54,34 @@ const getEmailService = () => {
   const replyToEmail = mailerSendReplyToEmail.value();
   const appUrlValue = appUrl.value();
 
-  // Validate configuration
+  // Validate configuration and log warnings
   if (!apiToken) {
-    console.warn("MAILERSEND_API_TOKEN not configured. Email sending will be disabled.");
+    console.warn("⚠️ MAILERSEND_API_TOKEN not configured. Email sending will fail.");
   }
   if (!fromEmail) {
-    console.warn("MAILERSEND_FROM_EMAIL not configured. Email sending may fail.");
+    console.warn("⚠️ MAILERSEND_FROM_EMAIL not configured. Email sending will fail.");
+  }
+  if (!replyToEmail) {
+    console.warn("⚠️ MAILERSEND_REPLY_TO_EMAIL not configured. Using default.");
+  }
+  if (!appUrlValue) {
+    console.warn("⚠️ VITE_APP_URL not configured. Email links may be incorrect.");
   }
 
+  // Log configuration status (without exposing sensitive data)
+  console.log("📧 Email service configuration:", {
+    hasApiToken: !!apiToken,
+    apiTokenLength: apiToken?.length || 0,
+    fromEmail: fromEmail || "NOT SET",
+    replyToEmail: replyToEmail || "NOT SET",
+    appUrl: appUrlValue || "NOT SET",
+  });
+
   return createEmailService({
-    apiToken,
-    fromEmail,
-    replyToEmail,
-    appUrl: appUrlValue,
+    apiToken: apiToken || "",
+    fromEmail: fromEmail || "",
+    replyToEmail: replyToEmail || "support@meant2grow.com",
+    appUrl: appUrlValue || "https://meant2grow.com",
   });
 };
 
@@ -705,10 +720,11 @@ export const sendPasswordResetEmail = functions.onRequest(
       
       try {
         await emailService.sendPasswordReset(email, resetUrl, userName || "User");
+        console.log(`✅ Password reset email sent successfully to ${email}`);
         res.status(200).json({ message: "Password reset email sent successfully" });
       } catch (emailError: unknown) {
         // Log detailed error for debugging
-        console.error("Error sending password reset email:", {
+        console.error(`❌ Error sending password reset email to ${email}:`, {
           email,
           resetUrl,
           error: formatError(emailError),
@@ -720,7 +736,8 @@ export const sendPasswordResetEmail = functions.onRequest(
         res.status(200).json({ 
           message: "Password reset link created. If email delivery fails, contact support.",
           resetUrl: resetUrl, // Include reset URL in response for manual use
-          warning: "Email delivery may have failed. Check logs for details."
+          warning: "Email delivery may have failed. Check logs for details.",
+          error: getErrorMessage(emailError),
         });
       }
     } catch (error: unknown) {
@@ -1020,10 +1037,18 @@ export const onUserCreated = functionsV1.firestore
       };
 
       // Send welcome email based on role
-      if (user.role === Role.ADMIN) {
-        await getEmailService().sendWelcomeAdmin(user, organization);
-      } else {
-        await getEmailService().sendWelcomeParticipant(user, organization, user.role);
+      try {
+        if (user.role === Role.ADMIN) {
+          await getEmailService().sendWelcomeAdmin(user, organization);
+          console.log(`✅ Welcome admin email sent to ${user.email}`);
+        } else {
+          await getEmailService().sendWelcomeParticipant(user, organization, user.role);
+          console.log(`✅ Welcome participant email sent to ${user.email}`);
+        }
+      } catch (emailError: unknown) {
+        // Log email errors but don't fail the user creation
+        console.error(`❌ Failed to send welcome email to ${user.email}:`, formatError(emailError));
+        // Continue - user creation should succeed even if email fails
       }
     } catch (error: unknown) {
       console.error("Error in onUserCreated trigger:", formatError(error));
@@ -1079,14 +1104,22 @@ export const onMatchCreated = functionsV1.firestore
       };
 
       // Send to mentor
-      getEmailService().sendMatchCreated(mentor, matchForEmail, mentor, mentee).catch((err) => {
-        console.error("Failed to send match email to mentor:", err);
-      });
+      getEmailService().sendMatchCreated(mentor, matchForEmail, mentor, mentee)
+        .then(() => {
+          console.log(`✅ Match created email sent to mentor: ${mentor.email}`);
+        })
+        .catch((err) => {
+          console.error(`❌ Failed to send match email to mentor ${mentor.email}:`, formatError(err));
+        });
 
       // Send to mentee
-      getEmailService().sendMatchCreated(mentee, matchForEmail, mentor, mentee).catch((err) => {
-        console.error("Failed to send match email to mentee:", err);
-      });
+      getEmailService().sendMatchCreated(mentee, matchForEmail, mentor, mentee)
+        .then(() => {
+          console.log(`✅ Match created email sent to mentee: ${mentee.email}`);
+        })
+        .catch((err) => {
+          console.error(`❌ Failed to send match email to mentee ${mentee.email}:`, formatError(err));
+        });
     } catch (error: unknown) {
       console.error("Error in onMatchCreated trigger:", formatError(error));
     }
@@ -1141,9 +1174,13 @@ export const onGoalCompleted = functionsV1.firestore
         };
 
         // Send goal completed email
-        getEmailService().sendGoalCompleted(user, goalForEmail).catch((err) => {
-          console.error("Failed to send goal completed email:", err);
-        });
+        getEmailService().sendGoalCompleted(user, goalForEmail)
+          .then(() => {
+            console.log(`✅ Goal completed email sent to ${user.email} for goal: ${goal.title}`);
+          })
+          .catch((err) => {
+            console.error(`❌ Failed to send goal completed email to ${user.email}:`, formatError(err));
+          });
       }
     } catch (error: unknown) {
       console.error("Error in onGoalCompleted trigger:", formatError(error));
@@ -1202,9 +1239,13 @@ export const checkExpiringTrials = functionsV1.pubsub
             };
 
             // Send trial ending email
-            getEmailService().sendTrialEnding(user, organization, daysRemaining).catch((err) => {
-              console.error(`Failed to send trial ending email for org ${orgDoc.id}:`, err);
-            });
+            getEmailService().sendTrialEnding(user, organization, daysRemaining)
+              .then(() => {
+                console.log(`✅ Trial ending email sent to ${user.email} for org ${orgDoc.id} (${daysRemaining} days remaining)`);
+              })
+              .catch((err) => {
+                console.error(`❌ Failed to send trial ending email for org ${orgDoc.id}:`, formatError(err));
+              });
           }
         }
       }
@@ -1767,30 +1808,38 @@ export const sendInvitationEmail = functions.onRequest(
       }
 
       // Send invitation email
-      await getEmailService().sendInvitation(
-        invitationLink,
-        recipientEmail,
-        recipientName,
-        organizationName,
-        role,
-        inviterName,
-        personalNote
-      );
+      try {
+        await getEmailService().sendInvitation(
+          invitationLink,
+          recipientEmail,
+          recipientName,
+          organizationName,
+          role,
+          inviterName,
+          personalNote
+        );
+        
+        console.log(`✅ Invitation email sent successfully to ${recipientEmail} for ${organizationName}`);
 
-      // Update invitation status if invitationId is provided
-      if (invitationId) {
-        try {
-          await db.collection("invitations").doc(invitationId).update({
-            status: "Pending",
-            sentDate: admin.firestore.Timestamp.now(),
-          });
-        } catch (updateError) {
-          // Log but don't fail - email was sent successfully
-          console.error("Error updating invitation status:", formatError(updateError));
+        // Update invitation status if invitationId is provided
+        if (invitationId) {
+          try {
+            await db.collection("invitations").doc(invitationId).update({
+              status: "Pending",
+              sentDate: admin.firestore.Timestamp.now(),
+            });
+            console.log(`✅ Invitation status updated for ${invitationId}`);
+          } catch (updateError) {
+            // Log but don't fail - email was sent successfully
+            console.error("❌ Error updating invitation status:", formatError(updateError));
+          }
         }
-      }
 
-      res.status(200).json({ success: true, message: "Invitation email sent successfully" });
+        res.status(200).json({ success: true, message: "Invitation email sent successfully" });
+      } catch (emailError: unknown) {
+        console.error(`❌ Failed to send invitation email to ${recipientEmail}:`, formatError(emailError));
+        throw emailError; // Re-throw to be caught by outer catch
+      }
     } catch (error: unknown) {
       console.error("Error sending invitation email:", formatError(error));
       res.status(500).json({ 
@@ -1863,9 +1912,13 @@ async function sendMeetingReminders(
           participants: eventData.participants,
         },
         hoursUntil
-      ).catch((err) => {
-        console.error(`Failed to send meeting reminder to ${userId}:`, err);
-      });
+      )
+        .then(() => {
+          console.log(`✅ Meeting reminder email sent to ${user.email} for event: ${eventData.title} (${hoursUntil}h reminder)`);
+        })
+        .catch((err) => {
+          console.error(`❌ Failed to send meeting reminder to ${user.email} (${userId}):`, formatError(err));
+        });
 
       // Create in-app notification (FCM push will be sent automatically via onNotificationCreated trigger)
       await db.collection("notifications").add({

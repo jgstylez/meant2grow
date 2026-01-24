@@ -21,6 +21,7 @@ import {
 import { updateUser, deleteUser } from "../services/database";
 import { emailService } from "../services/emailService";
 import { getErrorMessage } from "../utils/errors";
+import { logger } from "../services/logger";
 
 interface ParticipantsProps {
   users: User[];
@@ -184,7 +185,7 @@ const Participants: React.FC<ParticipantsProps> = ({
       // The useOrganizationData hook uses real-time Firestore listeners,
       // so the users array should update automatically when the document changes
     } catch (error: unknown) {
-      console.error("Error updating email:", error);
+      logger.error("Error updating email", error);
       const errorMessage = getErrorMessage(error) || "Failed to update email address";
       alert(`Failed to update email address: ${errorMessage}`);
     } finally {
@@ -254,7 +255,7 @@ const Participants: React.FC<ParticipantsProps> = ({
       setEmailSubject("");
       setEmailBody("");
     } catch (error: unknown) {
-      console.error("Error sending email:", error);
+      logger.error("Error sending email", error);
       alert(`Failed to send email: ${getErrorMessage(error) || "Unknown error"}`);
     } finally {
       const sendButton = document.querySelector(
@@ -294,7 +295,7 @@ const Participants: React.FC<ParticipantsProps> = ({
       await updateUser(userId, { role: newRole });
       setRoleChangingUser(null);
     } catch (error) {
-      console.error("Error changing role:", error);
+      logger.error("Error changing role", error);
       alert("Failed to update role");
     }
   };
@@ -310,7 +311,7 @@ const Participants: React.FC<ParticipantsProps> = ({
     try {
       await deleteUser(userId);
     } catch (error) {
-      console.error("Error deleting user:", error);
+      logger.error("Error deleting user", error);
       alert("Failed to remove participant");
     }
   };

@@ -63,9 +63,36 @@ const createSendEmail = (config: EmailServiceConfig) => {
     text: string;
     category?: string;
   }) => {
+    // Validate configuration before attempting to send
+    if (!config.apiToken) {
+      const errorMsg = `Email service not configured: MAILERSEND_API_TOKEN is missing. Cannot send: ${options.subject}`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    if (!config.fromEmail) {
+      const errorMsg = `Email service not configured: MAILERSEND_FROM_EMAIL is missing. Cannot send: ${options.subject}`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
     if (!client) {
-      console.log("Email service not configured. Would send:", options.subject);
-      return;
+      const errorMsg = `MailerSend client initialization failed. Cannot send: ${options.subject}`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    // Validate recipients
+    if (!options.to || options.to.length === 0) {
+      throw new Error("No recipients specified for email");
+    }
+
+    // Validate email addresses
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const recipient of options.to) {
+      if (!emailRegex.test(recipient.email)) {
+        throw new Error(`Invalid email address: ${recipient.email}`);
+      }
     }
 
     try {
@@ -82,21 +109,34 @@ const createSendEmail = (config: EmailServiceConfig) => {
         .setHtml(options.html)
         .setText(options.text);
 
+      console.log(`Attempting to send email: ${options.subject} to ${options.to.map(t => t.email).join(", ")}`);
+      
       const response = await client.email.send(emailParams);
-      console.log(`Email sent successfully: ${options.subject} to ${options.to.map(t => t.email).join(", ")}`, {
+      
+      console.log(`✅ Email sent successfully: ${options.subject} to ${options.to.map(t => t.email).join(", ")}`, {
         messageId: response.body?.message_id,
         status: response.statusCode,
+        category: options.category || "General",
       });
+      
+      return {
+        success: true,
+        messageId: response.body?.message_id,
+        status: response.statusCode,
+      };
     } catch (error: any) {
       // Log detailed error information for debugging
-      console.error("Failed to send email:", {
+      const errorDetails = {
         subject: options.subject,
         recipients: options.to.map(t => t.email),
         error: error.message || error,
         errorCode: error.code,
         errorResponse: error.response?.body || error.body,
         stack: error.stack,
-      });
+        category: options.category || "General",
+      };
+      
+      console.error("❌ Failed to send email:", errorDetails);
       
       // Re-throw error so callers can handle it appropriately
       // This allows email failures to be logged and handled at the function level

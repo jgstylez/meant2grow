@@ -30,6 +30,7 @@ const getMailerSendClient = async () => {
   clientPromise = (async () => {
     try {
       // Dynamic import - only loads in server environments
+      // @ts-ignore - mailersend types may not be available in all environments
       const { MailerSend } = await import("mailersend");
       
       const apiToken = import.meta.env.VITE_MAILERSEND_API_TOKEN;
@@ -97,6 +98,7 @@ const sendEmail = async (options: {
   }
 
   try {
+    // @ts-ignore - mailersend types may not be available in all environments
     const { EmailParams, Sender, Recipient } = await import("mailersend");
     const sentFrom = new Sender(EMAIL_CONFIG.from.email, EMAIL_CONFIG.from.name);
     const recipients = options.to.map(recipient => 

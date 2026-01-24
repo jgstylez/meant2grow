@@ -23,6 +23,7 @@ import {
 } from "../services/database";
 import { Role, User, Invitation, Organization } from "../types";
 import { getErrorMessage } from "../utils/errors";
+import { logger } from "../services/logger";
 
 // Helper function to convert hex to RGB
 const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
@@ -114,7 +115,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
           }
         })
         .catch((err) => {
-          console.error("Error loading invitation:", err);
+          logger.error("Error loading invitation", err);
           setError("Failed to load invitation");
         });
     } else if (orgDomain) {
@@ -141,7 +142,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
           }, 1000);
         }
       } catch (err) {
-        console.error("Failed to initialize Google Auth:", err);
+        logger.error("Failed to initialize Google Auth", err);
         // Continue without Google Auth if it fails
       }
     };
@@ -191,7 +192,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
           trialEnd: trialEndDate.toISOString(),
           subscriptionStatus: "trialing",
         }).catch((err) => {
-          console.error("Failed to set trial period:", err);
+          logger.error("Failed to set trial period", err);
           // Don't fail organization creation if trial setup fails
         });
 
@@ -216,7 +217,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
             const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
             await createFirebaseAuthAccount(formData.email, formData.password, userId);
           } catch (authError) {
-            console.warn("Failed to create Firebase Auth account during signup (will be created on first login):", authError);
+            logger.warn("Failed to create Firebase Auth account during signup (will be created on first login)", authError);
             // Continue with signup even if Firebase Auth creation fails
             // User will be migrated on first login
           }
@@ -315,7 +316,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
             const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
             await createFirebaseAuthAccount(formData.email, formData.password, userId);
           } catch (authError) {
-            console.warn("Failed to create Firebase Auth account during signup (will be created on first login):", authError);
+            logger.warn("Failed to create Firebase Auth account during signup (will be created on first login)", authError);
             // Continue with signup even if Firebase Auth creation fails
             // User will be migrated on first login
           }
@@ -374,7 +375,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
         onLogin(false, false);
       }
     } catch (err: unknown) {
-      console.error("Authentication error:", err);
+      logger.error("Authentication error", err);
       setError(getErrorMessage(err) || "Authentication failed");
     } finally {
       setIsLoading(false);
@@ -401,14 +402,14 @@ const Authentication: React.FC<AuthenticationProps> = ({
       let firebaseAuthUid: string | null = null;
       try {
         await signInToFirebaseAuth(idToken);
-        console.log('Successfully authenticated with Firebase Auth');
+        logger.info('Successfully authenticated with Firebase Auth');
         
         // Get Firebase Auth UID after successful authentication
         const { auth } = await import("../services/firebase");
         firebaseAuthUid = auth.currentUser?.uid || null;
       } catch (firebaseAuthError: any) {
         const errorMessage = firebaseAuthError?.message || String(firebaseAuthError);
-        console.error('Failed to sign in to Firebase Auth:', firebaseAuthError);
+        logger.error('Failed to sign in to Firebase Auth', firebaseAuthError);
         
         // If token is invalid/expired, clear it and show error
         if (errorMessage.includes('expired') || errorMessage.includes('invalid-credential')) {
@@ -419,7 +420,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
         }
         
         // For other errors, continue but warn that Firestore operations may fail
-        console.warn('Firebase Auth sign-in failed, but continuing. Firestore operations may fail.');
+        logger.warn('Firebase Auth sign-in failed, but continuing. Firestore operations may fail.');
       }
 
       // Determine what to do based on mode
@@ -478,7 +479,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
             const { updateUser } = await import("../services/database");
             await updateUser(createdUser.id, { firebaseAuthUid });
           } catch (updateError) {
-            console.error("Failed to update Firebase Auth UID:", updateError);
+            logger.error("Failed to update Firebase Auth UID", updateError);
             // Continue with login even if update fails
           }
         }
@@ -601,7 +602,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
             const { updateUser } = await import("../services/database");
             await updateUser(joinedUser.id, { firebaseAuthUid });
           } catch (updateError) {
-            console.error("Failed to update Firebase Auth UID:", updateError);
+            logger.error("Failed to update Firebase Auth UID", updateError);
             // Continue with login even if update fails
           }
         }
@@ -641,7 +642,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
             const { updateUser } = await import("../services/database");
             await updateUser(existingUser.id, updates);
           } catch (updateError) {
-            console.error("Failed to update user:", updateError);
+            logger.error("Failed to update user", updateError);
             // Continue with login even if update fails
           }
         }
@@ -657,7 +658,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
         onLogin(false, false);
       }
     } catch (err: unknown) {
-      console.error("Google sign-in error:", err);
+      logger.error("Google sign-in error", err);
       setError(getErrorMessage(err) || "Failed to sign in with Google");
     } finally {
       setIsGoogleLoading(false);
@@ -696,7 +697,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
           trialEnd: trialEndDate.toISOString(),
           subscriptionStatus: "trialing",
         }).catch((err) => {
-          console.error("Failed to set trial period:", err);
+          logger.error("Failed to set trial period", err);
           // Don't fail organization creation if trial setup fails
         });
 
@@ -755,7 +756,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
         onLogin(true, false);
       }
     } catch (err: unknown) {
-      console.error("Signup error:", err);
+      logger.error("Signup error", err);
       setError(getErrorMessage(err) || "Failed to create organization");
     } finally {
       setIsLoading(false);

@@ -4,6 +4,7 @@ import { ArrowLeft, Mail, CheckCircle, AlertCircle } from "lucide-react";
 import { Logo } from "./Logo";
 import { findUserByEmail } from "../services/database";
 import { getErrorMessage } from "../utils/errors";
+import { logger } from "../services/logger";
 
 interface ForgotPasswordProps {
   onNavigate: (page: string) => void;
@@ -33,7 +34,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onNavigate, onBack }) =
         user = await findUserByEmail(email.trim());
       } catch (dbError: unknown) {
         // Database error - don't reveal if email exists for security
-        console.error("Database error checking user:", dbError);
+        logger.error("Database error checking user", dbError);
         setSuccess(true);
         setIsLoading(false);
         return;
@@ -61,7 +62,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onNavigate, onBack }) =
 
       setSuccess(true);
     } catch (err: unknown) {
-      console.error("Password reset error:", err);
+      logger.error("Password reset error", err);
       // Show error for validation errors and API failures
       // (We've already confirmed user exists at this point, so showing error is safe)
       setError(getErrorMessage(err) || "An error occurred. Please try again.");

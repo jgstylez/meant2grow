@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ProgramSettings } from '../types';
 import { INPUT_CLASS } from '../styles/common';
 import { Logo } from './Logo';
+import { LocationInput } from './LocationInput';
+import { CityStateZip } from './CityStateZipInput';
 
 interface DynamicSignupFormProps {
   programSettings: ProgramSettings;
@@ -248,6 +250,57 @@ const DynamicSignupForm: React.FC<DynamicSignupFormProps> = ({
         );
 
       default:
+        // Check if field ID or label suggests it's a location field
+        const isLocationField = field.id.toLowerCase().includes('loc') || 
+                                field.id.toLowerCase().includes('location') ||
+                                field.id.toLowerCase().includes('city') ||
+                                field.label.toLowerCase().includes('location') ||
+                                field.label.toLowerCase().includes('where are you');
+
+        if (isLocationField) {
+          // Parse existing value (could be string or object)
+          const locationValue: CityStateZip = typeof value === 'object' && value !== null && 'city' in value
+            ? (value as CityStateZip)
+            : typeof value === 'string' && value.includes(',')
+            ? (() => {
+                // Try to parse "City, State ZIP" format
+                const parts = value.split(',').map(p => p.trim());
+                const city = parts[0] || '';
+                const stateZip = parts[1]?.split(/\s+/) || [];
+                const state = stateZip[0] || '';
+                const zip = stateZip[1] || '';
+                return { city, state, zip };
+              })()
+            : { city: (value as string) || '', state: '', zip: '' };
+
+          return (
+            <div key={field.id} className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                {field.label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </label>
+              {field.description && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">{field.description}</p>
+              )}
+              <LocationInput
+                value={locationValue}
+                onChange={(location) => {
+                  // Store as string format "City, State ZIP" for compatibility
+                  const locationString = [location.city, location.state, location.zip]
+                    .filter(Boolean)
+                    .join(', ');
+                  handleChange(field.id, locationString);
+                }}
+                placeholder={field.label}
+                showLabels={false}
+              />
+              {hasError && (
+                <p className="text-xs text-red-500">{errors[field.id]}</p>
+              )}
+            </div>
+          );
+        }
+
         return null;
     }
   };

@@ -107,7 +107,7 @@ export const exportMatchesToCSV = (
     Mentee: userMap.get(match.menteeId) || "Unknown",
     Status: match.status,
     "Start Date": match.startDate,
-    "End Date": match.endDate || "",
+    "End Date": (match as any).endDate || "", // Optional field, may not exist in all matches
   }));
 
   exportToCSV(exportData, "matches", [
@@ -132,7 +132,7 @@ export const exportGoalsToCSV = (goals: Goal[], users: User[]): void => {
     Status: goal.status,
     Progress: `${goal.progress}%`,
     "Due Date": goal.dueDate,
-    "Created At": new Date(goal.createdAt).toLocaleDateString(),
+    "Created At": (goal as any).createdAt ? new Date((goal as any).createdAt).toLocaleDateString() : "N/A",
   }));
 
   exportToCSV(exportData, "goals", [
