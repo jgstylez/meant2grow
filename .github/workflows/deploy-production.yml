@@ -54,11 +54,9 @@ jobs:
           VITE_FIREBASE_VAPID_KEY: ${{ secrets.PROD_FIREBASE_VAPID_KEY }}
           VITE_FUNCTIONS_URL: ${{ secrets.PROD_FUNCTIONS_URL }}
           VITE_APP_URL: ${{ secrets.PROD_APP_URL }}
-          VITE_MAILTRAP_API_TOKEN: ${{ secrets.PROD_MAILTRAP_API_TOKEN }}
-          VITE_MAILTRAP_USE_SANDBOX: 'false'
-          VITE_MAILTRAP_INBOX_ID: ${{ secrets.PROD_MAILTRAP_INBOX_ID }}
-          VITE_MAILTRAP_FROM_EMAIL: ${{ secrets.PROD_MAILTRAP_FROM_EMAIL }}
-          VITE_MAILTRAP_REPLY_TO_EMAIL: ${{ secrets.PROD_MAILTRAP_REPLY_TO_EMAIL }}
+          VITE_MAILERSEND_API_TOKEN: ${{ secrets.PROD_MAILERSEND_API_TOKEN }}
+          VITE_MAILERSEND_FROM_EMAIL: ${{ secrets.PROD_MAILERSEND_FROM_EMAIL }}
+          VITE_MAILERSEND_REPLY_TO_EMAIL: ${{ secrets.PROD_MAILERSEND_REPLY_TO_EMAIL }}
           VITE_GIPHY_API_KEY: ${{ secrets.PROD_GIPHY_API_KEY }}
       
       - name: Build functions

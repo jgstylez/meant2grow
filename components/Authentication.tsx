@@ -350,21 +350,20 @@ const Authentication: React.FC<AuthenticationProps> = ({
         
         if (!firebaseAuthUid) {
           // Firebase Auth migration failed or password needed
-          // Check if user already has firebaseAuthUid (already migrated)
           if (user.firebaseAuthUid) {
             // User is migrated but password is wrong or missing
             if (!formData.password) {
-              throw new Error("Password is required. Please check your email for a password reset link if you haven't set one yet.");
+              throw new Error("Password is required for this account.");
             } else {
-              throw new Error("Incorrect password. Please check your email for a password reset link if you've forgotten it.");
+              throw new Error("Incorrect password. Please use 'Forgot Password' if you need to reset it.");
             }
           } else {
-            // Check if the error was due to email/password auth not being enabled
-            // For now, allow login to proceed without Firebase Auth (legacy behavior)
-            // User will need to enable email/password auth in Firebase Console for full functionality
-            console.warn('Firebase Auth email/password authentication may not be enabled. Login will proceed but Firestore operations may fail.');
-            // Don't throw error - allow legacy login to work
-            // The user will see permission errors if they try to use Firestore features
+            // New user or migration needed
+            if (!formData.password) {
+              throw new Error("Password is required. If this is your first time logging in, please use 'Forgot Password' to set your password.");
+            } else {
+              throw new Error("Authentication failed. Please ensure your email and password are correct, or use Google Sign-In if you previously used it.");
+            }
           }
         }
 

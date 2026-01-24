@@ -1,28 +1,45 @@
-import { MailtrapClient } from "mailtrap";
+import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 import { User, Organization, Role, Match, Goal } from "./types";
 
 // Email service configuration interface
 export interface EmailServiceConfig {
   apiToken: string;
-  useSandbox: boolean;
-  inboxId?: number;
   fromEmail: string;
   replyToEmail: string;
   appUrl: string;
 }
 
-// Initialize Mailtrap client with configuration
-const getMailtrapClient = (config: EmailServiceConfig) => {
+// Initialize MailerSend client with configuration
+const getMailerSendClient = (config: EmailServiceConfig) => {
+  console.log("Initializing MailerSend client with config:", {
+    hasApiToken: !!config.apiToken,
+    apiTokenLength: config.apiToken?.length || 0,
+    fromEmail: config.fromEmail,
+    replyToEmail: config.replyToEmail,
+    appUrl: config.appUrl,
+  });
+
   if (!config.apiToken) {
-    console.warn("MAILTRAP_API_TOKEN not set. Email sending will be disabled.");
+    console.warn("MAILERSEND_API_TOKEN not set. Email sending will be disabled.");
     return null;
   }
 
-  return new MailtrapClient({
-    token: config.apiToken,
-    sandbox: config.useSandbox,
-    testInboxId: config.inboxId, // Only used in sandbox mode
-  });
+  if (!config.fromEmail) {
+    console.warn("MAILERSEND_FROM_EMAIL not set. Email sending may fail.");
+  }
+
+  try {
+    return new MailerSend({
+      apiKey: config.apiToken,
+    });
+  } catch (error: any) {
+    console.error("Failed to initialize MailerSend client:", {
+      error: error.message || error,
+      hasApiToken: !!config.apiToken,
+      fromEmail: config.fromEmail,
+    });
+    throw error;
+  }
 };
 
 // Email configuration factory
@@ -36,7 +53,7 @@ const getEmailConfig = (config: EmailServiceConfig) => ({
 
 // Helper function to send email safely
 const createSendEmail = (config: EmailServiceConfig) => {
-  const client = getMailtrapClient(config);
+  const client = getMailerSendClient(config);
   const emailConfig = getEmailConfig(config);
 
   return async (options: {
@@ -52,19 +69,38 @@ const createSendEmail = (config: EmailServiceConfig) => {
     }
 
     try {
-      await client.send({
-        from: emailConfig.from,
-        reply_to: { email: emailConfig.replyTo },
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-        text: options.text,
-        category: options.category || "Transactional",
+      const sentFrom = new Sender(emailConfig.from.email, emailConfig.from.name);
+      const recipients = options.to.map(recipient => 
+        new Recipient(recipient.email, recipient.name || recipient.email)
+      );
+
+      const emailParams = new EmailParams()
+        .setFrom(sentFrom)
+        .setTo(recipients)
+        .setReplyTo(new Sender(emailConfig.replyTo, emailConfig.from.name))
+        .setSubject(options.subject)
+        .setHtml(options.html)
+        .setText(options.text);
+
+      const response = await client.email.send(emailParams);
+      console.log(`Email sent successfully: ${options.subject} to ${options.to.map(t => t.email).join(", ")}`, {
+        messageId: response.body?.message_id,
+        status: response.statusCode,
       });
-      console.log(`Email sent successfully: ${options.subject} to ${options.to.map(t => t.email).join(", ")}`);
-    } catch (error) {
-      console.error("Failed to send email:", error);
-      // Don't throw - email failures shouldn't break the app
+    } catch (error: any) {
+      // Log detailed error information for debugging
+      console.error("Failed to send email:", {
+        subject: options.subject,
+        recipients: options.to.map(t => t.email),
+        error: error.message || error,
+        errorCode: error.code,
+        errorResponse: error.response?.body || error.body,
+        stack: error.stack,
+      });
+      
+      // Re-throw error so callers can handle it appropriately
+      // This allows email failures to be logged and handled at the function level
+      throw new Error(`Email sending failed: ${error.message || 'Unknown error'}`);
     }
   };
 };

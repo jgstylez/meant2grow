@@ -19,10 +19,9 @@ Use this checklist to ensure all required secrets are configured in GitHub.
 - [ ] `SANDBOX_FIREBASE_VAPID_KEY` - Firebase VAPID Key (for push notifications)
 - [ ] `SANDBOX_FUNCTIONS_URL` - Cloud Functions URL (e.g., `https://us-central1-meant2grow-dev.cloudfunctions.net`)
 - [ ] `SANDBOX_APP_URL` - Application URL (e.g., `https://sandbox.meant2grow.com`)
-- [ ] `SANDBOX_MAILTRAP_API_TOKEN` - Mailtrap API Token
-- [ ] `SANDBOX_MAILTRAP_INBOX_ID` - Mailtrap Inbox ID
-- [ ] `SANDBOX_MAILTRAP_FROM_EMAIL` - From email address (e.g., `noreply@meant2grow.com`)
-- [ ] `SANDBOX_MAILTRAP_REPLY_TO_EMAIL` - Reply-to email address (e.g., `support@meant2grow.com`)
+- [ ] `SANDBOX_MAILERSEND_API_TOKEN` - MailerSend API Token
+- [ ] `SANDBOX_MAILERSEND_FROM_EMAIL` - From email address (e.g., `noreply@meant2grow.com`) - must be verified in MailerSend
+- [ ] `SANDBOX_MAILERSEND_REPLY_TO_EMAIL` - Reply-to email address (e.g., `support@meant2grow.com`)
 - [ ] `SANDBOX_GIPHY_API_KEY` - GIPHY API Key
 
 ## Production Environment Variables (15)
@@ -37,10 +36,9 @@ Use this checklist to ensure all required secrets are configured in GitHub.
 - [ ] `PROD_FIREBASE_VAPID_KEY` - Firebase VAPID Key (for push notifications)
 - [ ] `PROD_FUNCTIONS_URL` - Cloud Functions URL (e.g., `https://us-central1-meant2grow-prod.cloudfunctions.net`)
 - [ ] `PROD_APP_URL` - Application URL (e.g., `https://meant2grow.com`)
-- [ ] `PROD_MAILTRAP_API_TOKEN` - Mailtrap API Token
-- [ ] `PROD_MAILTRAP_INBOX_ID` - Mailtrap Inbox ID (may be empty for production)
-- [ ] `PROD_MAILTRAP_FROM_EMAIL` - From email address (e.g., `noreply@meant2grow.com`)
-- [ ] `PROD_MAILTRAP_REPLY_TO_EMAIL` - Reply-to email address (e.g., `support@meant2grow.com`)
+- [ ] `PROD_MAILERSEND_API_TOKEN` - MailerSend API Token
+- [ ] `PROD_MAILERSEND_FROM_EMAIL` - From email address (e.g., `noreply@meant2grow.com`) - must be verified in MailerSend
+- [ ] `PROD_MAILERSEND_REPLY_TO_EMAIL` - Reply-to email address (e.g., `support@meant2grow.com`)
 - [ ] `PROD_GIPHY_API_KEY` - GIPHY API Key
 
 ## Total: 32 secrets required
@@ -82,9 +80,9 @@ Use this checklist to ensure all required secrets are configured in GitHub.
 ### Google OAuth Client ID
 - **Google Cloud Console** → APIs & Services → Credentials → OAuth 2.0 Client ID
 
-### Mailtrap Values
-- **Mailtrap Dashboard** → Settings → API Tokens
-- **Mailtrap Dashboard** → Inboxes → Your Inbox → Settings → SMTP Settings
+### MailerSend Values
+- **MailerSend Dashboard** → Settings → API Tokens (https://app.mailersend.com/api-tokens)
+- **MailerSend Dashboard** → Domains → Verify your sending domain
 
 ### GIPHY API Key
 - **GIPHY Developer Portal** → Create App → API Key
@@ -94,4 +92,4 @@ Use this checklist to ensure all required secrets are configured in GitHub.
 - Secret names are **case-sensitive** - use exact names as shown
 - Secrets cannot be viewed after creation, only updated
 - If a secret is missing, the workflow will fail with a clear error message
-- Some secrets may be optional (like `PROD_MAILTRAP_INBOX_ID`) - check workflow files for details
+- MailerSend requires domain verification - ensure your FROM_EMAIL domain is verified in MailerSend dashboard

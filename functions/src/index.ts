@@ -26,30 +26,20 @@ const serviceAccountEmail = defineString("GOOGLE_SERVICE_ACCOUNT_EMAIL", {
 
 const serviceAccountKey = defineSecret("GOOGLE_SERVICE_ACCOUNT_KEY");
 
-// Mailtrap email service configuration
-const mailtrapApiToken = defineString("MAILTRAP_API_TOKEN", {
-  description: "Mailtrap API token for sending emails",
+// MailerSend email service configuration
+const mailerSendApiToken = defineString("MAILERSEND_API_TOKEN", {
+  description: "MailerSend API token for sending emails",
   default: "",
 });
 
-const mailtrapUseSandbox = defineString("MAILTRAP_USE_SANDBOX", {
-  description: "Use Mailtrap sandbox mode (true/false)",
-  default: isProduction ? "false" : "true",
-});
-
-const mailtrapInboxId = defineString("MAILTRAP_INBOX_ID", {
-  description: "Mailtrap inbox ID for sandbox mode",
-  default: "",
-});
-
-const mailtrapFromEmail = defineString("MAILTRAP_FROM_EMAIL", {
-  description: "From email address for Mailtrap",
+const mailerSendFromEmail = defineString("MAILERSEND_FROM_EMAIL", {
+  description: "From email address for MailerSend (must be verified in MailerSend)",
   default: "noreply@meant2grow.com",
 });
 
-const mailtrapReplyToEmail = defineString("MAILTRAP_REPLY_TO_EMAIL", {
-  description: "Reply-to email address for Mailtrap",
-  default: "meantogrow@gmail.com",
+const mailerSendReplyToEmail = defineString("MAILERSEND_REPLY_TO_EMAIL", {
+  description: "Reply-to email address for MailerSend",
+  default: "support@meant2grow.com",
 });
 
 const appUrl = defineString("VITE_APP_URL", {
@@ -59,13 +49,24 @@ const appUrl = defineString("VITE_APP_URL", {
 
 // Helper function to get email service instance with current config values
 const getEmailService = () => {
+  const apiToken = mailerSendApiToken.value();
+  const fromEmail = mailerSendFromEmail.value();
+  const replyToEmail = mailerSendReplyToEmail.value();
+  const appUrlValue = appUrl.value();
+
+  // Validate configuration
+  if (!apiToken) {
+    console.warn("MAILERSEND_API_TOKEN not configured. Email sending will be disabled.");
+  }
+  if (!fromEmail) {
+    console.warn("MAILERSEND_FROM_EMAIL not configured. Email sending may fail.");
+  }
+
   return createEmailService({
-    apiToken: mailtrapApiToken.value(),
-    useSandbox: mailtrapUseSandbox.value() === "true",
-    inboxId: mailtrapInboxId.value() ? Number(mailtrapInboxId.value()) : undefined,
-    fromEmail: mailtrapFromEmail.value(),
-    replyToEmail: mailtrapReplyToEmail.value(),
-    appUrl: appUrl.value(),
+    apiToken,
+    fromEmail,
+    replyToEmail,
+    appUrl: appUrlValue,
   });
 };
 
@@ -701,12 +702,30 @@ export const sendPasswordResetEmail = functions.onRequest(
       }
 
       const emailService = getEmailService();
-      await emailService.sendPasswordReset(email, resetUrl, userName || "User");
-
-      res.status(200).json({ message: "Password reset email sent successfully" });
+      
+      try {
+        await emailService.sendPasswordReset(email, resetUrl, userName || "User");
+        res.status(200).json({ message: "Password reset email sent successfully" });
+      } catch (emailError: unknown) {
+        // Log detailed error for debugging
+        console.error("Error sending password reset email:", {
+          email,
+          resetUrl,
+          error: formatError(emailError),
+          errorDetails: emailError,
+        });
+        
+        // Return error but don't fail the request - token is still created
+        // User can manually use the reset URL if email fails
+        res.status(200).json({ 
+          message: "Password reset link created. If email delivery fails, contact support.",
+          resetUrl: resetUrl, // Include reset URL in response for manual use
+          warning: "Email delivery may have failed. Check logs for details."
+        });
+      }
     } catch (error: unknown) {
-      console.error("Error sending password reset email:", error);
-      res.status(500).json({ error: "Failed to send password reset email", message: formatError(error) });
+      console.error("Error in sendPasswordResetEmail function:", error);
+      res.status(500).json({ error: "Failed to process password reset request", message: formatError(error) });
     }
   }
 );
@@ -772,11 +791,19 @@ export const forgotPassword = functions.onRequest(
       try {
         const emailService = getEmailService();
         await emailService.sendPasswordReset(normalizedEmail, resetUrl, userName);
+        console.log(`Password reset email sent successfully to ${normalizedEmail}`);
       } catch (emailError: unknown) {
-        console.error("Failed to send password reset email:", emailError);
-        // Log for development/debugging
+        // Log detailed error for debugging
+        console.error("Failed to send password reset email:", {
+          email: normalizedEmail,
+          resetUrl,
+          error: formatError(emailError),
+          errorDetails: emailError,
+        });
+        // Log reset URL for manual use if email fails
         console.log(`Password reset URL for ${normalizedEmail}: ${resetUrl}`);
         // Don't fail the request - token is still created, user can use the URL
+        // In production, you might want to alert admins about email failures
       }
 
       // Return success (don't reveal if email exists)

@@ -1,15 +1,17 @@
-// Don't import MailtrapClient at top level - use dynamic import instead
+// Don't import MailerSend at top level - use dynamic import instead
 import { User, Organization, Role, Match, Goal } from "../types";
 import { logger } from "./logger";
 
-// Lazy initialization of Mailtrap client (only in server environments)
+// Lazy initialization of MailerSend client (only in server environments)
+// Note: This is primarily for server-side rendering scenarios.
+// Most email sending should go through Cloud Functions/API routes.
 let client: any = null;
 let clientPromise: Promise<any> | null = null;
 
-const getMailtrapClient = async () => {
+const getMailerSendClient = async () => {
   // Check if we're in a browser environment
   if (typeof window !== 'undefined') {
-    // In browser, don't initialize Mailtrap client
+    // In browser, don't initialize MailerSend client
     // Email sending should go through Cloud Functions/API routes
     return null;
   }
@@ -28,28 +30,22 @@ const getMailtrapClient = async () => {
   clientPromise = (async () => {
     try {
       // Dynamic import - only loads in server environments
-      const { MailtrapClient } = await import("mailtrap");
+      const { MailerSend } = await import("mailersend");
       
-      const apiToken = import.meta.env.VITE_MAILTRAP_API_TOKEN;
-      const useSandbox = import.meta.env.VITE_MAILTRAP_USE_SANDBOX === "true";
-      const inboxId = import.meta.env.VITE_MAILTRAP_INBOX_ID
-        ? Number(import.meta.env.VITE_MAILTRAP_INBOX_ID)
-        : undefined;
+      const apiToken = import.meta.env.VITE_MAILERSEND_API_TOKEN;
 
       if (!apiToken) {
-        logger.warn("MAILTRAP_API_TOKEN not set. Email sending will be disabled.");
+        logger.warn("MAILERSEND_API_TOKEN not set. Email sending will be disabled.");
         return null;
       }
 
-      client = new MailtrapClient({
-        token: apiToken,
-        sandbox: useSandbox,
-        testInboxId: inboxId, // Only used in sandbox mode
+      client = new MailerSend({
+        apiKey: apiToken,
       });
       
       return client;
     } catch (error) {
-      logger.error("Failed to initialize Mailtrap client", error);
+      logger.error("Failed to initialize MailerSend client", error);
       return null;
     } finally {
       clientPromise = null;
@@ -73,9 +69,9 @@ const getClient = () => {
 const EMAIL_CONFIG = {
   from: {
     name: "Meant2Grow",
-    email: import.meta.env.VITE_MAILTRAP_FROM_EMAIL || "noreply@meant2grow.com",
+    email: import.meta.env.VITE_MAILERSEND_FROM_EMAIL || "noreply@meant2grow.com",
   },
-  replyTo: import.meta.env.VITE_MAILTRAP_REPLY_TO_EMAIL || "support@meant2grow.com",
+  replyTo: import.meta.env.VITE_MAILERSEND_REPLY_TO_EMAIL || "support@meant2grow.com",
 };
 
 // Helper function to send email safely
@@ -93,7 +89,7 @@ const sendEmail = async (options: {
   }
 
   // Get or initialize the client (async)
-  const emailClient = await getMailtrapClient();
+  const emailClient = await getMailerSendClient();
   
   if (!emailClient) {
     logger.info("Email service not configured. Would send:", { subject: options.subject });
@@ -101,15 +97,21 @@ const sendEmail = async (options: {
   }
 
   try {
-    await emailClient.send({
-      from: EMAIL_CONFIG.from,
-      reply_to: { email: EMAIL_CONFIG.replyTo },
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      text: options.text,
-      category: options.category || "Transactional",
-    });
+    const { EmailParams, Sender, Recipient } = await import("mailersend");
+    const sentFrom = new Sender(EMAIL_CONFIG.from.email, EMAIL_CONFIG.from.name);
+    const recipients = options.to.map(recipient => 
+      new Recipient(recipient.email, recipient.name || recipient.email)
+    );
+
+    const emailParams = new EmailParams()
+      .setFrom(sentFrom)
+      .setTo(recipients)
+      .setReplyTo(new Sender(EMAIL_CONFIG.replyTo, EMAIL_CONFIG.from.name))
+      .setSubject(options.subject)
+      .setHtml(options.html)
+      .setText(options.text);
+
+    await emailClient.email.send(emailParams);
     logger.info("Email sent successfully", { subject: options.subject });
   } catch (error) {
     logger.error("Failed to send email", error);

@@ -105,14 +105,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Failed to send password reset email via function:', errorText);
-        // Log for development/debugging
+        console.error('Failed to send password reset email via function:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+          email: normalizedEmail,
+        });
+        // Log reset URL for manual use if email fails
         console.log(`Password reset URL for ${normalizedEmail}: ${resetUrl}`);
-        throw new Error(`Email service returned ${response.status}: ${errorText}`);
+        // Don't throw - token is still created, user can use the URL manually
+      } else {
+        console.log(`Password reset email sent successfully to ${normalizedEmail}`);
       }
     } catch (emailError: any) {
-      console.error('Failed to send password reset email:', emailError);
-      // Log for development/debugging
+      console.error('Failed to send password reset email:', {
+        error: emailError.message || emailError,
+        email: normalizedEmail,
+        functionUrl,
+      });
+      // Log reset URL for manual use if email fails
       console.log(`Password reset URL for ${normalizedEmail}: ${resetUrl}`);
       // Don't fail the request - token is still created, user can use the URL
       // But log the error for debugging
