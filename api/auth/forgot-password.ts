@@ -1,29 +1,39 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import crypto from 'crypto';
 
 // Initialize Firebase Admin (server-side)
 if (!getApps().length) {
+  // Try environment variables first (works in Vercel)
   const serviceAccount = {
-    projectId: process.env.FIREBASE_PROJECT_ID,
+    projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || 'meant2grow-dev',
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
   };
 
-  if (serviceAccount.projectId && serviceAccount.clientEmail && serviceAccount.privateKey) {
-    initializeApp({
-      credential: cert(serviceAccount as any),
-    });
-  } else {
-    const missingVars: string[] = [];
-    if (!serviceAccount.projectId) missingVars.push('FIREBASE_PROJECT_ID');
-    if (!serviceAccount.clientEmail) missingVars.push('FIREBASE_CLIENT_EMAIL');
-    if (!serviceAccount.privateKey) missingVars.push('FIREBASE_PRIVATE_KEY');
-    
-    throw new Error(
-      `Firebase Admin SDK initialization failed: Missing required environment variables: ${missingVars.join(', ')}`
-    );
+  if (serviceAccount.clientEmail && serviceAccount.privateKey) {
+    try {
+      initializeApp({
+        credential: cert(serviceAccount as any),
+      });
+    } catch (certError: any) {
+      console.error('Failed to initialize with cert:', certError.message);
+      // Fall through to default credentials
+    }
+  }
+
+  // If not initialized yet, try default credentials (works on GCP/Vercel)
+  if (!getApps().length) {
+    try {
+      initializeApp({
+        credential: applicationDefault(),
+        projectId: serviceAccount.projectId,
+      });
+    } catch (defaultError: any) {
+      console.error('Failed to initialize Firebase Admin:', defaultError.message);
+      // Will fail later when trying to use db/auth
+    }
   }
 }
 
@@ -55,7 +65,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const userDoc = userQuery.docs[0];
     const userId = userDoc.id;
+    const userData = userDoc.data();
+    const userName = userData.name || 'User';
 
+    // Use custom reset flow (works for both migrated and non-migrated users)
+    // The reset-password endpoint will handle creating/updating Firebase Auth accounts
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date();
@@ -76,11 +90,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const resetUrl = `${appUrl}/?reset-password&token=${resetToken}`;
 
     // Send password reset email via Firebase Function
+    const functionUrl = process.env.FIREBASE_FUNCTIONS_URL || process.env.VITE_FUNCTIONS_URL || 'https://us-central1-meant2grow-dev.cloudfunctions.net';
+    
     try {
-      const functionUrl = process.env.FIREBASE_FUNCTIONS_URL || process.env.VITE_FUNCTIONS_URL || 'https://us-central1-meant2grow-dev.cloudfunctions.net';
-      const userName = userDoc.data().name || 'User';
-      
-      await fetch(`${functionUrl}/sendPasswordResetEmail`, {
+      const response = await fetch(`${functionUrl}/sendPasswordResetEmail`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -88,15 +101,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           resetUrl,
           userName,
         }),
-      }).catch((emailError) => {
-        console.error('Failed to send password reset email via function:', emailError);
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to send password reset email via function:', errorText);
         // Log for development/debugging
         console.log(`Password reset URL for ${normalizedEmail}: ${resetUrl}`);
-      });
-    } catch (emailError) {
+        throw new Error(`Email service returned ${response.status}: ${errorText}`);
+      }
+    } catch (emailError: any) {
       console.error('Failed to send password reset email:', emailError);
       // Log for development/debugging
       console.log(`Password reset URL for ${normalizedEmail}: ${resetUrl}`);
+      // Don't fail the request - token is still created, user can use the URL
+      // But log the error for debugging
     }
 
     // Return success (don't reveal if email exists)

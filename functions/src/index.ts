@@ -3,6 +3,7 @@ import * as functionsV1 from "firebase-functions/v1";
 import { defineString, defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import { google } from "googleapis";
+import * as crypto from "crypto";
 import { Role, User, Organization, Match, Goal } from "./types";
 import { createEmailService } from "./emailService";
 import { setTrialPeriod } from "./organizationUtils";
@@ -706,6 +707,263 @@ export const sendPasswordResetEmail = functions.onRequest(
     } catch (error: unknown) {
       console.error("Error sending password reset email:", error);
       res.status(500).json({ error: "Failed to send password reset email", message: formatError(error) });
+    }
+  }
+);
+
+// Forgot password endpoint - handles password reset requests
+export const forgotPassword = functions.onRequest(
+  {
+    cors: true,
+    region: "us-central1",
+  },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method not allowed" });
+      return;
+    }
+
+    try {
+      const { email } = req.body;
+
+      if (!email || typeof email !== "string") {
+        res.status(400).json({ error: "Email is required" });
+        return;
+      }
+
+      // Normalize email
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // Check if user exists
+      const usersRef = db.collection("users");
+      const userQuery = await usersRef.where("email", "==", normalizedEmail).limit(1).get();
+
+      if (userQuery.empty) {
+        // Don't reveal if email exists - return success anyway for security
+        res.status(200).json({ message: "If an account exists, a password reset link has been sent." });
+        return;
+      }
+
+      const userDoc = userQuery.docs[0];
+      const userId = userDoc.id;
+      const userData = userDoc.data();
+      const userName = userData.name || "User";
+
+      // Generate reset token
+      const resetToken = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 1); // Token expires in 1 hour
+
+      // Store reset token in Firestore
+      await db.collection("passwordResetTokens").doc(resetToken).set({
+        userId,
+        email: normalizedEmail,
+        createdAt: admin.firestore.Timestamp.now(),
+        expiresAt: admin.firestore.Timestamp.fromDate(expiresAt),
+        used: false,
+      });
+
+      // Generate reset URL
+      const appUrl = process.env.VITE_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://meant2grow.com";
+      // Use query params - the app will detect the token and route to reset-password
+      const resetUrl = `${appUrl}/?reset-password&token=${resetToken}`;
+
+      // Send password reset email via email service
+      try {
+        const emailService = getEmailService();
+        await emailService.sendPasswordReset(normalizedEmail, resetUrl, userName);
+      } catch (emailError: unknown) {
+        console.error("Failed to send password reset email:", emailError);
+        // Log for development/debugging
+        console.log(`Password reset URL for ${normalizedEmail}: ${resetUrl}`);
+        // Don't fail the request - token is still created, user can use the URL
+      }
+
+      // Return success (don't reveal if email exists)
+      res.status(200).json({ message: "If an account exists, a password reset link has been sent." });
+    } catch (error: unknown) {
+      console.error("Password reset request error:", error);
+      res.status(500).json({ error: "Internal server error", message: formatError(error) });
+    }
+  }
+);
+
+// Reset password endpoint - handles password reset with token
+export const resetPassword = functions.onRequest(
+  {
+    cors: true,
+    region: "us-central1",
+  },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method not allowed" });
+      return;
+    }
+
+    try {
+      const { token, password } = req.body;
+
+      if (!token || typeof token !== "string") {
+        res.status(400).json({ error: "Reset token is required" });
+        return;
+      }
+
+      if (!password || typeof password !== "string") {
+        res.status(400).json({ error: "Password is required" });
+        return;
+      }
+
+      // Password validation
+      function validatePassword(pwd: string): { valid: boolean; error?: string } {
+        if (pwd.length < 8) {
+          return { valid: false, error: "Password must be at least 8 characters long" };
+        }
+        if (!/(?=.*[a-z])/.test(pwd)) {
+          return { valid: false, error: "Password must contain at least one lowercase letter" };
+        }
+        if (!/(?=.*[A-Z])/.test(pwd)) {
+          return { valid: false, error: "Password must contain at least one uppercase letter" };
+        }
+        if (!/(?=.*\d)/.test(pwd)) {
+          return { valid: false, error: "Password must contain at least one number" };
+        }
+        return { valid: true };
+      }
+
+      // Validate password strength
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        res.status(400).json({ error: passwordValidation.error });
+        return;
+      }
+
+      // Get reset token from Firestore
+      const tokenDoc = await db.collection("passwordResetTokens").doc(token).get();
+
+      if (!tokenDoc.exists) {
+        res.status(400).json({ error: "Invalid or expired reset token" });
+        return;
+      }
+
+      const tokenData = tokenDoc.data();
+      if (!tokenData) {
+        res.status(400).json({ error: "Invalid reset token" });
+        return;
+      }
+
+      // Check if token has been used
+      if (tokenData.used === true) {
+        res.status(400).json({ error: "This reset token has already been used" });
+        return;
+      }
+
+      // Check if token has expired
+      const expiresAt = tokenData.expiresAt?.toDate();
+      if (!expiresAt || expiresAt < new Date()) {
+        res.status(400).json({ error: "Reset token has expired. Please request a new one." });
+        return;
+      }
+
+      const userId = tokenData.userId;
+      if (!userId) {
+        res.status(400).json({ error: "Invalid reset token" });
+        return;
+      }
+
+      // Get user document
+      const userDoc = await db.collection("users").doc(userId).get();
+      if (!userDoc.exists) {
+        res.status(400).json({ error: "User not found" });
+        return;
+      }
+
+      const userData = userDoc.data();
+      const userEmail = userData?.email;
+
+      if (!userEmail) {
+        res.status(400).json({ error: "User email not found" });
+        return;
+      }
+
+      const auth = admin.auth();
+
+      // Create or update Firebase Auth account with new password
+      let firebaseAuthUid: string;
+
+      try {
+        // Check if Firebase Auth account already exists
+        let firebaseUser;
+        try {
+          if (userData?.firebaseAuthUid) {
+            // User already has Firebase Auth account - update password
+            firebaseUser = await auth.getUser(userData.firebaseAuthUid);
+            firebaseAuthUid = firebaseUser.uid;
+
+            // Update password
+            await auth.updateUser(firebaseAuthUid, {
+              password: password,
+              emailVerified: firebaseUser.emailVerified, // Preserve email verification status
+            });
+          } else {
+            // Try to find user by email
+            try {
+              firebaseUser = await auth.getUserByEmail(userEmail);
+              firebaseAuthUid = firebaseUser.uid;
+
+              // Update password
+              await auth.updateUser(firebaseAuthUid, {
+                password: password,
+              });
+            } catch (emailError: any) {
+              // User doesn't exist in Firebase Auth - create new account
+              firebaseUser = await auth.createUser({
+                email: userEmail,
+                password: password,
+                emailVerified: false, // User will need to verify email
+              });
+              firebaseAuthUid = firebaseUser.uid;
+            }
+          }
+        } catch (authError: any) {
+          console.error("Firebase Auth error:", authError);
+          res.status(500).json({
+            error: "Failed to update password in Firebase Auth",
+            message: authError.message,
+          });
+          return;
+        }
+
+        // Update Firestore user document with firebaseAuthUid and remove passwordHash if it exists
+        const updateData: any = {
+          firebaseAuthUid,
+          passwordUpdatedAt: admin.firestore.Timestamp.now(),
+        };
+
+        // Remove passwordHash field if it exists (migration cleanup)
+        if (userData?.passwordHash) {
+          updateData.passwordHash = admin.firestore.FieldValue.delete();
+        }
+
+        await db.collection("users").doc(userId).update(updateData);
+      } catch (error: any) {
+        console.error("Password reset error:", error);
+        res.status(500).json({
+          error: "Internal server error",
+          message: formatError(error),
+        });
+        return;
+      }
+
+      // Mark token as used
+      await db.collection("passwordResetTokens").doc(token).update({
+        used: true,
+        usedAt: admin.firestore.Timestamp.now(),
+      });
+
+      res.status(200).json({ message: "Password has been reset successfully" });
+    } catch (error: unknown) {
+      console.error("Password reset error:", error);
+      res.status(500).json({ error: "Internal server error", message: formatError(error) });
     }
   }
 );

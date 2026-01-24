@@ -46,8 +46,9 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onNavigate, onBack }) =
         return;
       }
 
-      // Call API to send password reset email
-      const response = await fetch("/api/auth/forgot-password", {
+      // Call Firebase Cloud Function to send password reset email
+      const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://us-central1-meant2grow-dev.cloudfunctions.net';
+      const response = await fetch(`${functionsUrl}/forgotPassword`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),

@@ -75,8 +75,9 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, onBack, token
         throw new Error("Invalid reset token");
       }
 
-      // Call API to reset password
-      const response = await fetch("/api/auth/reset-password", {
+      // Call Firebase Cloud Function to reset password
+      const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://us-central1-meant2grow-dev.cloudfunctions.net';
+      const response = await fetch(`${functionsUrl}/resetPassword`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

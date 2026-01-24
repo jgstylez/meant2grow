@@ -4,8 +4,9 @@ import {
   fetchSignInMethodsForEmail,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
 } from 'firebase/auth';
-import { auth } from './firebase';
-import { updateUser } from './database';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from './firebase';
+import { updateUser, getUser } from './database';
 import { logger } from './logger';
 
 /**
@@ -122,6 +123,40 @@ export const ensureFirebaseAuthAccount = async (
         // Update Firestore user document with Firebase Auth UID
         await updateUser(firestoreUserId, { firebaseAuthUid });
         
+        // Also create/update user document with ID = Firebase Auth UID (for Firestore rules)
+        // This allows Firestore rules to find the user by request.auth.uid
+        try {
+          const authUidDocRef = doc(db, 'users', firebaseAuthUid);
+          const authUidDoc = await getDoc(authUidDocRef);
+          
+          if (!authUidDoc.exists()) {
+            // Create user document with Firebase Auth UID as ID
+            // Copy data from the original user document
+            const originalUser = await getUser(firestoreUserId);
+            if (originalUser) {
+              await setDoc(authUidDocRef, {
+                ...originalUser,
+                id: firebaseAuthUid, // Use Firebase Auth UID as ID
+                firebaseAuthUid: firebaseAuthUid, // Also store as field for reference
+                originalFirestoreUserId: firestoreUserId, // Keep reference to original document
+              }, { merge: true });
+            }
+          } else {
+            // Update existing document
+            await setDoc(authUidDocRef, {
+              firebaseAuthUid: firebaseAuthUid,
+              originalFirestoreUserId: firestoreUserId,
+            }, { merge: true });
+          }
+        } catch (docError: any) {
+          // Log but don't fail - the original document update already succeeded
+          logger.warn('Failed to create user document with Firebase Auth UID as ID', {
+            firebaseAuthUid,
+            firestoreUserId,
+            error: docError.message,
+          });
+        }
+        
         logger.info('Authenticated existing Firebase Auth account', {
           email,
           firebaseAuthUid,
@@ -165,6 +200,28 @@ export const ensureFirebaseAuthAccount = async (
         
         // Link Firebase Auth UID to Firestore user document
         await updateUser(firestoreUserId, { firebaseAuthUid });
+        
+        // Also create user document with ID = Firebase Auth UID (for Firestore rules)
+        try {
+          const originalUser = await getUser(firestoreUserId);
+          
+          if (originalUser) {
+            const authUidDocRef = doc(db, 'users', firebaseAuthUid);
+            await setDoc(authUidDocRef, {
+              ...originalUser,
+              id: firebaseAuthUid, // Use Firebase Auth UID as ID
+              firebaseAuthUid: firebaseAuthUid,
+              originalFirestoreUserId: firestoreUserId,
+            }, { merge: true });
+          }
+        } catch (docError: any) {
+          // Log but don't fail - the original document update already succeeded
+          logger.warn('Failed to create user document with Firebase Auth UID as ID', {
+            firebaseAuthUid,
+            firestoreUserId,
+            error: docError.message,
+          });
+        }
         
         logger.info('Created Firebase Auth account for existing Firestore user (lazy migration)', {
           email,
@@ -246,6 +303,27 @@ export const createFirebaseAuthAccount = async (
     
     // Link Firebase Auth UID to Firestore user document
     await updateUser(firestoreUserId, { firebaseAuthUid });
+    
+    // Also create user document with ID = Firebase Auth UID (for Firestore rules)
+    try {
+      const originalUser = await getUser(firestoreUserId);
+      if (originalUser) {
+        const authUidDocRef = doc(db, 'users', firebaseAuthUid);
+        await setDoc(authUidDocRef, {
+          ...originalUser,
+          id: firebaseAuthUid,
+          firebaseAuthUid: firebaseAuthUid,
+          originalFirestoreUserId: firestoreUserId,
+        }, { merge: true });
+      }
+    } catch (docError: any) {
+      // Log but don't fail - the original document update already succeeded
+      logger.warn('Failed to create user document with Firebase Auth UID as ID', {
+        firebaseAuthUid,
+        firestoreUserId,
+        error: docError.message,
+      });
+    }
     
     logger.info('Created Firebase Auth account for new user', {
       email,

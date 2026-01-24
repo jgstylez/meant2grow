@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import crypto from 'crypto';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
 
 // Initialize Firebase Admin (server-side)
 if (!getApps().length) {
@@ -28,6 +28,7 @@ if (!getApps().length) {
 }
 
 const db = getFirestore();
+const auth = getAuth();
 
 // Password validation
 function validatePassword(password: string): { valid: boolean; error?: string } {
@@ -102,17 +103,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'User not found' });
     }
 
-    // Hash the new password (in production, use bcrypt or similar)
-    // For now, we'll store a hashed version
-    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+    const userData = userDoc.data();
+    const userEmail = userData?.email;
+    
+    if (!userEmail) {
+      return res.status(400).json({ error: 'User email not found' });
+    }
 
-    // Update user password
-    // Note: In a real implementation, you'd want to use Firebase Auth or a proper password hashing library
-    // For now, we'll store it in a passwordHash field
-    await db.collection('users').doc(userId).update({
-      passwordHash, // Store hashed password
-      passwordUpdatedAt: Timestamp.now(),
-    });
+    // Create or update Firebase Auth account with new password
+    let firebaseAuthUid: string;
+    
+    try {
+      // Check if Firebase Auth account already exists
+      let firebaseUser;
+      try {
+        if (userData?.firebaseAuthUid) {
+          // User already has Firebase Auth account - update password
+          firebaseUser = await auth.getUser(userData.firebaseAuthUid);
+          firebaseAuthUid = firebaseUser.uid;
+          
+          // Update password
+          await auth.updateUser(firebaseAuthUid, {
+            password: password,
+            emailVerified: firebaseUser.emailVerified, // Preserve email verification status
+          });
+        } else {
+          // Try to find user by email
+          try {
+            firebaseUser = await auth.getUserByEmail(userEmail);
+            firebaseAuthUid = firebaseUser.uid;
+            
+            // Update password
+            await auth.updateUser(firebaseAuthUid, {
+              password: password,
+            });
+          } catch (emailError: any) {
+            // User doesn't exist in Firebase Auth - create new account
+            firebaseUser = await auth.createUser({
+              email: userEmail,
+              password: password,
+              emailVerified: false, // User will need to verify email
+            });
+            firebaseAuthUid = firebaseUser.uid;
+          }
+        }
+      } catch (authError: any) {
+        console.error('Firebase Auth error:', authError);
+        return res.status(500).json({ 
+          error: 'Failed to update password in Firebase Auth', 
+          message: authError.message 
+        });
+      }
+      
+      // Update Firestore user document with firebaseAuthUid and remove passwordHash if it exists
+      const updateData: any = {
+        firebaseAuthUid,
+        passwordUpdatedAt: Timestamp.now(),
+      };
+      
+      // Remove passwordHash field if it exists (migration cleanup)
+      if (userData?.passwordHash) {
+        updateData.passwordHash = FieldValue.delete();
+      }
+      
+      await db.collection('users').doc(userId).update(updateData);
+      
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      return res.status(500).json({ 
+        error: 'Internal server error', 
+        message: error.message 
+      });
+    }
 
     // Mark token as used
     await db.collection('passwordResetTokens').doc(token).update({

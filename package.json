@@ -23,7 +23,10 @@
     "firebase:serve:hosting": "npm run build && firebase emulators:start --only hosting",
     "firebase:serve:functions": "firebase emulators:start --only functions",
     "migrate:platform-resources": "ts-node --esm scripts/migrate-platform-resources.ts",
-    "create:platform-admin": "ts-node --esm scripts/create-platform-admin.ts"
+    "create:platform-admin": "ts-node --esm scripts/create-platform-admin.ts",
+    "migrate:password-auth": "ts-node --esm scripts/migrate-password-auth.ts",
+    "set-platform-admin-password": "ts-node --esm scripts/set-platform-admin-password.ts",
+    "set-all-platform-admin-passwords": "ts-node --esm scripts/set-all-platform-admin-passwords.ts"
   },
   "dependencies": {
     "@flowglad/react": "^0.16.1",

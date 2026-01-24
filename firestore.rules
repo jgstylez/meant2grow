@@ -486,5 +486,18 @@ service cloud.firestore {
                       (exists(resource.data.organizationId) &&
                        isOrgAdmin(resource.data.organizationId));
     }
+    
+    // ==================== SYSTEM LOGS ====================
+    
+    match /system_logs/{logId} {
+      // Allow authenticated users to create logs (for error logging)
+      allow create: if isAuthenticated();
+      
+      // Only platform admins can read logs
+      allow read: if isPlatformAdmin();
+      
+      // No updates or deletes allowed
+      allow update, delete: if false;
+    }
   }
 }
