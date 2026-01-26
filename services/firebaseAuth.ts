@@ -25,12 +25,69 @@ export const ensureFirebaseAuthAccount = async (
   firestoreUserId: string
 ): Promise<string | null> => {
   try {
+    // First, check if user already has a Firebase Auth UID in Firestore
+    // If they do, we can skip fetchSignInMethodsForEmail (which can fail with continue_uri errors)
+    // and go straight to signing in
+    const userDoc = await getUser(firestoreUserId);
+    if (userDoc?.firebaseAuthUid && password) {
+      // User already has Firebase Auth account - try to sign in directly
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const firebaseAuthUid = userCredential.user.uid;
+        
+        // Verify the UID matches (in case it changed somehow)
+        if (firebaseAuthUid !== userDoc.firebaseAuthUid) {
+          await updateUser(firestoreUserId, { firebaseAuthUid });
+        }
+        
+        logger.info('Authenticated existing Firebase Auth account (skipped fetchSignInMethodsForEmail)', {
+          email,
+          firebaseAuthUid,
+          firestoreUserId,
+        });
+        
+        return firebaseAuthUid;
+      } catch (signInError: any) {
+        // Password might be wrong
+        if (signInError.code === 'auth/wrong-password' || signInError.code === 'auth/invalid-credential') {
+          logger.warn('Password incorrect for existing Firebase Auth account', {
+            email,
+            firestoreUserId,
+            errorCode: signInError.code,
+          });
+          return null;
+        }
+        // For other errors, fall through to the normal flow below
+        logger.warn('Sign-in failed for existing account, falling back to normal flow', {
+          email,
+          firestoreUserId,
+          errorCode: signInError.code,
+        });
+      }
+    }
+    
     // Check if Firebase Auth account exists for this email
     // If email/password auth is not enabled, this will fail with auth/configuration-not-found
     let signInMethods: string[] = [];
     try {
       signInMethods = await fetchSignInMethodsForEmail(auth, email);
     } catch (checkError: any) {
+      // Handle continue_uri domain error - domain not authorized in Firebase Console
+      if (checkError.code === 'auth/unauthorized-continue-uri' || 
+          checkError.message?.includes('continue_uri domain') ||
+          checkError.message?.includes('belongs to a different Firebase Hosting project')) {
+        logger.error('Firebase Auth domain not authorized. Add the current domain to Firebase Console authorized domains.', {
+          email,
+          firestoreUserId,
+          errorCode: checkError.code,
+          errorMessage: checkError.message,
+          currentDomain: typeof window !== 'undefined' ? window.location.hostname : 'unknown',
+          fixUrl: `https://console.firebase.google.com/project/${auth.app.options.projectId}/authentication/settings`,
+        });
+        // Return null to indicate failure - user needs to configure authorized domains
+        return null;
+      }
+      
       // If email/password auth is not configured, try to create account directly
       if (checkError.code === 'auth/configuration-not-found') {
         logger.warn('Email/password authentication not enabled in Firebase Console. Attempting to create account directly.', {
