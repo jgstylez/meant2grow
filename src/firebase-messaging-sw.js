@@ -1,32 +1,34 @@
 // Firebase Cloud Messaging Service Worker
-// This file must be in the public root directory and named exactly 'firebase-messaging-sw.js'
+// This file is processed by Vite and uses ES modules with import.meta.env
 
-importScripts('https://www.gstatic.com/firebasejs/12.6.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/12.6.0/firebase-messaging-compat.js');
+import { initializeApp } from "firebase/app";
+import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
+import { precacheAndRoute } from "workbox-precaching";
+
+// Precache and route all assets
+precacheAndRoute(self.__WB_MANIFEST);
 
 // Initialize Firebase in the service worker
-// Note: These values will be replaced at build time or injected via environment variables
+// Environment variables are injected at build time via Vite's define option
 const firebaseConfig = {
-  apiKey: '{{VITE_FIREBASE_API_KEY}}',
-  authDomain: '{{VITE_FIREBASE_AUTH_DOMAIN}}',
-  projectId: '{{VITE_FIREBASE_PROJECT_ID}}',
-  storageBucket: '{{VITE_FIREBASE_STORAGE_BUCKET}}',
-  messagingSenderId: '{{VITE_FIREBASE_MESSAGING_SENDER_ID}}',
-  appId: '{{VITE_FIREBASE_APP_ID}}'
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-firebase.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
+const messaging = getMessaging(app);
 
 // Service worker activation - claim clients immediately (required for iOS)
 self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
 
-// Retrieve an instance of Firebase Messaging so that it can handle background messages
-const messaging = firebase.messaging();
-
 // Handle background messages (works for both Android and iOS)
-messaging.onBackgroundMessage((payload) => {
+onBackgroundMessage(messaging, (payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
   const notificationTitle = payload.notification?.title || payload.data?.title || 'New Notification';
@@ -87,4 +89,3 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
-
