@@ -28,51 +28,55 @@ This will create:
 
 **Note:** Running this script multiple times will create duplicate entries. To avoid duplicates, check Firestore first or delete existing platform resources.
 
-### 2. Create Platform Admin
+### 2. Create Platform Operator
 
-Creates a new platform admin user or updates an existing user to platform admin role.
+Creates a new platform operator user or updates an existing user to platform operator role.
+
+**Note:** "Platform Operator" is the preferred terminology. The role value stored in the database is `PLATFORM_ADMIN` for technical reasons, but we refer to these users as "Platform Operators" to distinguish them from organization administrators.
 
 ```bash
-npm run create:platform-admin <email> <name>
+npm run create:platform-operator <email> <name>
 ```
 
 **Example:**
 ```bash
-npm run create:platform-admin admin@meant2grow.com "Platform Admin"
+npm run create:platform-operator operator@meant2grow.com "Jane Doe"
 ```
 
 **What it does:**
-- Creates a new user with `PLATFORM_ADMIN` role
+- Creates a new user with `PLATFORM_ADMIN` role (stored in database)
 - If user already exists, updates their role to `PLATFORM_ADMIN`
-- Sets `organizationId` to `'platform'` (placeholder)
+- Sets `organizationId` to `'platform'` (distinguishes from organization administrators)
 
-**Important:** After creating a platform admin user, they will need to:
-1. Sign in through the app using their email
-2. The authentication system will need to recognize their email and assign the correct role
+**Important:** After creating a platform operator user, you must:
+1. Set a password using: `npm run set-platform-admin-password <email> <password>`
+2. The user can then sign in through the app using their email and password
 
 ## Manual Steps
 
-### Creating Platform Admins via Firebase Console
+### Creating Platform Operators via Firebase Console
 
-Alternatively, you can manually create platform admin users:
+Alternatively, you can manually create platform operator users:
 
 1. Go to Firebase Console → Firestore
 2. Navigate to `users` collection
 3. Create a new document with:
    ```json
    {
-     "email": "admin@meant2grow.com",
-     "name": "Platform Admin",
+     "email": "operator@meant2grow.com",
+     "name": "Platform Operator",
      "role": "PLATFORM_ADMIN",
      "organizationId": "platform",
-     "avatar": "https://ui-avatars.com/api/?name=Platform+Admin&background=10b981&color=fff",
-     "title": "Platform Administrator",
+     "avatar": "https://ui-avatars.com/api/?name=Platform+Operator&background=10b981&color=fff",
+     "title": "Platform Operator",
      "company": "Meant2Grow",
      "skills": [],
-     "bio": "Platform administrator for Meant2Grow",
+     "bio": "Platform operator for Meant2Grow",
      "createdAt": [current timestamp]
    }
    ```
+
+**Note:** After manual creation, set a password using: `npm run set-platform-admin-password <email> <password>`
 
 ## Troubleshooting
 

@@ -20,20 +20,20 @@ This guide covers setting up platform operator users, migrating platform resourc
 ### Option A: Using the Script (Recommended)
 
 ```bash
-npm run create:platform-admin <email> <name>
+npm run create:platform-operator <email> <name>
 ```
 
 **Example:**
 ```bash
-npm run create:platform-admin admin@meant2grow.com "Platform Operator"
+npm run create:platform-operator operator@meant2grow.com "Platform Operator"
 ```
 
 ### Option B: Using the UI (After first operator is created)
 
 1. Sign in as a platform operator
-2. Go to Settings → Platform Admin tab
+2. Navigate to Platform Operator Management (Operators in sidebar or Dashboard → Create Platform Operator)
 3. Enter email and name
-4. Click "Create Platform Admin"
+4. Click "Create Platform Operator"
 
 ### Option C: Manual Creation via Firebase Console
 
@@ -43,14 +43,14 @@ npm run create:platform-admin admin@meant2grow.com "Platform Operator"
    ```json
    {
      "email": "admin@meant2grow.com",
-     "name": "Platform Admin",
+     "name": "Platform Operator",
      "role": "PLATFORM_ADMIN",
      "organizationId": "platform",
      "avatar": "https://ui-avatars.com/api/?name=Platform+Admin&background=10b981&color=fff",
-     "title": "Platform Administrator",
+     "title": "Platform Operator",
      "company": "Meant2Grow",
      "skills": [],
-     "bio": "Platform administrator for Meant2Grow",
+     "bio": "Platform operator for Meant2Grow",
      "createdAt": [current timestamp]
    }
    ```
@@ -95,7 +95,7 @@ This creates:
 - [ ] Verify "Platform" scope option is available when creating resources
 
 #### ✅ Platform Operator Settings
-- [ ] Go to Settings → Platform Admin tab
+- [ ] Go to Platform Operator Management
 - [ ] Verify tab is only visible to Platform Operators
 - [ ] Create a new platform operator user
 - [ ] Verify success message appears
@@ -262,7 +262,7 @@ After successful testing:
 ### Scripts
 ```bash
 # Create platform operator
-npm run create:platform-admin <email> <name>
+npm run create:platform-operator <email> <name>
 
 # Migrate platform resources
 npm run migrate:platform-resources

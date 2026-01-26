@@ -44,11 +44,44 @@ const __dirname = dirname(__filename);
 dotenv.config({ path: resolve(__dirname, "../.env.local") });
 
 // Store the detected project ID at module level
-let detectedProjectId = "meant2grow-prod";
+// Default to sandbox (dev) for safety - use 'firebase use production' before running for production
+let detectedProjectId = "meant2grow-dev";
+
+// Try to read Firebase CLI active project from .firebaserc
+function getFirebaseActiveProject(): string | null {
+  try {
+    const firebasercPath = resolve(__dirname, "../.firebaserc");
+    const firebasercContent = readFileSync(firebasercPath, "utf8");
+    const firebaserc = JSON.parse(firebasercContent);
+    
+    // Check if there's a .firebase directory with active project info
+    try {
+      const firebaseActivePath = resolve(__dirname, "../.firebase/activeProjects");
+      const activeProjects = JSON.parse(readFileSync(firebaseActivePath, "utf8"));
+      if (activeProjects && activeProjects[process.cwd()]) {
+        const activeProjectId = activeProjects[process.cwd()];
+        // Map project ID to our known projects
+        if (activeProjectId === "meant2grow-prod") return "meant2grow-prod";
+        if (activeProjectId === "meant2grow-dev") return "meant2grow-dev";
+      }
+    } catch {
+      // .firebase/activeProjects doesn't exist, use default from .firebaserc
+    }
+    
+    // Use default project from .firebaserc
+    if (firebaserc.projects && firebaserc.projects.default) {
+      return firebaserc.projects.default;
+    }
+  } catch {
+    // .firebaserc doesn't exist or can't be read
+  }
+  return null;
+}
 
 // Initialize Firebase Admin
 if (getApps().length === 0) {
   // Try to use service account key file if it exists
+  // Default to sandbox (dev) first, then fall back to production
   const prodServiceAccountPath = resolve(
     __dirname,
     "../meant2grow-prod-0587fbfd09ba.json"
@@ -59,23 +92,51 @@ if (getApps().length === 0) {
   );
   
   let serviceAccountPath: string | null = null;
-  let projectId = "meant2grow-prod";
+  let projectId = "meant2grow-dev"; // Default to sandbox
   
-  // Check if production service account exists
-  try {
-    readFileSync(prodServiceAccountPath, "utf8");
-    serviceAccountPath = prodServiceAccountPath;
-    projectId = "meant2grow-prod";
-    detectedProjectId = "meant2grow-prod";
-  } catch {
-    // Fall back to dev service account
+  // Check Firebase CLI active project first
+  const activeProject = getFirebaseActiveProject();
+  if (activeProject) {
+    projectId = activeProject;
+    detectedProjectId = activeProject;
+    console.log(`📋 Detected Firebase CLI active project: ${activeProject}`);
+  }
+  
+  // Try dev (sandbox) service account first (default)
+  if (projectId === "meant2grow-dev" || !activeProject) {
     try {
       readFileSync(devServiceAccountPath, "utf8");
       serviceAccountPath = devServiceAccountPath;
       projectId = "meant2grow-dev";
       detectedProjectId = "meant2grow-dev";
     } catch {
-      // Neither exists, will use default credentials
+      // Dev service account doesn't exist, try production
+      try {
+        readFileSync(prodServiceAccountPath, "utf8");
+        serviceAccountPath = prodServiceAccountPath;
+        projectId = "meant2grow-prod";
+        detectedProjectId = "meant2grow-prod";
+      } catch {
+        // Neither exists, will use default credentials
+      }
+    }
+  } else {
+    // Active project is production, try production service account
+    try {
+      readFileSync(prodServiceAccountPath, "utf8");
+      serviceAccountPath = prodServiceAccountPath;
+      projectId = "meant2grow-prod";
+      detectedProjectId = "meant2grow-prod";
+    } catch {
+      // Production service account doesn't exist, fall back to dev
+      try {
+        readFileSync(devServiceAccountPath, "utf8");
+        serviceAccountPath = devServiceAccountPath;
+        projectId = "meant2grow-dev";
+        detectedProjectId = "meant2grow-dev";
+      } catch {
+        // Neither exists, will use default credentials
+      }
     }
   }
   
@@ -111,12 +172,12 @@ if (getApps().length === 0) {
     try {
       initializeApp({
         credential: applicationDefault(),
-        projectId: process.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-prod",
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId || "meant2grow-dev",
       });
       console.log("✅ Initialized Firebase Admin with default credentials");
     } catch (defaultError) {
       initializeApp({
-        projectId: process.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-prod",
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId || "meant2grow-dev",
       });
       console.log("✅ Initialized Firebase Admin (using environment variables)");
     }
@@ -168,7 +229,7 @@ async function setPlatformAdminPassword(email: string, password: string) {
     if (usersSnapshot.empty) {
       console.error(`❌ User with email ${email} not found in Firestore.`);
       console.error(`   Please create the platform admin user first using:`);
-      console.error(`   npm run create:platform-admin ${email} "Platform Admin"`);
+      console.error(`   npm run create:platform-operator ${email} "Platform Operator"`);
       process.exit(1);
     }
 
@@ -276,11 +337,16 @@ const args = process.argv.slice(2);
 if (args.length < 2) {
   console.error("❌ Usage: npm run set-platform-admin-password <email> <password>");
   console.error('   Example: npm run set-platform-admin-password admin@meant2grow.com "SecurePassword123"');
+  console.error('   Example (with special chars): npm run set-platform-admin-password admin@meant2grow.com \'!SecurePassword123\'');
   console.error("\n⚠️  Password requirements:");
   console.error("   - At least 8 characters long");
   console.error("   - Contains at least one lowercase letter");
   console.error("   - Contains at least one uppercase letter");
   console.error("   - Contains at least one number");
+  console.error("\n💡 Tip: If your password contains special characters (especially !), use single quotes to prevent shell expansion");
+  console.error("\n🌍 Environment: Defaults to sandbox (meant2grow-dev).");
+  console.error("   To use production, run: firebase use production");
+  console.error("   Then run this script again.");
   process.exit(1);
 }
 

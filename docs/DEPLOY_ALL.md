@@ -191,7 +191,7 @@ After deployment, you may need to run migration scripts:
 
 ```bash
 # Create platform operator users
-npm run create:platform-admin admin@meant2grow.com "Operator Name"
+npm run create:platform-operator operator@meant2grow.com "Operator Name"
 
 # Migrate platform resources
 npm run migrate:platform-resources

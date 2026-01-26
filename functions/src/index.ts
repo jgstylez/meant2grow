@@ -808,17 +808,33 @@ export const forgotPassword = functions.onRequest(
       try {
         const emailService = getEmailService();
         await emailService.sendPasswordReset(normalizedEmail, resetUrl, userName);
-        console.log(`Password reset email sent successfully to ${normalizedEmail}`);
+        console.log(`✅ Password reset email sent successfully to ${normalizedEmail}`);
       } catch (emailError: unknown) {
         // Log detailed error for debugging
-        console.error("Failed to send password reset email:", {
+        const errorMessage = getErrorMessage(emailError);
+        const errorCode = getErrorCode(emailError);
+        console.error("❌ Failed to send password reset email:", {
           email: normalizedEmail,
           resetUrl,
           error: formatError(emailError),
-          errorDetails: emailError,
+          errorMessage,
+          errorCode,
+          errorDetails: emailError instanceof Error ? {
+            message: emailError.message,
+            stack: emailError.stack,
+            name: emailError.name,
+          } : emailError,
         });
         // Log reset URL for manual use if email fails
-        console.log(`Password reset URL for ${normalizedEmail}: ${resetUrl}`);
+        console.log(`🔗 Password reset URL for ${normalizedEmail}: ${resetUrl}`);
+        // Log email service configuration status
+        const emailServiceConfig = getEmailService();
+        console.log("📧 Email service configuration check:", {
+          hasApiToken: !!mailerSendApiToken.value(),
+          fromEmail: mailerSendFromEmail.value(),
+          replyToEmail: mailerSendReplyToEmail.value(),
+          appUrl: appUrl.value(),
+        });
         // Don't fail the request - token is still created, user can use the URL
         // In production, you might want to alert admins about email failures
       }

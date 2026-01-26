@@ -14,17 +14,17 @@ You need to create a platform operator user account first. There are two ways to
 
 2. **Run the create platform admin script:**
    ```bash
-   npm run create:platform-admin <your-email> "Your Name"
+   npm run create:platform-operator <your-email> "Your Name"
    ```
    
    **Example:**
    ```bash
-   npm run create:platform-admin admin@meant2grow.com "Platform Operator"
+   npm run create:platform-operator operator@meant2grow.com "Platform Operator"
    ```
 
 3. **Verify the account was created:**
    - The script will output a success message
-   - You should see: `✅ Platform admin user created successfully!`
+   - You should see: `✅ Platform operator user created successfully!`
    - Note the User ID that's displayed
 
 ### Option B: Manual Creation via Firebase Console
@@ -140,7 +140,7 @@ npm install --save-dev ts-node dotenv
 
 ### Create Platform Operator Command
 ```bash
-npm run create:platform-admin <email> "<name>"
+npm run create:platform-operator <email> "<name>"
 ```
 
 ### Login Steps

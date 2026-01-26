@@ -31,7 +31,7 @@ dotenv.config({ path: resolve(__dirname, '../.env.local') });
 
 // Initialize Firebase Admin
 if (!getApps().length) {
-  // Try to use service account key file if it exists (same pattern as create-platform-admin.ts)
+  // Try to use service account key file if it exists (same pattern as create-platform-operator.ts)
   const prodServiceAccountPath = resolve(__dirname, '../meant2grow-prod-0587fbfd09ba.json');
   const devServiceAccountPath = resolve(__dirname, '../meant2grow-dev-dfcfbc9ebeaa.json');
   
