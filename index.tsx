@@ -26,7 +26,10 @@ if ('serviceWorker' in navigator) {
         scope: '/',
       });
       
-      console.log('[SW] Service Worker registered successfully:', registration.scope);
+      // Only log in development mode
+      if (import.meta.env?.DEV) {
+        console.log('[SW] Service Worker registered successfully:', registration.scope);
+      }
       
       // Check for updates
       registration.addEventListener('updatefound', () => {
@@ -34,7 +37,10 @@ if ('serviceWorker' in navigator) {
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[SW] New service worker available');
+              // Only log in development mode
+              if (import.meta.env?.DEV) {
+                console.log('[SW] New service worker available');
+              }
             }
           });
         }

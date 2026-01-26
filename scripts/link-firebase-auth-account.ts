@@ -1,12 +1,12 @@
 /**
- * Script to set password for platform operator
- * Usage: npm run set-platform-operator-password <email> <password>
- * Example: npm run set-platform-operator-password operator@meant2grow.com "SecurePassword123"
+ * Script to link an existing Firebase Auth account to a Firestore user document
+ * Usage: npm run link-firebase-auth-account <email>
+ * Example: npm run link-firebase-auth-account support@meant2grow.com
  * 
  * This script:
- * 1. Finds the platform operator user by email
- * 2. Creates or updates their Firebase Auth account with the provided password
- * 3. Links the firebaseAuthUid to the Firestore user document
+ * 1. Finds the Firestore user by email
+ * 2. Finds the Firebase Auth account by email
+ * 3. Links them by updating the firebaseAuthUid field in Firestore
  */
 
 import {
@@ -187,39 +187,14 @@ if (getApps().length === 0) {
 const db = getFirestore();
 const auth = getAuth();
 
-// Password validation
-function validatePassword(password: string): { valid: boolean; error?: string } {
-  if (password.length < 8) {
-    return { valid: false, error: "Password must be at least 8 characters long" };
-  }
-  if (!/(?=.*[a-z])/.test(password)) {
-    return { valid: false, error: "Password must contain at least one lowercase letter" };
-  }
-  if (!/(?=.*[A-Z])/.test(password)) {
-    return { valid: false, error: "Password must contain at least one uppercase letter" };
-  }
-  if (!/(?=.*\d)/.test(password)) {
-    return { valid: false, error: "Password must contain at least one number" };
-  }
-  return { valid: true };
-}
-
-async function setPlatformOperatorPassword(email: string, password: string) {
-  console.log(`🔐 Setting password for platform operator...\n`);
+async function linkFirebaseAuthAccount(email: string) {
+  console.log(`🔗 Linking Firebase Auth account to Firestore user...\n`);
   console.log(`  Email: ${email}\n`);
 
-  // Validate password
-  const passwordValidation = validatePassword(password);
-  if (!passwordValidation.valid) {
-    console.error(`❌ Password validation failed: ${passwordValidation.error}`);
-    process.exit(1);
-  }
-
   try {
-    // Normalize email
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Find platform operator user in Firestore
+    // Find Firestore user
     const usersSnapshot = await db
       .collection("users")
       .where("email", "==", normalizedEmail)
@@ -228,8 +203,7 @@ async function setPlatformOperatorPassword(email: string, password: string) {
 
     if (usersSnapshot.empty) {
       console.error(`❌ User with email ${email} not found in Firestore.`);
-      console.error(`   Please create the platform operator user first using:`);
-      console.error(`   npm run create:platform-operator ${email} "Platform Operator"`);
+      console.error(`   Please create the user first.`);
       process.exit(1);
     }
 
@@ -237,97 +211,50 @@ async function setPlatformOperatorPassword(email: string, password: string) {
     const userData = userDoc.data();
     const userId = userDoc.id;
 
-    // Verify user is a platform operator
-    // Note: Role is stored as PLATFORM_OPERATOR in database (legacy: PLATFORM_ADMIN)
-    const userRole = userData.role;
-    const isPlatformOperator = userRole === "PLATFORM_OPERATOR" || userRole === "PLATFORM_ADMIN";
-    
-    if (!isPlatformOperator) {
-      console.error(`❌ User ${email} is not a platform operator.`);
-      console.error(`   Current role: ${userRole}`);
-      console.error(`   Expected role: PLATFORM_OPERATOR or PLATFORM_ADMIN`);
-      process.exit(1);
-    }
-
-    console.log(`✅ Found platform operator user:`);
+    console.log(`✅ Found Firestore user:`);
     console.log(`   User ID: ${userId}`);
     console.log(`   Name: ${userData.name || "N/A"}`);
-    console.log(`   Role: ${userRole}`);
-    console.log(`   Organization ID: ${userData.organizationId || "N/A"}\n`);
+    console.log(`   Role: ${userData.role || "N/A"}`);
+    console.log(`   Current firebaseAuthUid: ${userData.firebaseAuthUid || "Not set"}\n`);
 
-    // Check if Firebase Auth account already exists
-    let firebaseAuthUid: string;
+    // Find Firebase Auth account
     let firebaseUser;
-
     try {
-      if (userData.firebaseAuthUid) {
-        // User already has firebaseAuthUid - update password
-        console.log(`   Found existing Firebase Auth UID: ${userData.firebaseAuthUid}`);
-        firebaseUser = await auth.getUser(userData.firebaseAuthUid);
-        firebaseAuthUid = firebaseUser.uid;
-        
-        // Update password
-        await auth.updateUser(firebaseAuthUid, {
-          password: password,
-          emailVerified: firebaseUser.emailVerified, // Preserve email verification status
-        });
-        console.log(`✅ Updated password for existing Firebase Auth account`);
-      } else {
-        // Try to find Firebase Auth account by email
-        try {
-          firebaseUser = await auth.getUserByEmail(normalizedEmail);
-          firebaseAuthUid = firebaseUser.uid;
-          console.log(`   Found existing Firebase Auth account by email`);
-          
-          // Update password
-          await auth.updateUser(firebaseAuthUid, {
-            password: password,
-          });
-          console.log(`✅ Updated password for existing Firebase Auth account`);
-        } catch (emailError: any) {
-          // User doesn't exist in Firebase Auth - create new account
-          if (emailError.code === 'auth/user-not-found') {
-            console.log(`   No Firebase Auth account found - creating new one...`);
-            firebaseUser = await auth.createUser({
-              email: normalizedEmail,
-              password: password,
-              emailVerified: false, // User will need to verify email
-            });
-            firebaseAuthUid = firebaseUser.uid;
-            console.log(`✅ Created new Firebase Auth account`);
-          } else {
-            throw emailError;
-          }
-        }
-      }
-
-      // Update Firestore user document with firebaseAuthUid
-      await db.collection("users").doc(userId).update({
-        firebaseAuthUid: firebaseAuthUid,
-      });
-
-      console.log(`\n✅ Successfully set password for platform operator!`);
-      console.log(`   Firebase Auth UID: ${firebaseAuthUid}`);
-      console.log(`   Email: ${normalizedEmail}`);
-      console.log(`\n📝 The platform operator can now sign in with:`);
-      console.log(`   Email: ${normalizedEmail}`);
-      console.log(`   Password: [the password you provided]`);
-      console.log(`\n⚠️  Note: Email verification is set to ${firebaseUser.emailVerified ? 'verified' : 'unverified'}.`);
-      if (!firebaseUser.emailVerified) {
-        console.log(`   The user may need to verify their email address.`);
-      }
-
+      firebaseUser = await auth.getUserByEmail(normalizedEmail);
+      console.log(`✅ Found Firebase Auth account:`);
+      console.log(`   Firebase Auth UID: ${firebaseUser.uid}`);
+      console.log(`   Email Verified: ${firebaseUser.emailVerified}\n`);
     } catch (authError: any) {
-      console.error(`❌ Firebase Auth error:`, authError.message);
-      if (authError.code === 'auth/email-already-exists') {
-        console.error(`   An account with this email already exists in Firebase Auth.`);
-        console.error(`   Try using the forgot password feature to reset it.`);
+      if (authError.code === 'auth/user-not-found') {
+        console.error(`❌ Firebase Auth account not found for ${email}.`);
+        console.error(`   The Firebase Auth account must exist before linking.`);
+        console.error(`   You may need to create it first or check the email address.`);
+        process.exit(1);
+      } else {
+        throw authError;
       }
-      process.exit(1);
     }
 
+    // Check if already linked
+    if (userData.firebaseAuthUid === firebaseUser.uid) {
+      console.log(`✅ Accounts are already linked correctly!`);
+      console.log(`   Firebase Auth UID matches Firestore user document.`);
+      process.exit(0);
+    }
+
+    // Link the accounts
+    await db.collection("users").doc(userId).update({
+      firebaseAuthUid: firebaseUser.uid,
+    });
+
+    console.log(`\n✅ Successfully linked Firebase Auth account to Firestore user!`);
+    console.log(`   Firestore User ID: ${userId}`);
+    console.log(`   Firebase Auth UID: ${firebaseUser.uid}`);
+    console.log(`   Email: ${normalizedEmail}`);
+    console.log(`\n📝 The user can now sign in with their email and password.`);
+
   } catch (error: unknown) {
-    console.error("❌ Failed to set platform operator password:", getErrorMessage(error));
+    console.error("❌ Failed to link Firebase Auth account:", getErrorMessage(error));
     process.exit(1);
   }
 }
@@ -335,25 +262,18 @@ async function setPlatformOperatorPassword(email: string, password: string) {
 // Get command line arguments
 const args = process.argv.slice(2);
 
-if (args.length < 2) {
-  console.error("❌ Usage: npm run set-platform-operator-password <email> <password>");
-  console.error('   Example: npm run set-platform-operator-password operator@meant2grow.com "SecurePassword123"');
-  console.error('   Example (with special chars): npm run set-platform-operator-password operator@meant2grow.com \'!SecurePassword123\'');
-  console.error("\n⚠️  Password requirements:");
-  console.error("   - At least 8 characters long");
-  console.error("   - Contains at least one lowercase letter");
-  console.error("   - Contains at least one uppercase letter");
-  console.error("   - Contains at least one number");
-  console.error("\n💡 Tip: If your password contains special characters (especially !), use single quotes to prevent shell expansion");
+if (args.length < 1) {
+  console.error("❌ Usage: npm run link-firebase-auth-account <email>");
+  console.error('   Example: npm run link-firebase-auth-account support@meant2grow.com');
   console.error("\n🌍 Environment: Defaults to sandbox (meant2grow-dev).");
   console.error("   To use production, run: firebase use production");
   console.error("   Then run this script again.");
   process.exit(1);
 }
 
-const [email, password] = args;
+const [email] = args;
 
-setPlatformOperatorPassword(email, password)
+linkFirebaseAuthAccount(email)
   .then(() => {
     console.log("\n🎉 Done!");
     process.exit(0);

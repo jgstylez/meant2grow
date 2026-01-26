@@ -289,6 +289,9 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
       // Firebase Auth will automatically handle token refresh
       let firebaseAuthUid: string | null = null;
       try {
+        if (!idToken || idToken.trim().length === 0) {
+          throw new Error('Google ID token is missing or empty');
+        }
         await signInToFirebaseAuth(idToken);
         logger.info('Successfully authenticated with Firebase Auth');
         

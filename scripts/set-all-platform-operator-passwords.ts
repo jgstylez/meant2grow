@@ -1,6 +1,6 @@
 /**
  * Script to set passwords for all platform operators
- * Usage: npm run set-all-platform-admin-passwords [--password "DefaultPassword123"]
+ * Usage: npm run set-all-platform-operator-passwords [--password "DefaultPassword123"]
  * 
  * If no password is provided, generates a random secure password for each user.
  * 
@@ -237,18 +237,24 @@ async function setAllPlatformAdminPasswords(defaultPassword?: string) {
 
   try {
     // Find all platform operator users
-    // Note: Role is stored as PLATFORM_OPERATOR in database
-    const usersSnapshot = await db
-      .collection("users")
-      .where("role", "==", "PLATFORM_OPERATOR")
-      .get();
+    // Note: Role is stored as PLATFORM_OPERATOR in database (legacy: PLATFORM_ADMIN)
+    // Query for both roles since Firestore doesn't support OR queries
+    const [operatorSnapshot, adminSnapshot] = await Promise.all([
+      db.collection("users").where("role", "==", "PLATFORM_OPERATOR").get(),
+      db.collection("users").where("role", "==", "PLATFORM_ADMIN").get(),
+    ]);
 
-    if (usersSnapshot.empty) {
+    // Combine results and deduplicate by document ID
+    const allUsers = new Map();
+    operatorSnapshot.docs.forEach(doc => allUsers.set(doc.id, doc));
+    adminSnapshot.docs.forEach(doc => allUsers.set(doc.id, doc));
+
+    if (allUsers.size === 0) {
       console.log("ℹ️  No platform operators found in Firestore.");
       return;
     }
 
-    console.log(`Found ${usersSnapshot.size} platform operator(s):\n`);
+    console.log(`Found ${allUsers.size} platform operator(s):\n`);
 
     const results: Array<{
       email: string;
@@ -260,7 +266,7 @@ async function setAllPlatformAdminPasswords(defaultPassword?: string) {
     }> = [];
 
     // Process each platform operator
-    for (const userDoc of usersSnapshot.docs) {
+    for (const userDoc of Array.from(allUsers.values())) {
       const userData = userDoc.data();
       const userId = userDoc.id;
       const email = userData.email;

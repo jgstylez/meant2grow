@@ -129,8 +129,18 @@ export const signInWithGoogle = (): Promise<{ user: GoogleUser; idToken: string 
  * Firebase Auth will automatically handle token refresh
  */
 export const signInToFirebaseAuth = async (idToken: string): Promise<void> => {
+  // Validate idToken before attempting to use it
+  if (!idToken || typeof idToken !== 'string' || idToken.trim().length === 0) {
+    const error = new Error('Invalid Google ID token: token is empty or invalid');
+    logger.error('Error signing in to Firebase Auth', error);
+    throw error;
+  }
+  
   try {
     const credential = GoogleAuthProvider.credential(idToken);
+    if (!credential) {
+      throw new Error('Failed to create credential from Google ID token');
+    }
     const userCredential = await signInWithCredential(auth, credential);
     
     // Firebase Auth automatically persists the session and handles token refresh

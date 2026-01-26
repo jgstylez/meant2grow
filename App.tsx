@@ -279,13 +279,16 @@ const App: React.FC = () => {
     const originalOperatorId = localStorage.getItem('originalOperatorId');
     const originalOrganizationId = localStorage.getItem('originalOrganizationId');
     
-    logger.debug('Checking impersonation status', {
-      impersonating,
-      originalOperatorId,
-      originalOrganizationId,
-      currentUserId: userId,
-      currentOrgId: organizationId,
-    });
+    // Only log in development and only if actually impersonating
+    if (impersonating && !import.meta.env?.PROD) {
+      logger.debug('Checking impersonation status', {
+        impersonating,
+        originalOperatorId,
+        originalOrganizationId,
+        currentUserId: userId,
+        currentOrgId: organizationId,
+      });
+    }
     
     setIsImpersonating(impersonating);
     
@@ -437,7 +440,7 @@ const App: React.FC = () => {
         // This handles cases where Firebase Auth session expired but user is still "logged in" to the app
         if (userId && !localStorage.getItem('isImpersonating')) {
           const storedToken = getIdToken();
-          if (storedToken) {
+          if (storedToken && storedToken.trim().length > 0) {
             logger.info('Firebase Auth signed out but user has token, attempting to restore...');
             try {
               await signInToFirebaseAuth(storedToken);
@@ -495,7 +498,7 @@ const App: React.FC = () => {
         idToken = getIdToken();
       }
       
-      if (idToken && userId) {
+      if (idToken && userId && idToken.trim().length > 0) {
         // User is authenticated and has a Google ID token
         // Sign in to Firebase Auth to enable Cloud Functions and Firestore rules
         try {

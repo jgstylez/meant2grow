@@ -72,11 +72,27 @@ export const ensureFirebaseAuthAccount = async (
               });
               return firebaseAuthUid;
             } catch (signInError: any) {
-              logger.error('Failed to sign in after email-already-in-use', {
-                email,
-                firestoreUserId,
-                error: signInError,
-              });
+              // If password is wrong, send password reset email
+              if (signInError.code === 'auth/wrong-password' || signInError.code === 'auth/invalid-credential') {
+                logger.warn('Password incorrect when signing in after email-already-in-use', {
+                  email,
+                  firestoreUserId,
+                  errorCode: signInError.code,
+                });
+                
+                try {
+                  await firebaseSendPasswordResetEmail(auth, email);
+                  logger.info('Password reset email sent due to incorrect password', { email });
+                } catch (resetError: any) {
+                  logger.error('Failed to send password reset email', resetError);
+                }
+              } else {
+                logger.error('Failed to sign in after email-already-in-use', {
+                  email,
+                  firestoreUserId,
+                  error: signInError,
+                });
+              }
               return null;
             }
           }
@@ -255,9 +271,69 @@ export const ensureFirebaseAuthAccount = async (
               const userCredential = await signInWithEmailAndPassword(auth, email, password);
               const firebaseAuthUid = userCredential.user.uid;
               await updateUser(firestoreUserId, { firebaseAuthUid });
+              
+              // Also create/update user document with ID = Firebase Auth UID (for Firestore rules)
+              try {
+                const originalUser = await getUser(firestoreUserId);
+                if (originalUser) {
+                  const authUidDocRef = doc(db, 'users', firebaseAuthUid);
+                  const authUidDoc = await getDoc(authUidDocRef);
+                  
+                  if (!authUidDoc.exists()) {
+                    await setDoc(authUidDocRef, {
+                      ...originalUser,
+                      id: firebaseAuthUid,
+                      firebaseAuthUid: firebaseAuthUid,
+                      originalFirestoreUserId: firestoreUserId,
+                    }, { merge: true });
+                  } else {
+                    await setDoc(authUidDocRef, {
+                      firebaseAuthUid: firebaseAuthUid,
+                      originalFirestoreUserId: firestoreUserId,
+                    }, { merge: true });
+                  }
+                }
+              } catch (docError: any) {
+                logger.warn('Failed to create user document with Firebase Auth UID as ID', {
+                  firebaseAuthUid,
+                  firestoreUserId,
+                  error: docError.message,
+                });
+              }
+              
+              logger.info('Signed in to existing Firebase Auth account after email-already-in-use', {
+                email,
+                firebaseAuthUid,
+                firestoreUserId,
+              });
               return firebaseAuthUid;
-            } catch (signInError) {
-              logger.error('Failed to sign in after email-already-in-use error', signInError);
+            } catch (signInError: any) {
+              // If password is wrong, send password reset email
+              if (signInError.code === 'auth/wrong-password' || signInError.code === 'auth/invalid-credential') {
+                logger.warn('Password incorrect when signing in after email-already-in-use', {
+                  email,
+                  firestoreUserId,
+                  errorCode: signInError.code,
+                });
+                
+                try {
+                  await firebaseSendPasswordResetEmail(auth, email);
+                  logger.info('Password reset email sent due to incorrect password', { email });
+                } catch (resetError: any) {
+                  logger.error('Failed to send password reset email', resetError);
+                }
+              } else {
+                logger.error('Failed to sign in after email-already-in-use error', signInError);
+              }
+            }
+          } else {
+            // No password or temporary password - send password reset email
+            logger.info('Email already in use but no valid password provided, sending password reset email', { email });
+            try {
+              await firebaseSendPasswordResetEmail(auth, email);
+              logger.info('Password reset email sent', { email });
+            } catch (resetError: any) {
+              logger.error('Failed to send password reset email', resetError);
             }
           }
         }
@@ -343,7 +419,18 @@ export const createFirebaseAuthAccount = async (
     // If email already exists, this might be a migration case
     if (error.code === 'auth/email-already-in-use') {
       logger.info('Email already in use, attempting lazy migration', { email });
-      return await ensureFirebaseAuthAccount(email, password, firestoreUserId);
+      const result = await ensureFirebaseAuthAccount(email, password, firestoreUserId);
+      
+      // If ensureFirebaseAuthAccount failed, log helpful message
+      if (!result) {
+        logger.warn('Failed to link existing Firebase Auth account. The account exists but may not be linked to Firestore user.', {
+          email,
+          firestoreUserId,
+          suggestion: 'Run: npm run link-firebase-auth-account <email> or npm run set-platform-operator-password <email> <password>',
+        });
+      }
+      
+      return result;
     }
     
     return null;

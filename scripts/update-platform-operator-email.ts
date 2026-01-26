@@ -1,7 +1,7 @@
 /**
  * Script to update email for platform operator
- * Usage: npm run update-platform-admin-email <old-email> <new-email>
- * Example: npm run update-platform-admin-email old@meant2grow.com new@meant2grow.com
+ * Usage: npm run update-platform-operator-email <old-email> <new-email>
+ * Example: npm run update-platform-operator-email old@meant2grow.com new@meant2grow.com
  * 
  * Note: "Platform Operator" is the preferred terminology. The role value stored in the database is `PLATFORM_OPERATOR`.
  * 
@@ -214,14 +214,14 @@ async function updatePlatformOperatorEmail(oldEmail: string, newEmail: string) {
     const userId = userDoc.id;
 
     // Verify user is a platform operator
-    // Note: Role is stored as PLATFORM_OPERATOR in database
+    // Note: Role is stored as PLATFORM_OPERATOR in database (legacy: PLATFORM_ADMIN)
     const userRole = userData.role;
-    const isPlatformOperator = userRole === "PLATFORM_OPERATOR";
+    const isPlatformOperator = userRole === "PLATFORM_OPERATOR" || userRole === "PLATFORM_ADMIN";
     
     if (!isPlatformOperator) {
       console.error(`❌ User ${oldEmail} is not a platform operator.`);
       console.error(`   Current role: ${userRole}`);
-      console.error(`   Expected role: PLATFORM_OPERATOR`);
+      console.error(`   Expected role: PLATFORM_OPERATOR or PLATFORM_ADMIN`);
       process.exit(1);
     }
 
@@ -310,8 +310,8 @@ async function updatePlatformOperatorEmail(oldEmail: string, newEmail: string) {
 const args = process.argv.slice(2);
 
 if (args.length < 2) {
-  console.error("❌ Usage: npm run update-platform-admin-email <old-email> <new-email>");
-  console.error('   Example: npm run update-platform-admin-email old@meant2grow.com new@meant2grow.com');
+  console.error("❌ Usage: npm run update-platform-operator-email <old-email> <new-email>");
+  console.error('   Example: npm run update-platform-operator-email old@meant2grow.com new@meant2grow.com');
   console.error("\n⚠️  This script will:");
   console.error("   - Update the email in Firestore");
   console.error("   - Update the email in Firebase Auth (if account exists)");

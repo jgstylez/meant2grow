@@ -8,6 +8,8 @@ import {
   CheckCircle,
   Building,
   AlertCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { signInWithGoogle, initializeGoogleAuth, signInToFirebaseAuth } from "../services/googleAuth";
@@ -81,6 +83,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [invitationOrg, setInvitationOrg] = useState<Organization | null>(null);
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Check for invitation token in URL on mount
   useEffect(() => {
@@ -364,7 +367,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
               throw new Error("Password is required for this account.");
             } else {
               const errorMsg = isPlatformOperator 
-                ? "Incorrect password. Platform operators must set their password via CLI first. Run: npm run set-platform-operator-password <email> \"<password>\""
+                ? "Incorrect password. Please contact your administrator for assistance."
                 : "Incorrect password. Please use 'Forgot Password' if you need to reset it.";
               throw new Error(errorMsg);
             }
@@ -372,12 +375,12 @@ const Authentication: React.FC<AuthenticationProps> = ({
             // New user or migration needed
             if (!formData.password) {
               const errorMsg = isPlatformOperator
-                ? "Password is required. Platform operators must set their password via CLI first. Run: npm run set-platform-operator-password <email> \"<password>\""
+                ? "Password is required. Please contact your administrator for assistance."
                 : "Password is required. If this is your first time logging in, please use 'Forgot Password' to set your password.";
               throw new Error(errorMsg);
             } else {
               const errorMsg = isPlatformOperator
-                ? "Authentication failed. Platform operators must set their password via CLI first. Run: npm run set-platform-operator-password <email> \"<password>\""
+                ? "Authentication failed. Please contact your administrator for assistance."
                 : "Authentication failed. Please ensure your email and password are correct, or use Google Sign-In if you previously used it.";
               throw new Error(errorMsg);
             }
@@ -417,6 +420,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
       // Firebase Auth will automatically handle token refresh
       let firebaseAuthUid: string | null = null;
       try {
+        if (!idToken || idToken.trim().length === 0) {
+          throw new Error('Google ID token is missing or empty');
+        }
         await signInToFirebaseAuth(idToken);
         logger.info('Successfully authenticated with Firebase Auth');
         
@@ -1366,8 +1372,8 @@ const Authentication: React.FC<AuthenticationProps> = ({
                     </label>
                     <div className="relative">
                       <input
-                        type="password"
-                        className={INPUT_CLASS + " pl-10"}
+                        type={showPassword ? "text" : "password"}
+                        className={INPUT_CLASS + " pl-10 pr-10"}
                         placeholder="••••••••"
                         value={formData.password}
                         onChange={(e) =>
@@ -1375,7 +1381,19 @@ const Authentication: React.FC<AuthenticationProps> = ({
                         }
                         required
                       />
-                      <Lock className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" />
+                      <Lock className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 rounded transition-colors flex items-center justify-center"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
                     </div>
                   </div>
 
