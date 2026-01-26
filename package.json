@@ -26,6 +26,8 @@
     "create:platform-operator": "ts-node --esm scripts/create-platform-operator.ts",
     "migrate:password-auth": "ts-node --esm scripts/migrate-password-auth.ts",
     "set-platform-operator-password": "ts-node --esm scripts/set-platform-operator-password.ts",
+    "set-user-password": "ts-node --esm scripts/set-user-password.ts",
+    "fix-user-documents": "ts-node --esm scripts/fix-user-documents.ts",
     "set-all-platform-operator-passwords": "ts-node --esm scripts/set-all-platform-operator-passwords.ts",
     "update-platform-operator-email": "ts-node --esm scripts/update-platform-operator-email.ts",
     "link-firebase-auth-account": "ts-node --esm scripts/link-firebase-auth-account.ts"

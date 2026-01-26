@@ -82,6 +82,11 @@ export default defineConfig(({ mode }) => {
       // Increase chunk size warning limit
       chunkSizeWarningLimit: 600,
       rollupOptions: {
+        external: [
+          // mailersend is only used server-side via dynamic imports
+          // Externalize it to prevent build errors
+          'mailersend'
+        ],
         output: {
           manualChunks: {
             // React and core dependencies

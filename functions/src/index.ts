@@ -800,9 +800,9 @@ export const forgotPassword = functions.onRequest(
       });
 
       // Generate reset URL
-      const appUrl = process.env.VITE_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://meant2grow.com";
+      const resetAppUrl = process.env.VITE_APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://meant2grow.com";
       // Use query params - the app will detect the token and route to reset-password
-      const resetUrl = `${appUrl}/?reset-password&token=${resetToken}`;
+      const resetUrl = `${resetAppUrl}/?reset-password&token=${resetToken}`;
 
       // Send password reset email via email service
       try {
@@ -828,7 +828,6 @@ export const forgotPassword = functions.onRequest(
         // Log reset URL for manual use if email fails
         console.log(`🔗 Password reset URL for ${normalizedEmail}: ${resetUrl}`);
         // Log email service configuration status
-        const emailServiceConfig = getEmailService();
         console.log("📧 Email service configuration check:", {
           hasApiToken: !!mailerSendApiToken.value(),
           fromEmail: mailerSendFromEmail.value(),

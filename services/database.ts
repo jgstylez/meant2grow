@@ -447,6 +447,15 @@ export const getAllUsers = async (): Promise<User[]> => {
     let snapshot;
     try {
       snapshot = await getDocs(q);
+      console.log("🔍 [getAllUsers] Query successful with orderBy:", {
+        docCount: snapshot.docs.length,
+        empty: snapshot.empty,
+        hasDocs: snapshot.docs.length > 0,
+      });
+      logger.debug("[getAllUsers] Query successful with orderBy", {
+        docCount: snapshot.docs.length,
+        empty: snapshot.empty,
+      });
     } catch (error: unknown) {
       // If index missing, try without orderBy
       const errorCode = getErrorCode(error);
@@ -460,6 +469,15 @@ export const getAllUsers = async (): Promise<User[]> => {
         );
         q = query(collection(db, "users"));
         snapshot = await getDocs(q);
+        console.log("🔍 [getAllUsers] Query successful without orderBy:", {
+          docCount: snapshot.docs.length,
+          empty: snapshot.empty,
+          hasDocs: snapshot.docs.length > 0,
+        });
+        logger.debug("[getAllUsers] Query successful without orderBy", {
+          docCount: snapshot.docs.length,
+          empty: snapshot.empty,
+        });
         // Sort in memory
         const docs = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -472,16 +490,50 @@ export const getAllUsers = async (): Promise<User[]> => {
           return bDate - aDate; // Descending
         });
       } else {
+        logger.error("[getAllUsers] Query failed with non-index error", {
+          errorCode,
+          errorMessage,
+          error,
+        });
         throw error;
       }
     }
 
-    return snapshot.docs.map((doc) => ({
+    const users = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
       createdAt: convertTimestamp(doc.data().createdAt),
     })) as User[];
+    
+    // Detailed console logging for debugging
+    console.log("🔍 [getAllUsers] Query result:", {
+      totalDocuments: snapshot.docs.length,
+      empty: snapshot.empty,
+      usersReturned: users.length,
+      allUsers: users.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        roleString: String(u.role),
+        organizationId: u.organizationId,
+      })),
+    });
+    
+    logger.debug("[getAllUsers] Returning users", {
+      count: users.length,
+      sampleRoles: users.slice(0, 10).map(u => ({ id: u.id, role: u.role, orgId: u.organizationId })),
+    });
+    
+    return users;
   } catch (error) {
+    console.error("❌ [getAllUsers] Error occurred:", error);
+    console.error("❌ [getAllUsers] Error details:", {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorCode: (error as any)?.code,
+      errorStack: error instanceof Error ? error.stack : undefined,
+    });
     logger.error("Error in getAllUsers", error);
     throw error;
   }

@@ -120,9 +120,11 @@ service cloud.firestore {
       // Users can read users in their organization, or their own profile, platform operators can read all
       // Also allow unauthenticated reads for email lookups during login
       // Note: This allows checking if an email exists, which is needed for login but is a minor security trade-off
-      allow read: if belongsToOrg(resource.data.organizationId) || 
+      // IMPORTANT: Check isPlatformOperator() FIRST for better performance in collection queries
+      // Platform operators should be able to read all users without organization filtering
+      allow read: if isPlatformOperator() ||
+                     belongsToOrg(resource.data.organizationId) || 
                      request.auth.uid == userId || 
-                     isPlatformOperator() ||
                      // Allow unauthenticated reads for login flow (email lookups)
                      request.auth == null;
       

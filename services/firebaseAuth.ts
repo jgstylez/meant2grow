@@ -72,9 +72,21 @@ export const ensureFirebaseAuthAccount = async (
               });
               return firebaseAuthUid;
             } catch (signInError: any) {
-              // If password is wrong, send password reset email
-              if (signInError.code === 'auth/wrong-password' || signInError.code === 'auth/invalid-credential') {
-                logger.warn('Password incorrect when signing in after email-already-in-use', {
+              // Log detailed error information
+              logger.error('Failed to sign in after email-already-in-use', {
+                email,
+                firestoreUserId,
+                errorCode: signInError.code,
+                errorMessage: signInError.message,
+                error: signInError,
+              });
+              
+              // If password is wrong or invalid, send password reset email
+              if (signInError.code === 'auth/wrong-password' || 
+                  signInError.code === 'auth/invalid-credential' ||
+                  signInError.code === 'auth/user-disabled' ||
+                  signInError.code === 'auth/too-many-requests') {
+                logger.warn('Password/auth issue when signing in after email-already-in-use', {
                   email,
                   firestoreUserId,
                   errorCode: signInError.code,
@@ -82,17 +94,24 @@ export const ensureFirebaseAuthAccount = async (
                 
                 try {
                   await firebaseSendPasswordResetEmail(auth, email);
-                  logger.info('Password reset email sent due to incorrect password', { email });
+                  logger.info('Password reset email sent due to authentication issue', { email });
                 } catch (resetError: any) {
                   logger.error('Failed to send password reset email', resetError);
                 }
               } else {
-                logger.error('Failed to sign in after email-already-in-use', {
+                // For other errors, still try to send password reset email as a fallback
+                logger.warn('Unexpected sign-in error, attempting to send password reset email', {
                   email,
-                  firestoreUserId,
-                  error: signInError,
+                  errorCode: signInError.code,
                 });
+                try {
+                  await firebaseSendPasswordResetEmail(auth, email);
+                  logger.info('Password reset email sent as fallback', { email });
+                } catch (resetError: any) {
+                  logger.error('Failed to send password reset email', resetError);
+                }
               }
+              
               return null;
             }
           }
@@ -308,9 +327,21 @@ export const ensureFirebaseAuthAccount = async (
               });
               return firebaseAuthUid;
             } catch (signInError: any) {
-              // If password is wrong, send password reset email
-              if (signInError.code === 'auth/wrong-password' || signInError.code === 'auth/invalid-credential') {
-                logger.warn('Password incorrect when signing in after email-already-in-use', {
+              // Log detailed error information
+              logger.error('Failed to sign in after email-already-in-use error', {
+                email,
+                firestoreUserId,
+                errorCode: signInError.code,
+                errorMessage: signInError.message,
+                error: signInError,
+              });
+              
+              // If password is wrong or invalid, send password reset email
+              if (signInError.code === 'auth/wrong-password' || 
+                  signInError.code === 'auth/invalid-credential' ||
+                  signInError.code === 'auth/user-disabled' ||
+                  signInError.code === 'auth/too-many-requests') {
+                logger.warn('Password/auth issue when signing in after email-already-in-use', {
                   email,
                   firestoreUserId,
                   errorCode: signInError.code,
@@ -318,13 +349,26 @@ export const ensureFirebaseAuthAccount = async (
                 
                 try {
                   await firebaseSendPasswordResetEmail(auth, email);
-                  logger.info('Password reset email sent due to incorrect password', { email });
+                  logger.info('Password reset email sent due to authentication issue', { email });
                 } catch (resetError: any) {
                   logger.error('Failed to send password reset email', resetError);
                 }
               } else {
-                logger.error('Failed to sign in after email-already-in-use error', signInError);
+                // For other errors, still try to send password reset email as a fallback
+                logger.warn('Unexpected sign-in error, attempting to send password reset email', {
+                  email,
+                  errorCode: signInError.code,
+                });
+                try {
+                  await firebaseSendPasswordResetEmail(auth, email);
+                  logger.info('Password reset email sent as fallback', { email });
+                } catch (resetError: any) {
+                  logger.error('Failed to send password reset email', resetError);
+                }
               }
+              
+              // Return null to indicate failure
+              return null;
             }
           } else {
             // No password or temporary password - send password reset email

@@ -10,11 +10,15 @@ This happens when the URL where your app is running is not in the authorized red
 ### Step 1: Identify Your Current URL
 Check what URL you're accessing the app from:
 - **Local development:** Usually `http://localhost:3000` or `http://localhost:5173`
-- **Production:** Your deployed URL (e.g., `https://meant2grow-dev.web.app`)
+- **Sandbox:** `https://sandbox.meant2grow.com`
+- **Production:** `https://meant2grow.com` or `https://meant2grow-dev.web.app`
 
 ### Step 2: Go to Google Cloud Console
 1. Open [Google Cloud Console](https://console.cloud.google.com/)
-2. Select your project (e.g., `meant2grow-dev`)
+2. Select your project:
+   - **Sandbox:** `meant2grow-dev`
+   - **Production:** `meant2grow-prod`
+   - **Local Dev:** `meant2grow-dev`
 3. Navigate to **APIs & Services** > **Credentials**
 
 ### Step 3: Edit Your OAuth Client
@@ -32,8 +36,14 @@ http://localhost:3000
 http://localhost:5173
 ```
 
+**For sandbox:**
+```
+https://sandbox.meant2grow.com
+```
+
 **For production:**
 ```
+https://meant2grow.com
 https://meant2grow-dev.web.app
 https://meant2grow-dev.firebaseapp.com
 ```
@@ -51,18 +61,20 @@ https://meant2grow-dev.firebaseapp.com
 
 ## Complete List of Recommended Redirect URIs
 
-For a complete setup, add all of these:
-
+### For Sandbox Environment (meant2grow-dev project)
 ```
 http://localhost:3000
 http://localhost:5173
-https://meant2grow-dev.web.app
-https://meant2grow-dev.firebaseapp.com
+https://sandbox.meant2grow.com
 ```
 
-If you have custom domains, also add:
+### For Production Environment (meant2grow-prod project)
 ```
-https://your-custom-domain.com
+http://localhost:3000
+http://localhost:5173
+https://meant2grow.com
+https://meant2grow-prod.web.app
+https://meant2grow-prod.firebaseapp.com
 ```
 
 ## How Google Identity Services Uses Redirect URIs
@@ -91,10 +103,14 @@ console.log(window.location.origin);
 This will show the exact origin that needs to be added to the authorized redirect URIs.
 
 ### Multiple environments?
-If you're running the app in different environments (local, staging, production), make sure all URLs are added:
-- Local: `http://localhost:3000`
-- Staging: `https://your-staging-url.com`
-- Production: `https://your-production-url.com`
+If you're running the app in different environments (local, sandbox, production), make sure all URLs are added:
+- **Local:** `http://localhost:3000` or `http://localhost:5173`
+- **Sandbox:** `https://sandbox.meant2grow.com` (uses `meant2grow-dev` project)
+- **Production:** `https://meant2grow.com` (uses `meant2grow-prod` project)
+
+**Important:** Sandbox and Production use different OAuth clients in different Google Cloud projects. Make sure you're editing the correct client:
+- **Sandbox OAuth Client:** In `meant2grow-dev` project (Client ID: `783951843343-09fi644a3qlj83s04a7du3ao7o0vj4k2.apps.googleusercontent.com`)
+- **Production OAuth Client:** In `meant2grow-prod` project (Client ID: `493534533344-e2mcmbht3802t1fhdmtq9rgrf0ljc1qe.apps.googleusercontent.com`)
 
 ## Common Mistakes
 
@@ -109,8 +125,10 @@ If you're running the app in different environments (local, staging, production)
 
 ## Quick Reference Links
 
-- **Google Cloud Console Credentials:** https://console.cloud.google.com/apis/credentials
-- **OAuth Consent Screen:** https://console.cloud.google.com/apis/credentials/consent
+- **Sandbox OAuth Credentials:** https://console.cloud.google.com/apis/credentials?project=meant2grow-dev
+- **Production OAuth Credentials:** https://console.cloud.google.com/apis/credentials?project=meant2grow-prod
+- **OAuth Consent Screen (Sandbox):** https://console.cloud.google.com/apis/credentials/consent?project=meant2grow-dev
+- **OAuth Consent Screen (Production):** https://console.cloud.google.com/apis/credentials/consent?project=meant2grow-prod
 
 ## For Production Deployment
 

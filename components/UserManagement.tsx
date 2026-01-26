@@ -104,6 +104,31 @@ const UserManagement: React.FC<UserManagementProps> = ({
     currentUser.role === Role.PLATFORM_OPERATOR ||
                          userRoleString === "PLATFORM_OPERATOR" || 
                          userRoleString === "PLATFORM_OPERATOR";
+  
+  // Log platform operator status for debugging
+  useEffect(() => {
+    console.log("🔍 [UserManagement] Platform operator check:", {
+      userId: currentUser.id,
+      role: currentUser.role,
+      roleString: userRoleString,
+      organizationId: currentUser.organizationId,
+      isPlatformOperator: isPlatformOperator,
+      expectedRole: Role.PLATFORM_OPERATOR,
+      expectedRoleString: "PLATFORM_OPERATOR",
+      roleMatches: currentUser.role === Role.PLATFORM_OPERATOR,
+      stringMatches: userRoleString === "PLATFORM_OPERATOR",
+      orgMatches: currentUser.organizationId === "platform",
+    });
+    logger.debug("[UserManagement] Platform operator check", {
+      userId: currentUser.id,
+      role: currentUser.role,
+      roleString: userRoleString,
+      organizationId: currentUser.organizationId,
+      isPlatformOperator: isPlatformOperator,
+      expectedRole: Role.PLATFORM_OPERATOR,
+      expectedRoleString: "PLATFORM_OPERATOR",
+    });
+  }, [currentUser, userRoleString, isPlatformOperator]);
 
   // Use ref to track if data is currently loading to prevent concurrent loads
   const isLoadingRef = useRef(false);
@@ -131,13 +156,21 @@ const UserManagement: React.FC<UserManagementProps> = ({
       let allOrgs: Organization[] = [];
       
       try {
+        console.log("🔍 [UserManagement] Calling getAllUsers()...");
         allUsers = await Promise.race([
           getAllUsers(),
           new Promise<User[]>((_, reject) => 
             setTimeout(() => reject(new Error("getAllUsers timeout")), 15000)
           ),
         ]);
+        console.log("🔍 [UserManagement] getAllUsers() completed, received:", allUsers.length, "users");
       } catch (error: unknown) {
+        console.error("❌ [UserManagement] Error loading users:", error);
+        console.error("❌ [UserManagement] Error details:", {
+          error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        });
         logger.error("[UserManagement] Error loading users", error);
         // Continue with empty array if users fail
         allUsers = [];
@@ -159,9 +192,36 @@ const UserManagement: React.FC<UserManagementProps> = ({
         allOrgs = [];
       }
 
+      // Log detailed information for debugging
+      console.log("🔍 [UserManagement] Data loaded - DETAILED DEBUG:", {
+        totalUsersFromQuery: allUsers.length,
+        totalOrgsFromQuery: allOrgs.length,
+        currentUser: {
+          id: currentUser.id,
+          role: currentUser.role,
+          roleString: String(currentUser.role),
+          organizationId: currentUser.organizationId,
+          email: currentUser.email,
+        },
+        isPlatformOperator: isPlatformOperator,
+        allUserDetails: allUsers.map(u => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          roleString: String(u.role),
+          organizationId: u.organizationId,
+        })),
+      });
+      
       logger.debug("[UserManagement] Data loaded", {
         users: allUsers.length,
         orgs: allOrgs.length,
+        currentUserRole: currentUser.role,
+        currentUserRoleString: String(currentUser.role),
+        currentUserOrgId: currentUser.organizationId,
+        isPlatformOperator: isPlatformOperator,
+        sampleUserRoles: allUsers.slice(0, 5).map(u => ({ id: u.id, role: u.role, roleString: String(u.role), orgId: u.organizationId })),
       });
 
       // Filter out platform operators from users list
@@ -170,6 +230,12 @@ const UserManagement: React.FC<UserManagementProps> = ({
         return u.role !== Role.PLATFORM_OPERATOR && 
                userRoleString !== "PLATFORM_OPERATOR" && 
                userRoleString !== "PLATFORM_OPERATOR";
+      });
+      
+      logger.debug("[UserManagement] After filtering platform operators", {
+        totalUsers: allUsers.length,
+        nonPlatformAdminUsers: nonPlatformAdminUsers.length,
+        platformOperatorsFiltered: allUsers.length - nonPlatformAdminUsers.length,
       });
 
       setUsers(nonPlatformAdminUsers);
