@@ -386,7 +386,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     const ActiveTabIcon = activeTabData?.icon;
 
     return (
-        <div className="flex flex-col md:flex-row h-[calc(100vh-8rem)] bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
             {/* Mobile Tab Selector */}
             <div className="md:hidden border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2">
                 <button
@@ -453,7 +453,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                 </nav>
             </aside>
 
-            <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto touch-action-pan-y">
+            <div className="flex-1 p-4 sm:p-6 md:p-8 touch-action-pan-y">
                 <div className="max-w-2xl mx-auto">
                     {activeTab === 'profile' && (
                         <div className="space-y-4 sm:space-y-6 animate-in fade-in">

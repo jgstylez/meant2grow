@@ -2511,7 +2511,7 @@ const Chat: React.FC<ChatProps> = ({
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] sm:h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden relative">
+    <div className="flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 relative min-h-[calc(100vh-4rem)] sm:min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-8rem)]">
       {/* Sidebar List - Mobile: only show when no chat selected */}
       <div
         className={`w-full md:w-80 border-r border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col ${

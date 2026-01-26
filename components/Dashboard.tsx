@@ -1641,9 +1641,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                             height={36}
                             iconType="circle"
                             wrapperStyle={{ 
-                              paddingTop: '8px'
+                              paddingTop: '8px',
+                              width: '100%'
                             }}
-                            formatter={(value) => <span style={{ fontSize: '12px' }}>{value}</span>}
                           />
                         </PieChart>
                       </ResponsiveContainer>

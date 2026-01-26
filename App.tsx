@@ -1164,8 +1164,22 @@ const App: React.FC = () => {
 
   const handleSendInvite = async (inviteData: any) => {
     try {
-      if (!organizationId || !currentUser || !organization)
-        throw new Error("Organization ID, user, and organization are required");
+      if (!organizationId || !currentUser) {
+        const missing = [];
+        if (!organizationId) missing.push("organization");
+        if (!currentUser) missing.push("user");
+        throw new Error(`Unable to send invitation. Please wait while ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} loading, then try again.`);
+      }
+
+      // Check if this is a platform operator (they don't have an organization)
+      const isPlatformOperator = organizationId === "platform" || 
+                                 currentUser.role === Role.PLATFORM_OPERATOR ||
+                                 String(currentUser.role) === "PLATFORM_OPERATOR";
+      
+      // Only require organization for non-platform operators
+      if (!isPlatformOperator && !organization) {
+        throw new Error(`Unable to send invitation. Please wait while organization data is loading, then try again.`);
+      }
 
       const { getInvitation, getInvitationByEmail } = await import("./services/database");
       let invitationId: string;
@@ -1230,7 +1244,7 @@ const App: React.FC = () => {
               invitationLink: createdInvitation.invitationLink,
               recipientEmail: inviteData.email.toLowerCase(),
               recipientName: inviteData.name || "User",
-              organizationName: organization.name,
+              organizationName: organization?.name || "Meant2Grow Platform",
               role: inviteData.role,
               inviterName: currentUser.name,
               personalNote: inviteData.personalNote,
@@ -1529,8 +1543,20 @@ const App: React.FC = () => {
           </Suspense>
         );
       case "referrals":
-        if (!currentUser)
+        // Check if data is still loading
+        if (dataLoading || !currentUser || !organizationId)
           return <LoadingSpinner message="Loading referrals..." />;
+        
+        // For platform operators, organization will be null (expected)
+        // For regular users, organization should exist
+        const isPlatformOperator = organizationId === "platform" || 
+                                   currentUser.role === Role.PLATFORM_OPERATOR ||
+                                   String(currentUser.role) === "PLATFORM_OPERATOR";
+        
+        // Only require organization for non-platform operators
+        if (!isPlatformOperator && !organization)
+          return <LoadingSpinner message="Loading referrals..." />;
+        
         return (
           <Suspense
             fallback={<LoadingSpinner message="Loading referrals..." />}

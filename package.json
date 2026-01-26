@@ -42,6 +42,7 @@
     "googleapis": "^168.0.0",
     "jspdf": "^2.5.2",
     "lucide-react": "^0.556.0",
+    "mailersend": "^2.6.0",
     "mammoth": "^1.11.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",

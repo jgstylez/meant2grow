@@ -40,6 +40,15 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
   const [bulkFile, setBulkFile] = useState<File | null>(null);
 
   const handleSendInvite = async () => {
+    // Validate required data before proceeding
+    if (!formData.email) {
+      console.error("Email is required");
+      return;
+    }
+
+    // Note: organizationId validation happens in App.tsx's handleSendInvite
+    // which will show a user-friendly error toast if data is not loaded
+
     // If we already generated a link, reuse that invitation
     if (generatedInvitationId) {
       onSendInvite({
@@ -232,7 +241,7 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
               </div>
               <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
                   <button onClick={() => setShowPreview(false)} className="px-4 py-2 text-slate-500 hover:text-slate-700 font-medium">Edit</button>
-                  <button onClick={handleSendInvite} className={BUTTON_PRIMARY}><Send className="w-4 h-4 mr-2" /> Send Invitation</button>
+                  <button onClick={handleSendInvite} disabled={!organizationId} className={BUTTON_PRIMARY}><Send className="w-4 h-4 mr-2" /> Send Invitation</button>
               </div>
           </div>
       </div>
@@ -456,10 +465,10 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                                   <LinkIcon className="w-4 h-4 mr-2" /> 
                                   {isGeneratingLink ? 'Generating...' : generatedLink ? 'Link Generated' : 'Generate Link'}
                               </button>
-                              <button onClick={() => setShowPreview(true)} disabled={!formData.email} className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center disabled:opacity-50">
+                              <button onClick={() => setShowPreview(true)} disabled={!formData.email || !organizationId} className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center disabled:opacity-50">
                                   <Eye className="w-4 h-4 mr-2" /> Preview
                               </button>
-                              <button onClick={handleSendInvite} disabled={!formData.email} className={BUTTON_PRIMARY}>
+                              <button onClick={handleSendInvite} disabled={!formData.email || !organizationId} className={BUTTON_PRIMARY}>
                                   <Send className="w-4 h-4 mr-2" /> Send Invitation
                               </button>
                           </div>
