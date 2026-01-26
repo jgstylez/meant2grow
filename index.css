@@ -147,103 +147,88 @@
     border-color: #10b981;
   }
 
-  /* Hide Recharts legend on mobile (data shown in stat cards above) */
+  /* Hide Recharts legend on very small mobile screens if needed, 
+     but otherwise ensure horizontal layout */
   .recharts-wrapper .recharts-legend-wrapper,
   div.recharts-legend-wrapper,
   .recharts-responsive-container .recharts-legend-wrapper {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    overflow: hidden !important;
+    display: block !important;
+    visibility: visible !important;
+    height: auto !important;
+    overflow: visible !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    position: relative !important;
+    bottom: 0 !important;
+    left: 0 !important;
   }
 
-  @media (min-width: 768px) {
-    .recharts-wrapper .recharts-legend-wrapper,
-    div.recharts-legend-wrapper,
-    .recharts-responsive-container .recharts-legend-wrapper {
-      display: block !important;
-      visibility: visible !important;
-      height: auto !important;
-      overflow: visible !important;
-      width: 100% !important;
-      min-width: 0 !important;
-    }
+  /* Force horizontal layout for the legend list */
+  .recharts-default-legend {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 16px !important;
+    flex-wrap: nowrap !important; /* Prevent wrapping which causes vertical stacking */
+    width: 100% !important;
+    min-width: max-content !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+  }
 
-    /* Force horizontal layout on larger screens */
+  /* Ensure each legend item is a horizontal row */
+  .recharts-default-legend li,
+  .recharts-legend-item {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    margin: 0 !important;
+    padding: 0 8px !important;
+    width: auto !important;
+    min-width: max-content !important;
+    height: auto !important;
+    line-height: normal !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  /* Ensure the text doesn't collapse or rotate */
+  .recharts-legend-item-text {
+    white-space: nowrap !important;
+    display: inline-block !important;
+    width: auto !important;
+    min-width: max-content !important;
+    height: auto !important;
+    line-height: normal !important;
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Fix for nested spans in legend text */
+  .recharts-legend-item-text span,
+  .recharts-legend-item-text > span,
+  .recharts-default-legend li .recharts-legend-item-text span {
+    display: inline !important;
+    width: auto !important;
+    min-width: max-content !important;
+    height: auto !important;
+    line-height: inherit !important;
+    writing-mode: horizontal-tb !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+  }
+
+  @media (max-width: 640px) {
     .recharts-default-legend {
-      display: flex !important;
-      flex-direction: row !important;
-      justify-content: center !important;
-      align-items: center !important;
-      gap: 16px !important;
-      flex-wrap: wrap !important;
-      width: 100% !important;
-      min-width: 0 !important;
-      height: auto !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-
-    .recharts-default-legend li {
-      display: inline-flex !important;
-      flex-direction: row !important;
-      align-items: center !important;
-      margin: 0 !important;
-      padding: 0 8px !important;
-      width: auto !important;
-      min-width: fit-content !important;
-      height: auto !important;
-      line-height: normal !important;
-      flex-shrink: 0 !important;
-    }
-
-    .recharts-legend-item {
-      display: inline-flex !important;
-      flex-direction: row !important;
-      align-items: center !important;
-      margin: 0 !important;
-      padding: 0 8px !important;
-      width: auto !important;
-      min-width: fit-content !important;
-      height: auto !important;
-      flex-shrink: 0 !important;
-    }
-
-    .recharts-legend-item-text {
-      white-space: nowrap !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      width: auto !important;
-      height: auto !important;
-      line-height: normal !important;
-      writing-mode: horizontal-tb !important;
-      text-orientation: mixed !important;
-      flex-shrink: 0 !important;
-      flex-grow: 0 !important;
-    }
-
-    /* Fix for nested spans in legend text */
-    .recharts-legend-item-text span,
-    .recharts-legend-item-text > span,
-    .recharts-default-legend li .recharts-legend-item-text span {
-      display: inline !important;
-      width: auto !important;
-      height: auto !important;
-      line-height: inherit !important;
-      writing-mode: horizontal-tb !important;
-      flex-shrink: 0 !important;
-      flex-grow: 0 !important;
-      white-space: nowrap !important;
-      overflow: visible !important;
-    }
-    
-    /* Ensure parent containers don't collapse */
-    .recharts-default-legend li {
-      flex-shrink: 0 !important;
-    }
-    
-    .recharts-legend-item {
-      flex-shrink: 0 !important;
+      gap: 8px !important;
     }
   }
 }

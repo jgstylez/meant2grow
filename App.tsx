@@ -136,11 +136,11 @@ const getInitialAuthState = () => {
   const storedOrgId = localStorage.getItem("organizationId");
   const lastPage = localStorage.getItem("lastPage");
   const isImpersonating = localStorage.getItem("isImpersonating") === "true";
-  
+
   // Check URL params for org-signup route to determine initial route
   // Note: Auth clearing will happen in useEffect after mount, not here
   let initialPublicRoute: PublicRoute | "hidden" = "landing";
-  
+
   if (typeof window !== "undefined") {
     const urlParams = new URLSearchParams(window.location.search);
     const inviteToken = urlParams.get("invite");
@@ -148,12 +148,12 @@ const getInitialAuthState = () => {
     const resetToken = urlParams.get("token");
     const pathname = window.location.pathname;
     const hash = window.location.hash;
-    
+
     // Check if we're on reset-password route
     // Look for reset-password in search params, hash, or pathname, and a token
     if (resetToken && (
-      urlParams.has("reset-password") || 
-      hash.includes("reset-password") || 
+      urlParams.has("reset-password") ||
+      hash.includes("reset-password") ||
       pathname.includes("/reset-password")
     )) {
       initialPublicRoute = "reset-password";
@@ -244,7 +244,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
-  
+
   // Impersonation state - track original operator for access control
   const [originalOperator, setOriginalOperator] = useState<User | null>(null);
   // Initialize impersonation state from localStorage
@@ -278,7 +278,7 @@ const App: React.FC = () => {
     const impersonating = localStorage.getItem('isImpersonating') === 'true';
     const originalOperatorId = localStorage.getItem('originalOperatorId');
     const originalOrganizationId = localStorage.getItem('originalOrganizationId');
-    
+
     // Only log in development and only if actually impersonating
     if (impersonating && !import.meta.env?.PROD) {
       logger.debug('Checking impersonation status', {
@@ -289,13 +289,13 @@ const App: React.FC = () => {
         currentOrgId: organizationId,
       });
     }
-    
+
     setIsImpersonating(impersonating);
-    
+
     if (impersonating && originalOperatorId) {
       // Set loading state before async operation
       setOriginalOperatorLoading(true);
-      
+
       // Create a minimal originalOperator object from localStorage if getUser fails
       const fallbackOperator: User = {
         id: originalOperatorId,
@@ -310,7 +310,7 @@ const App: React.FC = () => {
         bio: '',
         createdAt: new Date().toISOString(),
       };
-      
+
       // Try to load original operator's data for access control
       // But don't exit impersonation if this fails - use fallback instead
       getUser(originalOperatorId).then((operator) => {
@@ -345,7 +345,7 @@ const App: React.FC = () => {
   // Sync notifications from loadedNotifications
   useEffect(() => {
     if (loadedNotifications) {
-      setNotifications(loadedNotifications);
+      setNotifications(loadedNotifications.filter((n) => n !== null && n !== undefined));
     }
   }, [loadedNotifications]);
 
@@ -358,7 +358,7 @@ const App: React.FC = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const inviteToken = urlParams.get("invite");
     const orgCode = urlParams.get("orgCode");
-    
+
     // If there's an invite token or orgCode, ensure we're on org-signup route
     if (inviteToken || orgCode) {
       // Check if impersonating - if so, exit impersonation gracefully first
@@ -367,24 +367,24 @@ const App: React.FC = () => {
         // Exit impersonation: restore original operator's session
         const originalOperatorId = localStorage.getItem('originalOperatorId');
         const originalOrganizationId = localStorage.getItem('originalOrganizationId');
-        
+
         if (originalOperatorId && originalOrganizationId) {
           // Restore original operator's session
           localStorage.setItem('userId', originalOperatorId);
           localStorage.setItem('organizationId', originalOrganizationId);
-          
+
           // CRITICAL: Restore the original operator's Google ID token for Firebase Auth
           const originalOperatorIdToken = localStorage.getItem('originalOperatorIdToken');
           if (originalOperatorIdToken) {
             localStorage.setItem('google_id_token', originalOperatorIdToken);
           }
-          
+
           // Clear impersonation state
           localStorage.removeItem('isImpersonating');
           localStorage.removeItem('originalOperatorId');
           localStorage.removeItem('originalOrganizationId');
           localStorage.removeItem('originalOperatorIdToken');
-          
+
           // Reload to reinitialize with original operator's context
           window.location.href = `${window.location.pathname}?${urlParams.toString()}`;
           return; // Exit early, reload will handle the rest
@@ -401,7 +401,7 @@ const App: React.FC = () => {
           localStorage.removeItem('originalOperatorIdToken');
         }
       }
-      
+
       // If user is authenticated but clicked invite link, clear auth and show signup
       // This allows them to sign up as a different user/role
       if (publicRoute === "hidden" && userId && organizationId) {
@@ -430,12 +430,12 @@ const App: React.FC = () => {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
         });
-        
+
         // Firebase Auth automatically refreshes tokens, so we don't need to do anything
         // The user is authenticated and Firestore operations will work
       } else {
         logger.debug('Firebase Auth state changed: user signed out');
-        
+
         // If user is signed out but we have userId in localStorage, try to restore
         // This handles cases where Firebase Auth session expired but user is still "logged in" to the app
         if (userId && !localStorage.getItem('isImpersonating')) {
@@ -451,7 +451,7 @@ const App: React.FC = () => {
         }
       }
     });
-    
+
     return () => unsubscribe();
   }, [userId]);
 
@@ -466,21 +466,21 @@ const App: React.FC = () => {
         });
         return;
       }
-      
+
       // When impersonating, use the original operator's Google ID token for Firebase Auth
       // This ensures Firestore rules see the original operator, not the impersonated user
       const isImpersonatingSession = localStorage.getItem('isImpersonating') === 'true';
       let idToken: string | null = null;
-      
+
       if (isImpersonatingSession) {
         // Try to use original operator's stored token first
         idToken = localStorage.getItem('originalOperatorIdToken');
-        
+
         if (!idToken) {
           // Fallback: Use regular google_id_token
           // This handles sessions started before we added originalOperatorIdToken storage
           idToken = getIdToken();
-          
+
           if (idToken) {
             // Store it for future use
             localStorage.setItem('originalOperatorIdToken', idToken);
@@ -497,7 +497,7 @@ const App: React.FC = () => {
         // Normal case: use current user's token
         idToken = getIdToken();
       }
-      
+
       if (idToken && userId && idToken.trim().length > 0) {
         // User is authenticated and has a Google ID token
         // Sign in to Firebase Auth to enable Cloud Functions and Firestore rules
@@ -511,13 +511,13 @@ const App: React.FC = () => {
         } catch (error: any) {
           const errorMessage = getErrorMessage(error);
           const errorCode = getErrorCode(error);
-          
+
           logger.error('Failed to restore Firebase Auth session', {
             error: errorMessage,
             code: errorCode,
             isImpersonating: isImpersonatingSession,
           });
-          
+
           // If token is expired or invalid
           if (errorCode === 'auth/invalid-credential' || errorMessage.includes('expired') || errorMessage.includes('Token expired')) {
             if (isImpersonatingSession) {
@@ -672,7 +672,7 @@ const App: React.FC = () => {
   const markAsRead = async (id: string) => {
     try {
       setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+        prev.map((n) => (n && n.id === id ? { ...n, isRead: true } : n))
       );
       await updateNotification(id, { isRead: true });
     } catch (error: unknown) {
@@ -683,11 +683,12 @@ const App: React.FC = () => {
 
   const markAllAsRead = async () => {
     try {
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      const unreadNotifications = notifications.filter((n) => !n.isRead);
+      setNotifications((prev) => prev.map((n) => (n ? { ...n, isRead: true } : n)));
+      // Filter for unread notifications, ensuring n exists before checking isRead
+      const unreadNotifications = notifications.filter((n) => n && !n.isRead);
       await Promise.all(
         unreadNotifications.map((n) =>
-          updateNotification(n.id, { isRead: true })
+          n && n.id ? updateNotification(n.id, { isRead: true }) : Promise.resolve()
         )
       );
     } catch (error: unknown) {
@@ -697,12 +698,12 @@ const App: React.FC = () => {
   };
 
   const dismissNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setNotifications((prev) => prev.filter((n) => n && n.id !== id));
   };
 
   const handleDeleteNotification = async (id: string) => {
     try {
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      setNotifications((prev) => prev.filter((n) => n && n.id !== id));
       await deleteNotification(id);
       addToast("Notification deleted", "info");
     } catch (error: unknown) {
@@ -739,7 +740,7 @@ const App: React.FC = () => {
     } catch (error) {
       logger.warn('Error signing out from Firebase Auth', error);
     }
-    
+
     localStorage.removeItem("userId");
     localStorage.removeItem("organizationId");
     localStorage.removeItem("authToken");
@@ -819,20 +820,20 @@ const App: React.FC = () => {
   const handleCreateMatch = async (mentorId: string, menteeId: string) => {
     try {
       if (!organizationId) throw new Error("Organization ID is required");
-      
+
       // Find mentor and mentee in users list
       const mentor = users.find((u) => u.id === mentorId);
       const mentee = users.find((u) => u.id === menteeId);
-      
+
       // Validate users exist
       if (!mentor) throw new Error("Mentor not found");
       if (!mentee) throw new Error("Mentee not found");
-      
+
       // Validate both users are from the same organization (security check)
       if (mentor.organizationId !== organizationId || mentee.organizationId !== organizationId) {
         throw new Error("Cannot create match: users must be from the same organization");
       }
-      
+
       // Validate roles
       if (mentor.role !== Role.MENTOR) {
         throw new Error("Selected user is not a mentor");
@@ -840,7 +841,7 @@ const App: React.FC = () => {
       if (mentee.role !== Role.MENTEE) {
         throw new Error("Selected user is not a mentee");
       }
-      
+
       const newMatch: Omit<Match, "id"> = {
         organizationId,
         mentorId,
@@ -909,15 +910,15 @@ const App: React.FC = () => {
           isRead: false,
           timestamp: new Date().toISOString(),
           chatId: menteeId, // Link to mentee's chat
-          }).catch((err) =>
-            logger.error("Error creating notification for mentor", err)
-          );
+        }).catch((err) =>
+          logger.error("Error creating notification for mentor", err)
+        );
       }
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       const errorCode = getErrorCode(error);
       const formattedError = formatError(error);
-      
+
       // Log detailed error info for debugging permission issues
       const authUser = auth.currentUser;
       logger.error("Error creating match", {
@@ -941,14 +942,14 @@ const App: React.FC = () => {
         // The authenticated user's role in Firestore must be PLATFORM_OPERATOR
         // for isPlatformOperator() to return true when impersonating
       });
-      
+
       // Provide more helpful error message
       let userFriendlyMessage = errorMessage || "Failed to create match";
       if (errorCode === "permission-denied") {
         if (isImpersonating && originalOperator) {
-          const isPlatformOp = originalOperator.role === Role.PLATFORM_OPERATOR || 
-                               String(originalOperator.role) === "PLATFORM_OPERATOR" ||
-                               String(originalOperator.role) === "PLATFORM_OPERATOR";
+          const isPlatformOp = originalOperator.role === Role.PLATFORM_OPERATOR ||
+            String(originalOperator.role) === "PLATFORM_OPERATOR" ||
+            String(originalOperator.role) === "PLATFORM_OPERATOR";
           if (!isPlatformOp) {
             userFriendlyMessage = "Permission denied: Only platform operators can create matches when impersonating users from different organizations.";
           } else {
@@ -958,7 +959,7 @@ const App: React.FC = () => {
           userFriendlyMessage = "Permission denied: You don't have permission to create matches in this organization";
         }
       }
-      
+
       addToast(userFriendlyMessage, "error");
     }
   };
@@ -1013,9 +1014,9 @@ const App: React.FC = () => {
         }
 
         await updateCalendarEvent(eventId, updates);
-        } catch (syncError) {
-          logger.error("Failed to sync to calendars", syncError);
-        }
+      } catch (syncError) {
+        logger.error("Failed to sync to calendars", syncError);
+      }
 
       // Update mentor's total hours committed if this event has a mentorId
       // Use atomic increment to prevent race conditions
@@ -1040,21 +1041,19 @@ const App: React.FC = () => {
           const eventDate =
             dateParts.length === 3
               ? new Date(
-                  parseInt(dateParts[0]),
-                  parseInt(dateParts[1]) - 1,
-                  parseInt(dateParts[2])
-                )
+                parseInt(dateParts[0]),
+                parseInt(dateParts[1]) - 1,
+                parseInt(dateParts[2])
+              )
               : new Date(event.date);
           createNotification({
             organizationId,
             userId: participantId,
             type: "meeting",
             title: "New Meeting Scheduled",
-            body: `${currentUser?.name || "Someone"} scheduled "${
-              event.title
-            }" on ${eventDate.toLocaleDateString()} at ${
-              event.startTime
-            }`,
+            body: `${currentUser?.name || "Someone"} scheduled "${event.title
+              }" on ${eventDate.toLocaleDateString()} at ${event.startTime
+              }`,
             isRead: false,
             timestamp: new Date().toISOString(),
           }).catch((err) =>
@@ -1078,10 +1077,10 @@ const App: React.FC = () => {
 
       // Get original event to calculate hour differences
       const originalEvent = await getCalendarEvent(eventId);
-      
+
       // Update the event first to ensure consistency
       await updateCalendarEvent(eventId, updates);
-      
+
       // Update mentor hours if duration or mentorId changed
       // Use atomic increments to prevent race conditions
       if (originalEvent && (updates.duration || updates.mentorId !== undefined)) {
@@ -1123,7 +1122,7 @@ const App: React.FC = () => {
       }
 
       addToast("Event updated successfully", "success");
-      
+
       // Refresh calendar events to show updated data
       await refreshData();
     } catch (error: unknown) {
@@ -1140,7 +1139,7 @@ const App: React.FC = () => {
       // Get event before deleting to update mentor hours
       // Use atomic increment to prevent race conditions
       const event = await getCalendarEvent(eventId);
-      
+
       if (event && event.mentorId) {
         try {
           const hoursToSubtract = parseDurationToHours(event.duration);
@@ -1153,7 +1152,7 @@ const App: React.FC = () => {
 
       await deleteCalendarEvent(eventId);
       addToast("Event deleted successfully", "success");
-      
+
       // Refresh calendar events to show updated data
       await refreshData();
     } catch (error: unknown) {
@@ -1172,10 +1171,10 @@ const App: React.FC = () => {
       }
 
       // Check if this is a platform operator (they don't have an organization)
-      const isPlatformOperator = organizationId === "platform" || 
-                                 currentUser.role === Role.PLATFORM_OPERATOR ||
-                                 String(currentUser.role) === "PLATFORM_OPERATOR";
-      
+      const isPlatformOperator = organizationId === "platform" ||
+        currentUser.role === Role.PLATFORM_OPERATOR ||
+        String(currentUser.role) === "PLATFORM_OPERATOR";
+
       // Only require organization for non-platform operators
       if (!isPlatformOperator && !organization) {
         throw new Error(`Unable to send invitation. Please wait while organization data is loading, then try again.`);
@@ -1189,7 +1188,7 @@ const App: React.FC = () => {
       if (inviteData.invitationId) {
         invitationId = inviteData.invitationId;
         createdInvitation = await getInvitation(invitationId);
-        
+
         if (!createdInvitation) {
           throw new Error("Failed to retrieve existing invitation");
         }
@@ -1228,9 +1227,9 @@ const App: React.FC = () => {
       if (createdInvitation && createdInvitation.invitationLink) {
         // Send invitation email via Cloud Function
         try {
-          const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
+          const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL
             ? `${import.meta.env.VITE_FUNCTIONS_URL}/sendInvitationEmail`
-            : (import.meta.env.DEV 
+            : (import.meta.env.DEV
               ? 'http://localhost:5001/meant2grow-dev/us-central1/sendInvitationEmail'
               : 'https://us-central1-meant2grow-dev.cloudfunctions.net/sendInvitationEmail');
 
@@ -1314,7 +1313,7 @@ const App: React.FC = () => {
   // Calculate userManagementTab outside of renderContent to avoid hook order issues
   const userManagementTab = React.useMemo(() => {
     if (currentPage.startsWith('user-management')) {
-      return currentPage.includes(':') 
+      return currentPage.includes(':')
         ? (currentPage.split(':')[1] as 'users' | 'organizations')
         : 'users';
     }
@@ -1546,17 +1545,17 @@ const App: React.FC = () => {
         // Check if data is still loading
         if (dataLoading || !currentUser || !organizationId)
           return <LoadingSpinner message="Loading referrals..." />;
-        
+
         // For platform operators, organization will be null (expected)
         // For regular users, organization should exist
-        const isPlatformOperator = organizationId === "platform" || 
-                                   currentUser.role === Role.PLATFORM_OPERATOR ||
-                                   String(currentUser.role) === "PLATFORM_OPERATOR";
-        
+        const isPlatformOperator = organizationId === "platform" ||
+          currentUser.role === Role.PLATFORM_OPERATOR ||
+          String(currentUser.role) === "PLATFORM_OPERATOR";
+
         // Only require organization for non-platform operators
         if (!isPlatformOperator && !organization)
           return <LoadingSpinner message="Loading referrals..." />;
-        
+
         return (
           <Suspense
             fallback={<LoadingSpinner message="Loading referrals..." />}
@@ -1599,9 +1598,9 @@ const App: React.FC = () => {
           return <div className="p-8 text-center">Access denied.</div>;
         }
         const platformOpRoleStr = String(userForPlatformOpCheck.role);
-        const isPlatformOp = userForPlatformOpCheck.role === Role.PLATFORM_OPERATOR || 
-                            platformOpRoleStr === "PLATFORM_OPERATOR" || 
-                            platformOpRoleStr === "PLATFORM_OPERATOR";
+        const isPlatformOp = userForPlatformOpCheck.role === Role.PLATFORM_OPERATOR ||
+          platformOpRoleStr === "PLATFORM_OPERATOR" ||
+          platformOpRoleStr === "PLATFORM_OPERATOR";
         if (!isPlatformOp) {
           return <div className="p-8 text-center">Access denied.</div>;
         }
@@ -1645,9 +1644,9 @@ const App: React.FC = () => {
             return <div className="p-8 text-center">Access denied.</div>;
           }
           const userMgmtRoleStr = String(userForAccessCheck.role);
-          const isPlatformOpForMgmt = userForAccessCheck.role === Role.PLATFORM_OPERATOR || 
-                                     userMgmtRoleStr === "PLATFORM_OPERATOR" || 
-                                     userMgmtRoleStr === "PLATFORM_OPERATOR";
+          const isPlatformOpForMgmt = userForAccessCheck.role === Role.PLATFORM_OPERATOR ||
+            userMgmtRoleStr === "PLATFORM_OPERATOR" ||
+            userMgmtRoleStr === "PLATFORM_OPERATOR";
           if (!isPlatformOpForMgmt) {
             return <div className="p-8 text-center">Access denied.</div>;
           }
@@ -1741,8 +1740,8 @@ const App: React.FC = () => {
                 participantRole === "MENTOR"
                   ? Role.MENTOR
                   : participantRole === "MENTEE"
-                  ? Role.MENTEE
-                  : undefined;
+                    ? Role.MENTEE
+                    : undefined;
               handleLogin(isNewOrg, isParticipant, role);
             }}
             onNavigate={handlePublicNavigate}
@@ -1761,8 +1760,8 @@ const App: React.FC = () => {
                 participantRole === "MENTOR"
                   ? Role.MENTOR
                   : participantRole === "MENTEE"
-                  ? Role.MENTEE
-                  : undefined;
+                    ? Role.MENTEE
+                    : undefined;
               handleLogin(isNewOrg, isParticipant, role);
             }}
             onNavigate={handlePublicNavigate}

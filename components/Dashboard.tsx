@@ -95,6 +95,47 @@ interface DashboardProps {
   isImpersonating?: boolean; // When true, never show platform operator dashboard
 }
 
+// Custom legend renderer to force a horizontal, centered HTML legend
+// This avoids SVG/text orientation issues in some browsers (Safari SVG text quirks)
+const renderLegend = (props: any) => {
+  const { payload } = props || {};
+  if (!payload || !payload.length) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        gap: 12,
+        alignItems: "center",
+        width: "100%",
+      }}
+    >
+      {payload.map((entry: any, index: number) => (
+        <div
+          key={`legend-${index}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: 9999,
+              background: entry.color,
+              display: "inline-block",
+            }}
+          />
+          <span style={{ fontSize: 14, color: "inherit" }}>{entry.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const Dashboard: React.FC<DashboardProps> = ({
   user,
   users,
@@ -157,7 +198,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [allOrganizations, setAllOrganizations] = useState<Organization[]>([]);
   const [allCalendarEvents, setAllCalendarEvents] = useState<CalendarEvent[]>(
-    []
+    [],
   );
   const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [allGoals, setAllGoals] = useState<Goal[]>([]);
@@ -165,19 +206,23 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [platformOperatorLoading, setPlatformOperatorLoading] = useState(true);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  
+
   // Pagination state
   const [usersPage, setUsersPage] = useState(1);
   const [usersPerPage] = useState(20);
-  const [usersLastDoc, setUsersLastDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [usersLastDoc, setUsersLastDoc] =
+    useState<QueryDocumentSnapshot | null>(null);
   const [usersHasMore, setUsersHasMore] = useState(true);
   const [usersLoading, setUsersLoading] = useState(false);
   const [paginatedUsers, setPaginatedUsers] = useState<User[]>([]);
-  
+
   // Filtering state
   const [roleFilter, setRoleFilter] = useState<Role | "ALL">("ALL");
   const [orgFilter, setOrgFilter] = useState<string>("ALL");
-  const [dateRangeFilter, setDateRangeFilter] = useState<{ start: string; end: string } | null>(null);
+  const [dateRangeFilter, setDateRangeFilter] = useState<{
+    start: string;
+    end: string;
+  } | null>(null);
   const [useRealTime, setUseRealTime] = useState(false);
 
   const handleSubmitRating = () => {
@@ -335,7 +380,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     (m) =>
                       (m.mentorId === participant.id ||
                         m.menteeId === participant.id) &&
-                      m.status === MatchStatus.ACTIVE
+                      m.status === MatchStatus.ACTIVE,
                   ).length;
 
                   return (
@@ -462,7 +507,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   // combined formats like "2h 30m" by parsing hours and minutes separately
   const calculateMentorHours = (
     mentorId: string,
-    events: CalendarEvent[]
+    events: CalendarEvent[],
   ): number => {
     const mentorEvents = events.filter((e) => e.mentorId === mentorId);
     return mentorEvents.reduce((total, event) => {
@@ -472,7 +517,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // Get award/badge based on hours
   const getMentorAward = (
-    hours: number
+    hours: number,
   ): { badge: string; icon: React.ReactNode; color: string } => {
     if (hours >= 100) {
       return {
@@ -517,7 +562,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Memoize isPlatformOperator to prevent unnecessary re-renders
   const isPlatformOperatorMemo = useMemo(
     () => isPlatformOperator,
-    [user.role, userRoleString]
+    [user.role, userRoleString],
   );
 
   // Load paginated users
@@ -527,10 +572,12 @@ const Dashboard: React.FC<DashboardProps> = ({
       const loadPaginatedUsers = async () => {
         try {
           setUsersLoading(true);
-          
+
           // Check rate limit
           if (!platformOperatorRateLimiter.isAllowed(`users:${user.id}`)) {
-            const remaining = platformOperatorRateLimiter.getRemaining(`users:${user.id}`);
+            const remaining = platformOperatorRateLimiter.getRemaining(
+              `users:${user.id}`,
+            );
             logger.warn(`Rate limit reached. ${remaining} requests remaining.`);
             return;
           }
@@ -585,7 +632,17 @@ const Dashboard: React.FC<DashboardProps> = ({
         cancelled = true;
       };
     }
-  }, [isPlatformOperatorMemo, usersPage, roleFilter, orgFilter, dateRangeFilter, useRealTime, usersLastDoc, usersPerPage, user.id]);
+  }, [
+    isPlatformOperatorMemo,
+    usersPage,
+    roleFilter,
+    orgFilter,
+    dateRangeFilter,
+    useRealTime,
+    usersLastDoc,
+    usersPerPage,
+    user.id,
+  ]);
 
   // Real-time subscriptions for platform admin
   useEffect(() => {
@@ -594,45 +651,41 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       // Check rate limit for subscriptions
       if (!platformOperatorRateLimiter.isAllowed(`subscriptions:${user.id}`)) {
-        logger.warn("Rate limit reached for subscriptions. Falling back to one-time fetch.");
+        logger.warn(
+          "Rate limit reached for subscriptions. Falling back to one-time fetch.",
+        );
         setUseRealTime(false);
         return;
       }
 
-      const unsubscribeUsers = subscribeToAllUsers(
-        (users) => {
-          if (!cancelled) {
-            setAllUsers(users);
-            // Apply filters to real-time data
-            let filtered = users;
-            if (roleFilter !== "ALL") {
-              filtered = filtered.filter((u) => u.role === roleFilter);
-            }
-            if (orgFilter !== "ALL") {
-              filtered = filtered.filter((u) => u.organizationId === orgFilter);
-            }
-            if (dateRangeFilter) {
-              const start = new Date(dateRangeFilter.start);
-              const end = new Date(dateRangeFilter.end);
-              filtered = filtered.filter((u) => {
-                const createdAt = new Date(u.createdAt);
-                return createdAt >= start && createdAt <= end;
-              });
-            }
-            setPaginatedUsers(filtered.slice(0, usersPerPage * usersPage));
+      const unsubscribeUsers = subscribeToAllUsers((users) => {
+        if (!cancelled) {
+          setAllUsers(users);
+          // Apply filters to real-time data
+          let filtered = users;
+          if (roleFilter !== "ALL") {
+            filtered = filtered.filter((u) => u.role === roleFilter);
           }
-        },
-        platformOperatorCache
-      );
+          if (orgFilter !== "ALL") {
+            filtered = filtered.filter((u) => u.organizationId === orgFilter);
+          }
+          if (dateRangeFilter) {
+            const start = new Date(dateRangeFilter.start);
+            const end = new Date(dateRangeFilter.end);
+            filtered = filtered.filter((u) => {
+              const createdAt = new Date(u.createdAt);
+              return createdAt >= start && createdAt <= end;
+            });
+          }
+          setPaginatedUsers(filtered.slice(0, usersPerPage * usersPage));
+        }
+      }, platformOperatorCache);
 
-      const unsubscribeOrgs = subscribeToAllOrganizations(
-        (orgs) => {
-          if (!cancelled) {
-            setAllOrganizations(orgs);
-          }
-        },
-        platformOperatorCache
-      );
+      const unsubscribeOrgs = subscribeToAllOrganizations((orgs) => {
+        if (!cancelled) {
+          setAllOrganizations(orgs);
+        }
+      }, platformOperatorCache);
 
       return () => {
         cancelled = true;
@@ -640,7 +693,16 @@ const Dashboard: React.FC<DashboardProps> = ({
         unsubscribeOrgs();
       };
     }
-  }, [isPlatformOperatorMemo, useRealTime, roleFilter, orgFilter, dateRangeFilter, usersPage, usersPerPage, user.id]);
+  }, [
+    isPlatformOperatorMemo,
+    useRealTime,
+    roleFilter,
+    orgFilter,
+    dateRangeFilter,
+    usersPage,
+    usersPerPage,
+    user.id,
+  ]);
 
   // Load other platform data (matches, goals, ratings, events)
   useEffect(() => {
@@ -657,10 +719,13 @@ const Dashboard: React.FC<DashboardProps> = ({
           const ratingsCacheKey = cacheKeys.allRatings();
           const eventsCacheKey = cacheKeys.allCalendarEvents();
 
-          const cachedMatches = platformOperatorCache.get<Match[]>(matchesCacheKey);
+          const cachedMatches =
+            platformOperatorCache.get<Match[]>(matchesCacheKey);
           const cachedGoals = platformOperatorCache.get<Goal[]>(goalsCacheKey);
-          const cachedRatings = platformOperatorCache.get<Rating[]>(ratingsCacheKey);
-          const cachedEvents = platformOperatorCache.get<CalendarEvent[]>(eventsCacheKey);
+          const cachedRatings =
+            platformOperatorCache.get<Rating[]>(ratingsCacheKey);
+          const cachedEvents =
+            platformOperatorCache.get<CalendarEvent[]>(eventsCacheKey);
 
           if (cachedMatches && cachedGoals && cachedRatings && cachedEvents) {
             setAllMatches(cachedMatches);
@@ -672,22 +737,20 @@ const Dashboard: React.FC<DashboardProps> = ({
           }
 
           // Check rate limit
-          if (!platformOperatorRateLimiter.isAllowed(`platform-data:${user.id}`)) {
+          if (
+            !platformOperatorRateLimiter.isAllowed(`platform-data:${user.id}`)
+          ) {
             logger.warn("Rate limit reached for platform data");
             return;
           }
 
-          const [
-            eventsData,
-            matchesData,
-            goalsData,
-            ratingsData,
-          ] = await Promise.all([
-            getAllCalendarEvents(),
-            getAllMatches(),
-            getAllGoals(),
-            getAllRatings(),
-          ]);
+          const [eventsData, matchesData, goalsData, ratingsData] =
+            await Promise.all([
+              getAllCalendarEvents(),
+              getAllMatches(),
+              getAllGoals(),
+              getAllRatings(),
+            ]);
 
           if (cancelled) return;
 
@@ -745,17 +808,17 @@ const Dashboard: React.FC<DashboardProps> = ({
   if (isPlatformOperator) {
     // Calculate platform-wide metrics
     const activeMatches = allMatches.filter(
-      (m) => m.status === MatchStatus.ACTIVE
+      (m) => m.status === MatchStatus.ACTIVE,
     ).length;
     const completedMatches = allMatches.filter(
-      (m) => m.status === MatchStatus.COMPLETED
+      (m) => m.status === MatchStatus.COMPLETED,
     ).length;
     const totalGoals = allGoals.length;
     const completedGoals = allGoals.filter(
-      (g) => g.status === "Completed"
+      (g) => g.status === "Completed",
     ).length;
     const inProgressGoals = allGoals.filter(
-      (g) => g.status === "In Progress"
+      (g) => g.status === "In Progress",
     ).length;
     const totalRatings = allRatings.length;
     const approvedRatings = allRatings.filter((r) => r.isApproved).length;
@@ -770,13 +833,14 @@ const Dashboard: React.FC<DashboardProps> = ({
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const recentUsers = allUsers.filter(
-      (u) => new Date(u.createdAt) >= thirtyDaysAgo
+      (u) => new Date(u.createdAt) >= thirtyDaysAgo,
     ).length;
 
     const platformStats = {
       totalUsers: allUsers.length,
-      platformOperators: allUsers.filter((u) => u.role === Role.PLATFORM_OPERATOR)
-        .length,
+      platformOperators: allUsers.filter(
+        (u) => u.role === Role.PLATFORM_OPERATOR,
+      ).length,
       orgAdmins: allUsers.filter((u) => u.role === Role.ADMIN).length,
       mentors: allUsers.filter((u) => u.role === Role.MENTOR).length,
       mentees: allUsers.filter((u) => u.role === Role.MENTEE).length,
@@ -801,7 +865,10 @@ const Dashboard: React.FC<DashboardProps> = ({
             (u) =>
               u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
               u.email.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-              (u.company && u.company.toLowerCase().includes(userSearchQuery.toLowerCase()))
+              (u.company &&
+                u.company
+                  .toLowerCase()
+                  .includes(userSearchQuery.toLowerCase())),
           )
           .slice(0, 10)
       : usersToDisplay.slice(0, usersPerPage);
@@ -847,7 +914,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       return allMatches.filter(
         (m) =>
           m.status === MatchStatus.ACTIVE &&
-          (m.mentorId === userId || m.menteeId === userId)
+          (m.mentorId === userId || m.menteeId === userId),
       );
     };
 
@@ -1008,7 +1075,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                <UserCheck className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Mentees</span>
+                <UserCheck className="w-3 h-3 flex-shrink-0" />{" "}
+                <span className="truncate">Mentees</span>
               </div>
               <div className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600">
                 {platformOperatorLoading ? "..." : platformStats.mentees}
@@ -1016,7 +1084,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                <GraduationCap className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Mentors</span>
+                <GraduationCap className="w-3 h-3 flex-shrink-0" />{" "}
+                <span className="truncate">Mentors</span>
               </div>
               <div className="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-600">
                 {platformOperatorLoading ? "..." : platformStats.mentors}
@@ -1024,7 +1093,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                <Building className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Organizations</span>
+                <Building className="w-3 h-3 flex-shrink-0" />{" "}
+                <span className="truncate">Organizations</span>
               </div>
               <div className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-white">
                 {platformOperatorLoading ? "..." : platformStats.totalOrgs}
@@ -1032,7 +1102,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                <Shield className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Org Admins</span>
+                <Shield className="w-3 h-3 flex-shrink-0" />{" "}
+                <span className="truncate">Org Admins</span>
               </div>
               <div className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">
                 {platformOperatorLoading ? "..." : platformStats.orgAdmins}
@@ -1040,10 +1111,13 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
               <div className="text-xs text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                <Crown className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Operators</span>
+                <Crown className="w-3 h-3 flex-shrink-0" />{" "}
+                <span className="truncate">Operators</span>
               </div>
               <div className="text-lg sm:text-xl lg:text-2xl font-bold text-amber-600">
-                {platformOperatorLoading ? "..." : platformStats.platformOperators}
+                {platformOperatorLoading
+                  ? "..."
+                  : platformStats.platformOperators}
               </div>
             </div>
           </div>
@@ -1122,7 +1196,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="space-y-1">
                   {allOrganizations.slice(0, 5).map((org) => {
                     const orgUsers = allUsers.filter(
-                      (u) => u.organizationId === org.id
+                      (u) => u.organizationId === org.id,
                     );
                     return (
                       <div
@@ -1144,12 +1218,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                               org.subscriptionTier === "enterprise"
                                 ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
                                 : org.subscriptionTier === "business"
-                                ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-                                : org.subscriptionTier === "professional"
-                                ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                                : org.subscriptionTier === "starter"
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
+                                  ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                  : org.subscriptionTier === "professional"
+                                    ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                    : org.subscriptionTier === "starter"
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                      : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300"
                             }`}
                           >
                             {org.subscriptionTier}
@@ -1174,7 +1248,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <button
                   onClick={async () => {
                     try {
-                      const usersToExport = useRealTime ? allUsers : paginatedUsers;
+                      const usersToExport = useRealTime
+                        ? allUsers
+                        : paginatedUsers;
                       if (usersToExport.length === 0) {
                         alert("No users to export");
                         return;
@@ -1189,12 +1265,16 @@ const Dashboard: React.FC<DashboardProps> = ({
                   aria-label={`Export ${useRealTime ? allUsers.length : paginatedUsers.length} users to CSV`}
                   title={`Export ${useRealTime ? allUsers.length : paginatedUsers.length} users to CSV`}
                 >
-                  <Copy className="w-3 h-3" aria-hidden="true" /> <span className="hidden sm:inline">Export CSV</span><span className="sm:hidden">CSV</span>
+                  <Copy className="w-3 h-3" aria-hidden="true" />{" "}
+                  <span className="hidden sm:inline">Export CSV</span>
+                  <span className="sm:hidden">CSV</span>
                 </button>
                 <button
                   onClick={async () => {
                     try {
-                      const usersToExport = useRealTime ? allUsers : paginatedUsers;
+                      const usersToExport = useRealTime
+                        ? allUsers
+                        : paginatedUsers;
                       if (usersToExport.length === 0) {
                         alert("No users to export");
                         return;
@@ -1205,7 +1285,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                         Role: u.role,
                         Organization: getOrganizationName(u.organizationId),
                         Company: u.company || "",
-                        "Created At": new Date(u.createdAt).toLocaleDateString(),
+                        "Created At": new Date(
+                          u.createdAt,
+                        ).toLocaleDateString(),
                       }));
                       await exportToPDF("Platform Users", exportData, "users");
                     } catch (error) {
@@ -1217,14 +1299,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                   aria-label={`Export ${useRealTime ? allUsers.length : paginatedUsers.length} users to PDF`}
                   title={`Export ${useRealTime ? allUsers.length : paginatedUsers.length} users to PDF`}
                 >
-                  <Copy className="w-3 h-3" aria-hidden="true" /> <span className="hidden sm:inline">Export PDF</span><span className="sm:hidden">PDF</span>
+                  <Copy className="w-3 h-3" aria-hidden="true" />{" "}
+                  <span className="hidden sm:inline">Export PDF</span>
+                  <span className="sm:hidden">PDF</span>
                 </button>
                 <button
                   onClick={() => onNavigate("user-management:users")}
                   className="text-xs sm:text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 min-h-[44px] sm:min-h-[32px] px-2 py-1 rounded hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors touch-manipulation"
                   aria-label="View all users in user management"
                 >
-                  <span className="hidden sm:inline">View All</span><span className="sm:hidden">All</span> <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">View All</span>
+                  <span className="sm:hidden">All</span>{" "}
+                  <ChevronRight
+                    className="w-3 h-3 sm:w-4 sm:h-4"
+                    aria-hidden="true"
+                  />
                 </button>
               </div>
             </div>
@@ -1236,7 +1325,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <label htmlFor="user-search" className="sr-only">
                   Search users by name, email, or company
                 </label>
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" aria-hidden="true" />
+                <Search
+                  className="w-4 h-4 text-slate-400 absolute left-3 top-2.5"
+                  aria-hidden="true"
+                />
                 <input
                   id="user-search"
                   type="text"
@@ -1268,7 +1360,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                     aria-label="Filter users by role"
                   >
                     <option value="ALL">All Roles</option>
-                    <option value={Role.PLATFORM_OPERATOR}>Platform Operator</option>
+                    <option value={Role.PLATFORM_OPERATOR}>
+                      Platform Operator
+                    </option>
                     <option value={Role.ADMIN}>Organization Admin</option>
                     <option value={Role.MENTOR}>Mentor</option>
                     <option value={Role.MENTEE}>Mentee</option>
@@ -1313,7 +1407,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                       value={dateRangeFilter?.start || ""}
                       onChange={(e) => {
                         const startDate = e.target.value;
-                        const endDate = dateRangeFilter?.end || new Date().toISOString().split("T")[0];
+                        const endDate =
+                          dateRangeFilter?.end ||
+                          new Date().toISOString().split("T")[0];
                         // Validate start <= end
                         if (startDate && endDate && startDate > endDate) {
                           // Auto-adjust end date if start > end
@@ -1330,7 +1426,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                         setUsersPage(1);
                         setUsersLastDoc(null);
                       }}
-                      max={dateRangeFilter?.end || new Date().toISOString().split("T")[0]}
+                      max={
+                        dateRangeFilter?.end ||
+                        new Date().toISOString().split("T")[0]
+                      }
                       className={INPUT_CLASS + " text-sm min-h-[44px] w-full"}
                       aria-label="Filter by start date"
                     />
@@ -1386,10 +1485,14 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
 
               {/* Active Filters Indicator & Clear All */}
-              {(roleFilter !== "ALL" || orgFilter !== "ALL" || dateRangeFilter) && (
+              {(roleFilter !== "ALL" ||
+                orgFilter !== "ALL" ||
+                dateRangeFilter) && (
                 <div className="flex items-center justify-between flex-wrap gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Active filters:</span>
+                    <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                      Active filters:
+                    </span>
                     {roleFilter !== "ALL" && (
                       <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs">
                         Role: {roleFilter}
@@ -1397,7 +1500,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                     )}
                     {orgFilter !== "ALL" && (
                       <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs">
-                        Org: {allOrganizations.find((o) => o.id === orgFilter)?.name || "Unknown"}
+                        Org:{" "}
+                        {allOrganizations.find((o) => o.id === orgFilter)
+                          ?.name || "Unknown"}
                       </span>
                     )}
                     {dateRangeFilter && (
@@ -1437,14 +1542,19 @@ const Dashboard: React.FC<DashboardProps> = ({
                   className="w-4 h-4 text-emerald-600 rounded focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                   aria-describedby="realtime-description"
                 />
-                <label htmlFor="realtime-toggle" className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 cursor-pointer">
-                  <span id="realtime-description">Enable real-time updates (uses more resources)</span>
+                <label
+                  htmlFor="realtime-toggle"
+                  className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 cursor-pointer"
+                >
+                  <span id="realtime-description">
+                    Enable real-time updates (uses more resources)
+                  </span>
                 </label>
               </div>
             </div>
 
             {/* Users List */}
-            {(platformOperatorLoading || usersLoading) ? (
+            {platformOperatorLoading || usersLoading ? (
               <div className="text-center py-8 text-slate-500">
                 Loading users...
               </div>
@@ -1456,64 +1566,70 @@ const Dashboard: React.FC<DashboardProps> = ({
               <>
                 <div className="space-y-2">
                   {filteredUsers.map((u) => (
-                  <div
-                    key={u.id}
-                    className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer min-h-[60px] sm:min-h-0 touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setSelectedUser(u);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
+                    <div
+                      key={u.id}
+                      className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer min-h-[60px] sm:min-h-0 touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                      onClick={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         setSelectedUser(u);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`View details for ${u.name}, ${u.role}`}
-                  >
-                    <img
-                      src={u.avatar}
-                      alt={u.name}
-                      className="w-10 h-10 rounded-full flex-shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 mb-1">
-                        <span className="font-medium text-sm sm:text-base text-slate-900 dark:text-white truncate">
-                          {u.name}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${getRoleBadgeColor(
-                            u.role
-                          )}`}
-                        >
-                          {getRoleIcon(u.role)}
-                          {u.role}
-                        </span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-xs text-slate-500 dark:text-slate-400">
-                        <span className="flex items-center gap-1 min-w-0">
-                          <Mail className="w-3 h-3 flex-shrink-0" />
-                          <span className="truncate">{u.email}</span>
-                        </span>
-                        <span className="flex items-center gap-1 min-w-0">
-                          <Building className="w-3 h-3 flex-shrink-0" />
-                          <span className="truncate">{getOrganizationName(u.organizationId)}</span>
-                        </span>
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setSelectedUser(u);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`View details for ${u.name}, ${u.role}`}
+                    >
+                      <img
+                        src={u.avatar}
+                        alt={u.name}
+                        className="w-10 h-10 rounded-full flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 mb-1">
+                          <span className="font-medium text-sm sm:text-base text-slate-900 dark:text-white truncate">
+                            {u.name}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${getRoleBadgeColor(
+                              u.role,
+                            )}`}
+                          >
+                            {getRoleIcon(u.role)}
+                            {u.role}
+                          </span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-xs text-slate-500 dark:text-slate-400">
+                          <span className="flex items-center gap-1 min-w-0">
+                            <Mail className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{u.email}</span>
+                          </span>
+                          <span className="flex items-center gap-1 min-w-0">
+                            <Building className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">
+                              {getOrganizationName(u.organizationId)}
+                            </span>
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
                   ))}
                 </div>
 
                 {/* Pagination Controls */}
                 {!useRealTime && (
-                  <nav className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-800" aria-label="User pagination">
+                  <nav
+                    className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-slate-200 dark:border-slate-800"
+                    aria-label="User pagination"
+                  >
                     <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                       <span aria-live="polite" aria-atomic="true">
-                        Showing {paginatedUsers.length} user{paginatedUsers.length !== 1 ? "s" : ""}
+                        Showing {paginatedUsers.length} user
+                        {paginatedUsers.length !== 1 ? "s" : ""}
                         {usersHasMore && " (more available)"}
                       </span>
                     </div>
@@ -1533,7 +1649,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <span className="hidden sm:inline">Previous</span>
                         <span className="sm:hidden">Prev</span>
                       </button>
-                      <span className="text-sm text-slate-600 dark:text-slate-400 px-2 font-medium" aria-current="page">
+                      <span
+                        className="text-sm text-slate-600 dark:text-slate-400 px-2 font-medium"
+                        aria-current="page"
+                      >
                         Page {usersPage}
                       </span>
                       <button
@@ -1604,51 +1723,45 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </div>
                     </div>
                   </div>
-                  {platformStats.totalMatches > 0 && (
-                    <div className="w-full" style={{ height: '112px' }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              {
-                                name: "Active",
-                                value: platformStats.activeMatches || 0,
-                                color: "#10b981",
-                              },
-                              {
-                                name: "Completed",
-                                value: platformStats.completedMatches || 0,
-                                color: "#3b82f6",
-                              },
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={({ name, percent }) =>
-                              `${name}: ${(percent * 100).toFixed(0)}%`
-                            }
-                            outerRadius={45}
-                            fill="#8884d8"
-                            dataKey="value"
-                          >
-                            <Cell key="cell-0" fill="#10b981" />
-                            <Cell key="cell-1" fill="#3b82f6" />
-                          </Pie>
-                          <Tooltip />
-                          <Legend 
-                            verticalAlign="bottom" 
-                            align="center"
-                            height={36}
-                            iconType="circle"
-                            wrapperStyle={{ 
-                              paddingTop: '8px',
-                              width: '100%'
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
+                  <div className="w-full" style={{ height: "160px" }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            {
+                              name: "Active",
+                              value: platformStats.activeMatches || 0,
+                              color: "#10b981",
+                            },
+                            {
+                              name: "Completed",
+                              value: platformStats.completedMatches || 0,
+                              color: "#3b82f6",
+                            },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) =>
+                            `${name}: ${(percent * 100).toFixed(0)}%`
+                          }
+                          outerRadius={45}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          <Cell key="cell-0" fill="#10b981" />
+                          <Cell key="cell-1" fill="#3b82f6" />
+                        </Pie>
+                        <Tooltip />
+                        <Legend
+                          content={renderLegend}
+                          verticalAlign="bottom"
+                          align="center"
+                          height={40}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               )}
             </div>
@@ -1821,13 +1934,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                         .filter((r) => !r.isApproved)
                         .map((rating) => {
                           const fromUser = allUsers.find(
-                            (u) => u.id === rating.fromUserId
+                            (u) => u.id === rating.fromUserId,
                           );
                           const toUser = allUsers.find(
-                            (u) => u.id === rating.toUserId
+                            (u) => u.id === rating.toUserId,
                           );
                           const ratingOrg = allOrganizations.find(
-                            (o) => o.id === rating.organizationId
+                            (o) => o.id === rating.organizationId,
                           );
                           return (
                             <div
@@ -1949,10 +2062,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                         selectedUser.role === Role.MENTOR
                           ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300"
                           : selectedUser.role === Role.MENTEE
-                          ? "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300"
-                          : selectedUser.role === Role.ADMIN
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                          : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                            ? "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300"
+                            : selectedUser.role === Role.ADMIN
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                              : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
                       }`}
                     >
                       {formatRole(selectedUser.role)}
@@ -2059,7 +2172,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             ? match.menteeId
                             : match.mentorId;
                         const partner = allUsers.find(
-                          (u) => u.id === partnerId
+                          (u) => u.id === partnerId,
                         );
                         return (
                           <div
@@ -2086,7 +2199,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
                                   Started:{" "}
                                   {new Date(
-                                    match.startDate
+                                    match.startDate,
                                   ).toLocaleDateString()}
                                 </p>
                               </div>
@@ -2139,13 +2252,13 @@ const Dashboard: React.FC<DashboardProps> = ({
       );
     }).length;
     const mentorCount = users.filter(
-      (u) => u.role === Role.MENTOR || String(u.role) === "MENTOR"
+      (u) => u.role === Role.MENTOR || String(u.role) === "MENTOR",
     ).length;
     const menteeCount = users.filter(
-      (u) => u.role === Role.MENTEE || String(u.role) === "MENTEE"
+      (u) => u.role === Role.MENTEE || String(u.role) === "MENTEE",
     ).length;
     const activeMatches = matches.filter(
-      (m) => m.status === MatchStatus.ACTIVE
+      (m) => m.status === MatchStatus.ACTIVE,
     ).length;
     const pendingReviews = ratings.filter((r) => !r.isApproved).length;
 
@@ -2153,7 +2266,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const matchedParticipants = activeMatches * 2; // Each match has 2 participants
     const unmatchedParticipants = Math.max(
       0,
-      totalParticipants - matchedParticipants
+      totalParticipants - matchedParticipants,
     );
 
     return (
@@ -2181,7 +2294,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                 ) : (
                   <Building className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 flex-shrink-0" />
                 )}
-                <span className="truncate">{organization?.name || "Organization Dashboard"}</span>
+                <span className="truncate">
+                  {organization?.name || "Organization Dashboard"}
+                </span>
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                 Manage your organization, users, matches, and resources
@@ -2484,10 +2599,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                     .filter((r) => !r.isApproved)
                     .map((rating) => {
                       const fromUser = users.find(
-                        (u) => u.id === rating.fromUserId
+                        (u) => u.id === rating.fromUserId,
                       );
                       const toUser = users.find(
-                        (u) => u.id === rating.toUserId
+                        (u) => u.id === rating.toUserId,
                       );
                       return (
                         <div
@@ -2594,7 +2709,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   // --- MENTOR VIEW ---
   if (isMentor) {
     const myActiveMatches = matches.filter(
-      (m) => m.mentorId === user.id && m.status === MatchStatus.ACTIVE
+      (m) => m.mentorId === user.id && m.status === MatchStatus.ACTIVE,
     );
     const myMentees = myActiveMatches
       .map((m) => users.find((u) => u.id === m.menteeId))
@@ -2624,7 +2739,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="text-2xl font-bold flex items-center">
                   {(() => {
                     const mentorRatings = ratings.filter(
-                      (r) => r.toUserId === user.id && r.isApproved
+                      (r) => r.toUserId === user.id && r.isApproved,
                     );
                     if (mentorRatings.length === 0) return "N/A";
                     const avgRating =
@@ -2634,7 +2749,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   })()}
                   {(() => {
                     const mentorRatings = ratings.filter(
-                      (r) => r.toUserId === user.id && r.isApproved
+                      (r) => r.toUserId === user.id && r.isApproved,
                     );
                     if (mentorRatings.length > 0) {
                       return (
@@ -2652,7 +2767,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="text-2xl font-bold">
                   {
                     calendarEvents.filter(
-                      (e) => e.mentorId === user.id || e.menteeId === user.id
+                      (e) => e.mentorId === user.id || e.menteeId === user.id,
                     ).length
                   }
                 </div>
@@ -2826,7 +2941,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   })
                   .sort(
                     (a, b) =>
-                      new Date(a.date).getTime() - new Date(b.date).getTime()
+                      new Date(a.date).getTime() - new Date(b.date).getTime(),
                   )
                   .slice(0, 3)
                   .map((event) => {
@@ -2945,7 +3060,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const myMatch = matches.find(
       (m) =>
         (m.menteeId === user.id || m.mentorId === user.id) &&
-        m.status === MatchStatus.ACTIVE
+        m.status === MatchStatus.ACTIVE,
     );
     const partnerId = myMatch
       ? myMatch.menteeId === user.id
@@ -3106,7 +3221,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 })
                 .sort(
                   (a, b) =>
-                    new Date(a.date).getTime() - new Date(b.date).getTime()
+                    new Date(a.date).getTime() - new Date(b.date).getTime(),
                 )
                 .slice(0, 3)
                 .map((event) => {
@@ -3207,7 +3322,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="space-y-4">
             {(() => {
               const myApprovedRatings = ratings.filter(
-                (r) => r.fromUserId === user.id && r.isApproved
+                (r) => r.fromUserId === user.id && r.isApproved,
               );
               if (myApprovedRatings.length === 0) {
                 return (
