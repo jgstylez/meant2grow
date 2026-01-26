@@ -91,7 +91,7 @@ class Cache {
 }
 
 // Create cache instances
-export const platformAdminCache = new Cache(60000); // 1 minute TTL for platform admin data
+export const platformOperatorCache = new Cache(60000); // 1 minute TTL for platform operator data
 export const organizationDataCache = new Cache(30000); // 30 seconds TTL for org data
 
 /**

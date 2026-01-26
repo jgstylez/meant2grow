@@ -22,11 +22,10 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
     const [editingOperator, setEditingOperator] = useState<User | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
-    // Check if current user is platform admin
-    const isPlatformAdmin = useMemo(() => {
+    // Check if current user is platform operator
+    const isPlatformOperator = useMemo(() => {
         const userRoleString = String(currentUser.role);
-        return currentUser.role === Role.PLATFORM_ADMIN || 
-               userRoleString === "PLATFORM_ADMIN" || 
+        return currentUser.role === Role.PLATFORM_OPERATOR || 
                userRoleString === "PLATFORM_OPERATOR";
     }, [currentUser.role]);
 
@@ -37,8 +36,7 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
             const allUsers = await getAllUsers();
             const operators = allUsers.filter((u) => {
                 const userRoleString = String(u.role);
-                return u.role === Role.PLATFORM_ADMIN || 
-                       userRoleString === "PLATFORM_ADMIN" || 
+                return u.role === Role.PLATFORM_OPERATOR || 
                        userRoleString === "PLATFORM_OPERATOR";
             });
             setPlatformOperators(operators);
@@ -75,7 +73,7 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                 // Update existing user
                 const existingUserDoc = existingUsersSnapshot.docs[0];
                 await updateUser(existingUserDoc.id, {
-                    role: Role.PLATFORM_ADMIN,
+                    role: Role.PLATFORM_OPERATOR,
                     organizationId: 'platform',
                 });
                 setAdminMessage({
@@ -83,17 +81,17 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                     text: `Updated ${newAdminEmail} to Platform Operator role`
                 });
             } else {
-                // Create new platform admin
+                // Create new platform operator
                 await createUser({
                     email: newAdminEmail,
                     name: newAdminName,
-                    role: Role.PLATFORM_ADMIN,
+                    role: Role.PLATFORM_OPERATOR,
                     organizationId: 'platform',
                     avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(newAdminName)}&background=10b981&color=fff`,
                     title: 'Platform Operator',
                     company: 'Meant2Grow',
                     skills: [],
-                    bio: 'Platform administrator for Meant2Grow',
+                    bio: 'Platform operator for Meant2Grow',
                 });
                 setAdminMessage({
                     type: 'success',
@@ -105,7 +103,7 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
             setNewAdminName('');
             await loadPlatformOperators();
         } catch (error: unknown) {
-            logger.error('Error creating platform admin', error);
+            logger.error('Error creating platform operator', error);
             setAdminMessage({
                 type: 'error',
                 text: getErrorMessage(error) || 'Failed to create platform operator'
@@ -131,7 +129,7 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
         }
     };
 
-    if (!isPlatformAdmin) {
+    if (!isPlatformOperator) {
         return (
             <div className="space-y-6 animate-in fade-in duration-500">
                 <div className={CARD_CLASS + " text-center py-8"}>

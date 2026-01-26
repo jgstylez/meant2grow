@@ -25,7 +25,7 @@
     "migrate:platform-resources": "ts-node --esm scripts/migrate-platform-resources.ts",
     "create:platform-operator": "ts-node --esm scripts/create-platform-operator.ts",
     "migrate:password-auth": "ts-node --esm scripts/migrate-password-auth.ts",
-    "set-platform-admin-password": "ts-node --esm scripts/set-platform-admin-password.ts",
+    "set-platform-operator-password": "ts-node --esm scripts/set-platform-operator-password.ts",
     "set-all-platform-admin-passwords": "ts-node --esm scripts/set-all-platform-admin-passwords.ts",
     "update-platform-admin-email": "ts-node --esm scripts/update-platform-admin-email.ts"
   },

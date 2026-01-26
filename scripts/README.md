@@ -32,7 +32,7 @@ This will create:
 
 Creates a new platform operator user or updates an existing user to platform operator role.
 
-**Note:** "Platform Operator" is the preferred terminology. The role value stored in the database is `PLATFORM_ADMIN` for technical reasons, but we refer to these users as "Platform Operators" to distinguish them from organization administrators.
+**Note:** "Platform Operator" is the preferred terminology. The role value stored in the database is `PLATFORM_OPERATOR`.
 
 ```bash
 npm run create:platform-operator <email> <name>
@@ -44,12 +44,12 @@ npm run create:platform-operator operator@meant2grow.com "Jane Doe"
 ```
 
 **What it does:**
-- Creates a new user with `PLATFORM_ADMIN` role (stored in database)
-- If user already exists, updates their role to `PLATFORM_ADMIN`
+- Creates a new user with `PLATFORM_OPERATOR` role (stored in database)
+- If user already exists, updates their role to `PLATFORM_OPERATOR`
 - Sets `organizationId` to `'platform'` (distinguishes from organization administrators)
 
 **Important:** After creating a platform operator user, you must:
-1. Set a password using: `npm run set-platform-admin-password <email> <password>`
+1. Set a password using: `npm run set-platform-operator-password <email> <password>`
 2. The user can then sign in through the app using their email and password
 
 ## Manual Steps
@@ -65,7 +65,7 @@ Alternatively, you can manually create platform operator users:
    {
      "email": "operator@meant2grow.com",
      "name": "Platform Operator",
-     "role": "PLATFORM_ADMIN",
+     "role": "PLATFORM_OPERATOR",
      "organizationId": "platform",
      "avatar": "https://ui-avatars.com/api/?name=Platform+Operator&background=10b981&color=fff",
      "title": "Platform Operator",
@@ -76,7 +76,7 @@ Alternatively, you can manually create platform operator users:
    }
    ```
 
-**Note:** After manual creation, set a password using: `npm run set-platform-admin-password <email> <password>`
+**Note:** After manual creation, set a password using: `npm run set-platform-operator-password <email> <password>`
 
 ## Troubleshooting
 

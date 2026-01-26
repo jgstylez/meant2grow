@@ -369,7 +369,7 @@ const Chat: React.FC<ChatProps> = ({
           (u) => {
             const roleStr = String(u.role);
             return (u.role === Role.ADMIN || roleStr === "ADMIN" || roleStr === "ORGANIZATION_ADMIN") &&
-                   !(u.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR");
+                   !(u.role === Role.PLATFORM_OPERATOR || roleStr === "PLATFORM_OPERATOR");
           }
         );
 
@@ -409,7 +409,7 @@ const Chat: React.FC<ChatProps> = ({
             const user = users.find((u) => u.id === id);
             if (!user) return false;
             const roleStr = String(user.role);
-            return user.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR";
+            return user.role === Role.PLATFORM_OPERATOR || roleStr === "PLATFORM_OPERATOR";
           });
           const expectedMembers = [...mentorIds, ...adminIds, ...platformOperatorIds];
           // Check if membership needs updating (arrays differ)
@@ -465,7 +465,7 @@ const Chat: React.FC<ChatProps> = ({
             const user = users.find((u) => u.id === id);
             if (!user) return false;
             const roleStr = String(user.role);
-            return user.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR";
+            return user.role === Role.PLATFORM_OPERATOR || roleStr === "PLATFORM_OPERATOR";
           });
           const expectedMembers = [...menteeIds, ...adminIds, ...platformOperatorIds];
           // Check if membership needs updating (arrays differ)
@@ -533,10 +533,9 @@ const Chat: React.FC<ChatProps> = ({
     // Handle both "ADMIN" and "ORGANIZATION_ADMIN" role values for backward compatibility
     // Platform operators are NOT included in automatic access
     const userRoleStr = String(currentUser.role);
-    const isPlatformAdmin = currentUser.role === Role.PLATFORM_ADMIN || 
-                           userRoleStr === "PLATFORM_ADMIN" || 
+    const isPlatformOperator = currentUser.role === Role.PLATFORM_OPERATOR || 
                            userRoleStr === "PLATFORM_OPERATOR";
-    const isAdmin = !isPlatformAdmin && (
+    const isAdmin = !isPlatformOperator && (
       currentUser.role === Role.ADMIN || 
       userRoleStr === "ADMIN" || 
       userRoleStr === "ORGANIZATION_ADMIN"
@@ -565,7 +564,7 @@ const Chat: React.FC<ChatProps> = ({
           .filter((u) => {
             const roleStr = String(u.role);
             return (u.role === Role.ADMIN || roleStr === "ADMIN" || roleStr === "ORGANIZATION_ADMIN") &&
-                   !(u.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR");
+                   !(u.role === Role.PLATFORM_OPERATOR || roleStr === "PLATFORM_OPERATOR");
           })
           .map((u) => u.id),
       ];
@@ -589,7 +588,7 @@ const Chat: React.FC<ChatProps> = ({
           .filter((u) => {
             const roleStr = String(u.role);
             return (u.role === Role.ADMIN || roleStr === "ADMIN" || roleStr === "ORGANIZATION_ADMIN") &&
-                   !(u.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR");
+                   !(u.role === Role.PLATFORM_OPERATOR || roleStr === "PLATFORM_OPERATOR");
           })
           .map((u) => u.id),
       ];
@@ -622,10 +621,9 @@ const Chat: React.FC<ChatProps> = ({
     merged.forEach((g) => {
       if (g.id === "g-mentors" || g.id === "g-mentees") {
         const userRoleStr = String(currentUser.role);
-        const isPlatformAdmin = currentUser.role === Role.PLATFORM_ADMIN || 
-                               userRoleStr === "PLATFORM_ADMIN" || 
+        const isPlatformOperator = currentUser.role === Role.PLATFORM_OPERATOR || 
                                userRoleStr === "PLATFORM_OPERATOR";
-        const isOrgAdmin = !isPlatformAdmin && (
+        const isOrgAdmin = !isPlatformOperator && (
           currentUser.role === Role.ADMIN || 
           userRoleStr === "ADMIN" || 
           userRoleStr === "ORGANIZATION_ADMIN"
@@ -660,13 +658,12 @@ const Chat: React.FC<ChatProps> = ({
   // Filter groups based on role, membership, and organization
   // Handle both enum and string values for platform admin role
   const userRoleStr = String(currentUser.role);
-  const isPlatformAdmin = currentUser.role === Role.PLATFORM_ADMIN || 
-                         userRoleStr === "PLATFORM_ADMIN" || 
+  const isPlatformOperator = currentUser.role === Role.PLATFORM_OPERATOR || 
                          userRoleStr === "PLATFORM_OPERATOR";
   const availableGroups = MOCK_GROUPS.filter((g) => {
     // Platform admins can see groups from all organizations
     // Other users can only see groups from their organization
-    if (!isPlatformAdmin && g.organizationId !== organizationId) {
+    if (!isPlatformOperator && g.organizationId !== organizationId) {
       logger.debug("Filtered out group - wrong organization", {
         groupId: g.id,
         groupOrgId: g.organizationId,
@@ -683,7 +680,7 @@ const Chat: React.FC<ChatProps> = ({
       const isMember = g.members && g.members.includes(currentUser.id);
       
       // For platform operators, only show if they're explicit members
-      if (isPlatformAdmin) {
+      if (isPlatformOperator) {
         if (isMember) {
           logger.debug("Including default group for platform operator (explicit member)", {
             groupId: g.id,
@@ -753,7 +750,7 @@ const Chat: React.FC<ChatProps> = ({
     if (u.id === currentUser.id) return false;
 
     // Platform admins can see users from all organizations
-    if (isPlatformAdmin) {
+    if (isPlatformOperator) {
       return true;
     }
 
@@ -778,8 +775,7 @@ const Chat: React.FC<ChatProps> = ({
     const isOtherUserAdmin = u.role === Role.ADMIN || 
                             otherUserRoleStr === "ADMIN" || 
                             otherUserRoleStr === "ORGANIZATION_ADMIN";
-    const isOtherUserPlatformAdmin = u.role === Role.PLATFORM_ADMIN || 
-                                    otherUserRoleStr === "PLATFORM_ADMIN" || 
+    const isOtherUserPlatformAdmin = u.role === Role.PLATFORM_OPERATOR || 
                                     otherUserRoleStr === "PLATFORM_OPERATOR";
     if (isOtherUserAdmin || isOtherUserPlatformAdmin) {
       return true;
@@ -837,8 +833,7 @@ const Chat: React.FC<ChatProps> = ({
           const isTargetUserAdmin = targetUser.role === Role.ADMIN || 
                                     targetUserRoleStr === "ADMIN" || 
                                     targetUserRoleStr === "ORGANIZATION_ADMIN";
-          const isTargetUserPlatformAdmin = targetUser.role === Role.PLATFORM_ADMIN || 
-                                           targetUserRoleStr === "PLATFORM_ADMIN" || 
+          const isTargetUserPlatformAdmin = targetUser.role === Role.PLATFORM_OPERATOR || 
                                            targetUserRoleStr === "PLATFORM_OPERATOR";
           
           // Also check if current user is admin (admins can message anyone in their org)
@@ -1028,7 +1023,7 @@ const Chat: React.FC<ChatProps> = ({
 
       // Verify organization match (Platform Admins can chat with anyone)
       if (
-        !isPlatformAdmin &&
+        !isPlatformOperator &&
         chatPartner &&
         chatPartner.organizationId !== currentUser.organizationId
       ) {
@@ -1059,8 +1054,7 @@ const Chat: React.FC<ChatProps> = ({
       const isCurrentUserAdminForChat = currentUser.role === Role.ADMIN || 
                                        currentUserRoleStrForChat === "ADMIN" || 
                                        currentUserRoleStrForChat === "ORGANIZATION_ADMIN";
-      const isCurrentUserPlatformAdminForChat = currentUser.role === Role.PLATFORM_ADMIN || 
-                                               currentUserRoleStrForChat === "PLATFORM_ADMIN" || 
+      const isCurrentUserPlatformAdminForChat = currentUser.role === Role.PLATFORM_OPERATOR || 
                                                currentUserRoleStrForChat === "PLATFORM_OPERATOR";
       
       const chatPartnerRoleStr = chatPartner ? String(chatPartner.role) : "";
@@ -1070,8 +1064,8 @@ const Chat: React.FC<ChatProps> = ({
         chatPartnerRoleStr === "ORGANIZATION_ADMIN"
       );
       const isChatPartnerPlatformAdmin = chatPartner && (
-        chatPartner.role === Role.PLATFORM_ADMIN || 
-        chatPartnerRoleStr === "PLATFORM_ADMIN" || 
+        chatPartner.role === Role.PLATFORM_OPERATOR || 
+        chatPartnerRoleStr === "PLATFORM_OPERATOR" || 
         chatPartnerRoleStr === "PLATFORM_OPERATOR"
       );
 
@@ -1168,8 +1162,7 @@ const Chat: React.FC<ChatProps> = ({
         const isCurrentUserAdminForMessages = currentUser.role === Role.ADMIN || 
                                              currentUserRoleStrForMessages === "ADMIN" || 
                                              currentUserRoleStrForMessages === "ORGANIZATION_ADMIN";
-        const isCurrentUserPlatformAdminForMessages = currentUser.role === Role.PLATFORM_ADMIN || 
-                                                      currentUserRoleStrForMessages === "PLATFORM_ADMIN" || 
+        const isCurrentUserPlatformAdminForMessages = currentUser.role === Role.PLATFORM_OPERATOR || 
                                                       currentUserRoleStrForMessages === "PLATFORM_OPERATOR";
         
         // Check if chat partner is admin
@@ -1181,8 +1174,7 @@ const Chat: React.FC<ChatProps> = ({
           chatPartnerRoleStrForMessages === "ORGANIZATION_ADMIN"
         );
         const isChatPartnerPlatformAdminForMessages = chatPartner && (
-          chatPartner.role === Role.PLATFORM_ADMIN || 
-          chatPartnerRoleStrForMessages === "PLATFORM_ADMIN" || 
+          chatPartner.role === Role.PLATFORM_OPERATOR || 
           chatPartnerRoleStrForMessages === "PLATFORM_OPERATOR"
         );
         const isChatPartnerAdmin = isChatPartnerAdminForMessages || isChatPartnerPlatformAdminForMessages;
@@ -1396,8 +1388,7 @@ const Chat: React.FC<ChatProps> = ({
       const isTargetUserAdmin = targetUser.role === Role.ADMIN || 
                                 targetUserRoleStr === "ADMIN" || 
                                 targetUserRoleStr === "ORGANIZATION_ADMIN";
-      const isTargetUserPlatformAdmin = targetUser.role === Role.PLATFORM_ADMIN || 
-                                       targetUserRoleStr === "PLATFORM_ADMIN" || 
+      const isTargetUserPlatformAdmin = targetUser.role === Role.PLATFORM_OPERATOR || 
                                        targetUserRoleStr === "PLATFORM_OPERATOR";
       
       const currentUserRoleStr = String(currentUser.role);
@@ -2395,7 +2386,7 @@ const Chat: React.FC<ChatProps> = ({
       if (u.id === currentUser.id) return false;
 
       // Platform admins can see users from all organizations
-      if (isPlatformAdmin) {
+      if (isPlatformOperator) {
         return true;
       }
 
@@ -2419,8 +2410,7 @@ const Chat: React.FC<ChatProps> = ({
       const isOtherUserAdminForUserList = u.role === Role.ADMIN || 
                                          otherUserRoleStrForUserList === "ADMIN" || 
                                          otherUserRoleStrForUserList === "ORGANIZATION_ADMIN";
-      const isOtherUserPlatformAdminForUserList = u.role === Role.PLATFORM_ADMIN || 
-                                                  otherUserRoleStrForUserList === "PLATFORM_ADMIN" || 
+      const isOtherUserPlatformAdminForUserList = u.role === Role.PLATFORM_OPERATOR || 
                                                   otherUserRoleStrForUserList === "PLATFORM_OPERATOR";
       if (isOtherUserAdminForUserList || isOtherUserPlatformAdminForUserList) {
         return true;

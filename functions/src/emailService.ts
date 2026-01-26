@@ -829,7 +829,7 @@ export const createEmailService = (config: EmailServiceConfig) => {
       subject: string,
       body: string,
       fromAdmin?: { name: string; email: string },
-      isPlatformAdmin?: boolean
+      isPlatformOperator?: boolean
     ) => {
       // Convert plain text body to HTML
       const htmlBody = body
@@ -837,7 +837,7 @@ export const createEmailService = (config: EmailServiceConfig) => {
         .map((line) => `<p style="font-size: 16px; margin-bottom: 12px; line-height: 1.6;">${line || '<br/>'}</p>`)
         .join('');
 
-      const footerMessage = isPlatformAdmin
+      const footerMessage = isPlatformOperator
         ? "This message was sent from a Meant2Grow platform operator."
         : "This message was sent from your organization's Meant2Grow admin.";
 
@@ -854,7 +854,7 @@ export const createEmailService = (config: EmailServiceConfig) => {
               <h1 style="color: white; margin: 0;">Message from Meant2Grow</h1>
             </div>
             <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-              ${fromAdmin ? `<p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">From: <strong>${fromAdmin.name}</strong> (${fromAdmin.email})${isPlatformAdmin ? ' <span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">Platform Operator</span>' : ''}</p>` : ''}
+              ${fromAdmin ? `<p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">From: <strong>${fromAdmin.name}</strong> (${fromAdmin.email})${isPlatformOperator ? ' <span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">Platform Operator</span>' : ''}</p>` : ''}
               <div style="font-size: 16px; margin-bottom: 20px;">
                 ${htmlBody}
               </div>
@@ -869,7 +869,7 @@ export const createEmailService = (config: EmailServiceConfig) => {
       `;
 
       const text = `
-${fromAdmin ? `From: ${fromAdmin.name} (${fromAdmin.email})${isPlatformAdmin ? ' [Platform Operator]' : ''}\n\n` : ''}${body}
+${fromAdmin ? `From: ${fromAdmin.name} (${fromAdmin.email})${isPlatformOperator ? ' [Platform Operator]' : ''}\n\n` : ''}${body}
 
 ---
 ${footerMessage}

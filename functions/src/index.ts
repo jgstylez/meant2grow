@@ -632,7 +632,7 @@ export const sendAdminEmail = functions.onRequest(
       }
 
       // Verify admin permissions if adminUserId is provided
-      let isPlatformAdmin = false;
+      let isPlatformOperator = false;
       if (adminUserId) {
         const adminDoc = await db.collection("users").doc(adminUserId).get();
         if (!adminDoc.exists) {
@@ -646,21 +646,21 @@ export const sendAdminEmail = functions.onRequest(
 
         // Check if user is an admin and belongs to the organization
         const isAdmin = adminRole === Role.ADMIN || adminRole === "ORGANIZATION_ADMIN" || adminRole === "ADMIN";
-        isPlatformAdmin = adminRole === Role.PLATFORM_ADMIN || adminRole === "PLATFORM_ADMIN";
+        isPlatformOperator = adminRole === Role.PLATFORM_OPERATOR || adminRole === "PLATFORM_OPERATOR";
 
-        if (!isAdmin && !isPlatformAdmin) {
+        if (!isAdmin && !isPlatformOperator) {
           res.status(403).json({ error: "Only admins can send emails" });
           return;
         }
 
         // For organization admins, verify they belong to the same organization (if organizationId is provided)
-        if (!isPlatformAdmin && organizationId && adminOrgId !== organizationId) {
+        if (!isPlatformOperator && organizationId && adminOrgId !== organizationId) {
           res.status(403).json({ error: "Unauthorized: Admin does not belong to this organization" });
           return;
         }
 
         // Verify all recipients belong to the same organization (for organization admins only)
-        if (!isPlatformAdmin && organizationId) {
+        if (!isPlatformOperator && organizationId) {
           const recipientIds = recipients
             .map((r: any) => r.userId)
             .filter((id: string) => id);
@@ -683,7 +683,7 @@ export const sendAdminEmail = functions.onRequest(
       }
 
       // Send email to all recipients
-      await getEmailService().sendCustomEmail(recipients, subject, body, fromAdmin, isPlatformAdmin);
+      await getEmailService().sendCustomEmail(recipients, subject, body, fromAdmin, isPlatformOperator);
 
       res.json({ success: true, message: `Email sent to ${recipients.length} recipient(s)` });
     } catch (error: unknown) {

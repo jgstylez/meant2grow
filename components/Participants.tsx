@@ -64,7 +64,7 @@ const Participants: React.FC<ParticipantsProps> = ({
     switch (role) {
       case Role.ADMIN:
         return "Organization Admin";
-      case Role.PLATFORM_ADMIN:
+      case Role.PLATFORM_OPERATOR:
         return "Platform Operator";
       case Role.MENTOR:
         return "Mentor";
@@ -77,16 +77,16 @@ const Participants: React.FC<ParticipantsProps> = ({
 
   // Check if user is admin (organization admin or platform admin)
   const userRoleString = currentUser ? String(currentUser.role) : "";
-  const isPlatformAdmin =
-    currentUser?.role === Role.PLATFORM_ADMIN ||
-    userRoleString === "PLATFORM_ADMIN" ||
+  const isPlatformOperator =
+    currentUser?.role === Role.PLATFORM_OPERATOR ||
+    userRoleString === "PLATFORM_OPERATOR" ||
     userRoleString === "PLATFORM_OPERATOR";
   const isOrgAdmin =
-    !isPlatformAdmin &&
+    !isPlatformOperator &&
     (currentUser?.role === Role.ADMIN ||
       userRoleString === "ORGANIZATION_ADMIN" ||
       userRoleString === "ADMIN");
-  const isAdmin = isOrgAdmin || isPlatformAdmin;
+  const isAdmin = isOrgAdmin || isPlatformOperator;
 
   // Get active matches for a user
   const getUserMatches = (userId: string): Match[] => {
@@ -164,7 +164,7 @@ const Participants: React.FC<ParticipantsProps> = ({
 
     // Verify user belongs to same organization (for organization admins only, platform admins can update any)
     if (
-      !isPlatformAdmin &&
+      !isPlatformOperator &&
       user &&
       organizationId &&
       user.organizationId !== organizationId

@@ -78,7 +78,7 @@ class RateLimiter {
 }
 
 // Create rate limiters for different query types
-export const platformAdminRateLimiter = new RateLimiter({
+export const platformOperatorRateLimiter = new RateLimiter({
   maxRequests: 100, // 100 requests
   windowMs: 60000, // per minute
 });

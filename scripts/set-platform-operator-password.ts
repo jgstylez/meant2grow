@@ -1,10 +1,10 @@
 /**
- * Script to set password for platform administrator
- * Usage: npm run set-platform-admin-password <email> <password>
- * Example: npm run set-platform-admin-password admin@meant2grow.com "SecurePassword123"
+ * Script to set password for platform operator
+ * Usage: npm run set-platform-operator-password <email> <password>
+ * Example: npm run set-platform-operator-password operator@meant2grow.com "SecurePassword123"
  * 
  * This script:
- * 1. Finds the platform admin user by email
+ * 1. Finds the platform operator user by email
  * 2. Creates or updates their Firebase Auth account with the provided password
  * 3. Links the firebaseAuthUid to the Firestore user document
  */
@@ -204,8 +204,8 @@ function validatePassword(password: string): { valid: boolean; error?: string } 
   return { valid: true };
 }
 
-async function setPlatformAdminPassword(email: string, password: string) {
-  console.log(`🔐 Setting password for platform administrator...\n`);
+async function setPlatformOperatorPassword(email: string, password: string) {
+  console.log(`🔐 Setting password for platform operator...\n`);
   console.log(`  Email: ${email}\n`);
 
   // Validate password
@@ -219,7 +219,7 @@ async function setPlatformAdminPassword(email: string, password: string) {
     // Normalize email
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Find platform admin user in Firestore
+    // Find platform operator user in Firestore
     const usersSnapshot = await db
       .collection("users")
       .where("email", "==", normalizedEmail)
@@ -228,7 +228,7 @@ async function setPlatformAdminPassword(email: string, password: string) {
 
     if (usersSnapshot.empty) {
       console.error(`❌ User with email ${email} not found in Firestore.`);
-      console.error(`   Please create the platform admin user first using:`);
+      console.error(`   Please create the platform operator user first using:`);
       console.error(`   npm run create:platform-operator ${email} "Platform Operator"`);
       process.exit(1);
     }
@@ -237,18 +237,19 @@ async function setPlatformAdminPassword(email: string, password: string) {
     const userData = userDoc.data();
     const userId = userDoc.id;
 
-    // Verify user is a platform admin
+    // Verify user is a platform operator
+    // Note: Role is stored as PLATFORM_OPERATOR in database
     const userRole = userData.role;
-    const isPlatformAdmin = userRole === "PLATFORM_ADMIN" || userRole === "PLATFORM_OPERATOR";
+    const isPlatformOperator = userRole === "PLATFORM_OPERATOR";
     
-    if (!isPlatformAdmin) {
-      console.error(`❌ User ${email} is not a platform administrator.`);
+    if (!isPlatformOperator) {
+      console.error(`❌ User ${email} is not a platform operator.`);
       console.error(`   Current role: ${userRole}`);
-      console.error(`   Expected role: PLATFORM_ADMIN or PLATFORM_OPERATOR`);
+      console.error(`   Expected role: PLATFORM_OPERATOR`);
       process.exit(1);
     }
 
-    console.log(`✅ Found platform admin user:`);
+    console.log(`✅ Found platform operator user:`);
     console.log(`   User ID: ${userId}`);
     console.log(`   Name: ${userData.name || "N/A"}`);
     console.log(`   Role: ${userRole}`);
@@ -305,10 +306,10 @@ async function setPlatformAdminPassword(email: string, password: string) {
         firebaseAuthUid: firebaseAuthUid,
       });
 
-      console.log(`\n✅ Successfully set password for platform administrator!`);
+      console.log(`\n✅ Successfully set password for platform operator!`);
       console.log(`   Firebase Auth UID: ${firebaseAuthUid}`);
       console.log(`   Email: ${normalizedEmail}`);
-      console.log(`\n📝 The platform administrator can now sign in with:`);
+      console.log(`\n📝 The platform operator can now sign in with:`);
       console.log(`   Email: ${normalizedEmail}`);
       console.log(`   Password: [the password you provided]`);
       console.log(`\n⚠️  Note: Email verification is set to ${firebaseUser.emailVerified ? 'verified' : 'unverified'}.`);
@@ -326,7 +327,7 @@ async function setPlatformAdminPassword(email: string, password: string) {
     }
 
   } catch (error: unknown) {
-    console.error("❌ Failed to set platform admin password:", getErrorMessage(error));
+    console.error("❌ Failed to set platform operator password:", getErrorMessage(error));
     process.exit(1);
   }
 }
@@ -335,9 +336,9 @@ async function setPlatformAdminPassword(email: string, password: string) {
 const args = process.argv.slice(2);
 
 if (args.length < 2) {
-  console.error("❌ Usage: npm run set-platform-admin-password <email> <password>");
-  console.error('   Example: npm run set-platform-admin-password admin@meant2grow.com "SecurePassword123"');
-  console.error('   Example (with special chars): npm run set-platform-admin-password admin@meant2grow.com \'!SecurePassword123\'');
+  console.error("❌ Usage: npm run set-platform-operator-password <email> <password>");
+  console.error('   Example: npm run set-platform-operator-password operator@meant2grow.com "SecurePassword123"');
+  console.error('   Example (with special chars): npm run set-platform-operator-password operator@meant2grow.com \'!SecurePassword123\'');
   console.error("\n⚠️  Password requirements:");
   console.error("   - At least 8 characters long");
   console.error("   - Contains at least one lowercase letter");
@@ -352,7 +353,7 @@ if (args.length < 2) {
 
 const [email, password] = args;
 
-setPlatformAdminPassword(email, password)
+setPlatformOperatorPassword(email, password)
   .then(() => {
     console.log("\n🎉 Done!");
     process.exit(0);

@@ -297,7 +297,7 @@ const App: React.FC = () => {
       const fallbackOperator: User = {
         id: originalOperatorId,
         organizationId: originalOrganizationId || '',
-        role: Role.PLATFORM_ADMIN, // Assume platform admin if we can't verify
+        role: Role.PLATFORM_OPERATOR, // Assume platform operator if we can't verify
         email: '',
         name: 'Original Operator',
         avatar: '',
@@ -935,16 +935,16 @@ const App: React.FC = () => {
         currentUserRole: currentUser?.role,
         currentUserOrgId: currentUser?.organizationId,
         // Note: Firestore rules check the authenticated user's document (authUser.uid)
-        // The authenticated user's role in Firestore must be PLATFORM_ADMIN or PLATFORM_OPERATOR
-        // for isPlatformAdmin() to return true when impersonating
+        // The authenticated user's role in Firestore must be PLATFORM_OPERATOR
+        // for isPlatformOperator() to return true when impersonating
       });
       
       // Provide more helpful error message
       let userFriendlyMessage = errorMessage || "Failed to create match";
       if (errorCode === "permission-denied") {
         if (isImpersonating && originalOperator) {
-          const isPlatformOp = originalOperator.role === Role.PLATFORM_ADMIN || 
-                               String(originalOperator.role) === "PLATFORM_ADMIN" ||
+          const isPlatformOp = originalOperator.role === Role.PLATFORM_OPERATOR || 
+                               String(originalOperator.role) === "PLATFORM_OPERATOR" ||
                                String(originalOperator.role) === "PLATFORM_OPERATOR";
           if (!isPlatformOp) {
             userFriendlyMessage = "Permission denied: Only platform operators can create matches when impersonating users from different organizations.";
@@ -1570,8 +1570,8 @@ const App: React.FC = () => {
           return <div className="p-8 text-center">Access denied.</div>;
         }
         const platformOpRoleStr = String(userForPlatformOpCheck.role);
-        const isPlatformOp = userForPlatformOpCheck.role === Role.PLATFORM_ADMIN || 
-                            platformOpRoleStr === "PLATFORM_ADMIN" || 
+        const isPlatformOp = userForPlatformOpCheck.role === Role.PLATFORM_OPERATOR || 
+                            platformOpRoleStr === "PLATFORM_OPERATOR" || 
                             platformOpRoleStr === "PLATFORM_OPERATOR";
         if (!isPlatformOp) {
           return <div className="p-8 text-center">Access denied.</div>;
@@ -1616,8 +1616,8 @@ const App: React.FC = () => {
             return <div className="p-8 text-center">Access denied.</div>;
           }
           const userMgmtRoleStr = String(userForAccessCheck.role);
-          const isPlatformOpForMgmt = userForAccessCheck.role === Role.PLATFORM_ADMIN || 
-                                     userMgmtRoleStr === "PLATFORM_ADMIN" || 
+          const isPlatformOpForMgmt = userForAccessCheck.role === Role.PLATFORM_OPERATOR || 
+                                     userMgmtRoleStr === "PLATFORM_OPERATOR" || 
                                      userMgmtRoleStr === "PLATFORM_OPERATOR";
           if (!isPlatformOpForMgmt) {
             return <div className="p-8 text-center">Access denied.</div>;

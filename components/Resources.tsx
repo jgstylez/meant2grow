@@ -77,9 +77,9 @@ const Resources: React.FC<ResourcesProps> = ({
   const [loading, setLoading] = useState(false);
 
   // Permission checks
-  const isPlatformAdmin = user.role === Role.PLATFORM_ADMIN;
+  const isPlatformOperator = user.role === Role.PLATFORM_OPERATOR;
   const isOrgAdmin = user.role === Role.ADMIN;
-  const canManage = isOrgAdmin || isPlatformAdmin;
+  const canManage = isOrgAdmin || isPlatformOperator;
 
   // Load recommended reading resources from Gemini
   useEffect(() => {

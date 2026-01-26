@@ -1,10 +1,12 @@
 /**
- * Script to update email for platform administrator
+ * Script to update email for platform operator
  * Usage: npm run update-platform-admin-email <old-email> <new-email>
  * Example: npm run update-platform-admin-email old@meant2grow.com new@meant2grow.com
  * 
+ * Note: "Platform Operator" is the preferred terminology. The role value stored in the database is `PLATFORM_OPERATOR`.
+ * 
  * This script:
- * 1. Finds the platform admin user by old email in Firestore
+ * 1. Finds the platform operator user by old email in Firestore
  * 2. Updates their email in Firestore
  * 3. Updates their email in Firebase Auth (if they have a Firebase Auth account)
  * 4. Handles conflicts if the new email already exists
@@ -136,8 +138,8 @@ function validateEmail(email: string): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
-async function updatePlatformAdminEmail(oldEmail: string, newEmail: string) {
-  console.log(`📧 Updating email for platform administrator...\n`);
+async function updatePlatformOperatorEmail(oldEmail: string, newEmail: string) {
+  console.log(`📧 Updating email for platform operator...\n`);
   console.log(`  Old Email: ${oldEmail}`);
   console.log(`  New Email: ${newEmail}\n`);
 
@@ -194,7 +196,7 @@ async function updatePlatformAdminEmail(oldEmail: string, newEmail: string) {
       // User not found is expected - new email is available
     }
 
-    // Find platform admin user in Firestore by old email
+    // Find platform operator user in Firestore by old email
     const usersSnapshot = await db
       .collection("users")
       .where("email", "==", normalizedOldEmail)
@@ -211,18 +213,19 @@ async function updatePlatformAdminEmail(oldEmail: string, newEmail: string) {
     const userData = userDoc.data();
     const userId = userDoc.id;
 
-    // Verify user is a platform admin
+    // Verify user is a platform operator
+    // Note: Role is stored as PLATFORM_OPERATOR in database
     const userRole = userData.role;
-    const isPlatformAdmin = userRole === "PLATFORM_ADMIN" || userRole === "PLATFORM_OPERATOR";
+    const isPlatformOperator = userRole === "PLATFORM_OPERATOR";
     
-    if (!isPlatformAdmin) {
-      console.error(`❌ User ${oldEmail} is not a platform administrator.`);
+    if (!isPlatformOperator) {
+      console.error(`❌ User ${oldEmail} is not a platform operator.`);
       console.error(`   Current role: ${userRole}`);
-      console.error(`   Expected role: PLATFORM_ADMIN or PLATFORM_OPERATOR`);
+      console.error(`   Expected role: PLATFORM_OPERATOR`);
       process.exit(1);
     }
 
-    console.log(`✅ Found platform admin user:`);
+    console.log(`✅ Found platform operator user:`);
     console.log(`   User ID: ${userId}`);
     console.log(`   Name: ${userData.name || "N/A"}`);
     console.log(`   Role: ${userRole}`);
@@ -291,14 +294,14 @@ async function updatePlatformAdminEmail(oldEmail: string, newEmail: string) {
       }
     }
 
-    console.log(`\n✅ Successfully updated email for platform administrator!`);
+    console.log(`\n✅ Successfully updated email for platform operator!`);
     console.log(`   Old Email: ${normalizedOldEmail}`);
     console.log(`   New Email: ${normalizedNewEmail}`);
-    console.log(`\n📝 The platform administrator can now sign in with:`);
+    console.log(`\n📝 The platform operator can now sign in with:`);
     console.log(`   Email: ${normalizedNewEmail}`);
 
   } catch (error: unknown) {
-    console.error("❌ Failed to update platform admin email:", getErrorMessage(error));
+    console.error("❌ Failed to update platform operator email:", getErrorMessage(error));
     process.exit(1);
   }
 }
@@ -319,7 +322,7 @@ if (args.length < 2) {
 
 const [oldEmail, newEmail] = args;
 
-updatePlatformAdminEmail(oldEmail, newEmail)
+updatePlatformOperatorEmail(oldEmail, newEmail)
   .then(() => {
     console.log("\n🎉 Done!");
     process.exit(0);

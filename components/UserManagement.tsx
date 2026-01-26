@@ -79,7 +79,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
   const [stats, setStats] = useState({
     totalUsers: 0,
-    platformAdmins: 0,
+    platformOperators: 0,
     orgAdmins: 0,
     mentors: 0,
     mentees: 0,
@@ -100,9 +100,9 @@ const UserManagement: React.FC<UserManagementProps> = ({
   
   // Check if current user is platform admin
   const userRoleString = String(currentUser.role);
-  const isPlatformAdmin =
-    currentUser.role === Role.PLATFORM_ADMIN ||
-                         userRoleString === "PLATFORM_ADMIN" || 
+  const isPlatformOperator =
+    currentUser.role === Role.PLATFORM_OPERATOR ||
+                         userRoleString === "PLATFORM_OPERATOR" || 
                          userRoleString === "PLATFORM_OPERATOR";
 
   // Use ref to track if data is currently loading to prevent concurrent loads
@@ -167,8 +167,8 @@ const UserManagement: React.FC<UserManagementProps> = ({
       // Filter out platform operators from users list
       const nonPlatformAdminUsers = allUsers.filter((u) => {
         const userRoleString = String(u.role);
-        return u.role !== Role.PLATFORM_ADMIN && 
-               userRoleString !== "PLATFORM_ADMIN" && 
+        return u.role !== Role.PLATFORM_OPERATOR && 
+               userRoleString !== "PLATFORM_OPERATOR" && 
                userRoleString !== "PLATFORM_OPERATOR";
       });
 
@@ -182,7 +182,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
       setStats({
         totalUsers: nonPlatformAdminUsers.length,
-        platformAdmins: 0, // Not shown in this page
+        platformOperators: 0, // Not shown in this page
         orgAdmins,
         mentors,
         mentees,
@@ -195,7 +195,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
       setOrganizations([]);
       setStats({
         totalUsers: 0,
-        platformAdmins: 0,
+        platformOperators: 0,
         orgAdmins: 0,
         mentors: 0,
         mentees: 0,
@@ -225,7 +225,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
         setOrganizations([]);
         setStats({
           totalUsers: 0,
-          platformAdmins: 0,
+          platformOperators: 0,
           orgAdmins: 0,
           mentors: 0,
           mentees: 0,
@@ -254,7 +254,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
   const getRoleIcon = (role: Role) => {
     switch (role) {
-      case Role.PLATFORM_ADMIN:
+      case Role.PLATFORM_OPERATOR:
         return <Crown className="w-4 h-4 text-amber-500" />;
       case Role.ADMIN:
         return <Shield className="w-4 h-4 text-blue-500" />;
@@ -269,7 +269,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
   const getRoleBadgeColor = (role: Role) => {
     switch (role) {
-      case Role.PLATFORM_ADMIN:
+      case Role.PLATFORM_OPERATOR:
         return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
       case Role.ADMIN:
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
@@ -368,7 +368,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
 
   const handleImpersonateUser = (user: User) => {
     // Security check: Only platform operators can impersonate
-    if (!isPlatformAdmin) {
+    if (!isPlatformOperator) {
       alert("Only platform operators can impersonate users.");
       return;
     }
@@ -524,7 +524,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
             Manage all users and organizations across the platform
           </p>
         </div>
-        {isPlatformAdmin && (
+        {isPlatformOperator && (
           <button
             onClick={() => setShowEmailModal(true)}
             className={`${BUTTON_PRIMARY} flex items-center gap-2 min-h-[44px] touch-manipulation w-full sm:w-auto`}
@@ -772,7 +772,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
                       >
                         <Edit2 className="w-5 h-5 sm:w-4 sm:h-4" />
                       </button>
-                      {isPlatformAdmin && user.id !== currentUser.id && (
+                      {isPlatformOperator && user.id !== currentUser.id && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1340,7 +1340,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
                   <Edit2 className="w-4 h-4 inline mr-2" />
                   Edit User
                 </button>
-                {isPlatformAdmin && selectedUser.id !== currentUser.id && (
+                {isPlatformOperator && selectedUser.id !== currentUser.id && (
                   <button
                     onClick={() => {
                       setSelectedUser(null);
@@ -1773,7 +1773,7 @@ const EditUserForm: React.FC<EditUserFormProps> = ({
             }
             className={INPUT_CLASS}
           >
-            <option value={Role.PLATFORM_ADMIN}>Platform Admin</option>
+            <option value={Role.PLATFORM_OPERATOR}>Platform Operator</option>
             <option value={Role.ADMIN}>Organization Admin</option>
             <option value={Role.MENTOR}>Mentor</option>
             <option value={Role.MENTEE}>Mentee</option>

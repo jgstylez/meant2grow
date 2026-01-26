@@ -61,20 +61,19 @@ async function checkUserRole(userId?: string) {
     console.log('  Organization ID:', userData?.organizationId);
     console.log('  Created:', userData?.createdAt?.toDate?.()?.toISOString() || userData?.createdAt);
 
-    // Check if user is platform admin
-    const isPlatformAdmin = 
-      userData?.role === 'PLATFORM_ADMIN' ||
+    // Check if user is platform operator
+    const isPlatformOperator = 
       userData?.role === 'PLATFORM_OPERATOR' ||
       userData?.organizationId === 'platform';
 
     console.log('\n📊 Permission check:');
-    console.log('  Is Platform Admin:', isPlatformAdmin ? '✅ Yes' : '❌ No');
+    console.log('  Is Platform Operator:', isPlatformOperator ? '✅ Yes' : '❌ No');
 
-    if (!isPlatformAdmin) {
-      console.log('\n⚠️  This user does not have platform admin permissions');
+    if (!isPlatformOperator) {
+      console.log('\n⚠️  This user does not have platform operator permissions');
       console.log('\nTo fix, you can either:');
-      console.log('1. Update the role to PLATFORM_ADMIN:');
-      console.log(`   firebase firestore:update users/${userId} role=PLATFORM_ADMIN`);
+      console.log('1. Update the role to PLATFORM_OPERATOR:');
+      console.log(`   firebase firestore:update users/${userId} role=PLATFORM_OPERATOR`);
       console.log('2. Set organizationId to "platform":');
       console.log(`   firebase firestore:update users/${userId} organizationId=platform`);
       console.log('\nOr run this script with --fix flag:');
@@ -82,10 +81,10 @@ async function checkUserRole(userId?: string) {
     }
 
     // Check for --fix flag
-    if (process.argv.includes('--fix') && !isPlatformAdmin) {
-      console.log('\n🔧 Updating user role to PLATFORM_ADMIN...');
+    if (process.argv.includes('--fix') && !isPlatformOperator) {
+      console.log('\n🔧 Updating user role to PLATFORM_OPERATOR...');
       await db.collection('users').doc(userId).update({
-        role: 'PLATFORM_ADMIN',
+        role: 'PLATFORM_OPERATOR',
       });
       console.log('✅ User role updated successfully');
       console.log('\nPlease refresh your browser to see the changes.');

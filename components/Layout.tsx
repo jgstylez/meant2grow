@@ -100,14 +100,14 @@ const Layout: React.FC<LayoutProps> = ({
 
     // Handle enum values
     if (role === Role.ADMIN) return "ORG ADMIN";
-    if (role === Role.PLATFORM_ADMIN) return "Platform Operator";
+    if (role === Role.PLATFORM_OPERATOR) return "Platform Operator";
     if (role === Role.MENTOR) return "Mentor";
     if (role === Role.MENTEE) return "Mentee";
 
     // Handle string values
     if (roleString === "ORGANIZATION_ADMIN" || roleString === "ADMIN")
       return "ORG ADMIN";
-    if (roleString === "PLATFORM_ADMIN" || roleString === "PLATFORM_OPERATOR")
+    if (roleString === "PLATFORM_OPERATOR")
       return "Platform Operator";
     if (roleString === "MENTOR") return "Mentor";
     if (roleString === "MENTEE") return "Mentee";
@@ -126,28 +126,27 @@ const Layout: React.FC<LayoutProps> = ({
   const userForNavigationChecks = currentUser;
   const userRoleString = String(userForNavigationChecks.role);
 
-  // Check platform admin first (must come before other checks)
+  // Check platform operator first (must come before other checks)
   // IMPORTANT: When impersonating, this should be false to hide platform operator navigation
-  const isPlatformAdmin =
+  const isPlatformOperator =
     !isImpersonating &&
-    (userForNavigationChecks.role === Role.PLATFORM_ADMIN ||
-      userRoleString === "PLATFORM_ADMIN" ||
+    (userForNavigationChecks.role === Role.PLATFORM_OPERATOR ||
       userRoleString === "PLATFORM_OPERATOR");
 
-  // Check organization admin (must come after platform admin check)
+  // Check organization admin (must come after platform operator check)
   const isAdmin =
-    !isPlatformAdmin &&
+    !isPlatformOperator &&
     (userForNavigationChecks.role === Role.ADMIN ||
       userRoleString === "ORGANIZATION_ADMIN" ||
       userRoleString === "ADMIN");
 
   const isMentor =
-    !isPlatformAdmin &&
+    !isPlatformOperator &&
     !isAdmin &&
     (userForNavigationChecks.role === Role.MENTOR || userRoleString === "MENTOR");
 
   const isMentee =
-    !isPlatformAdmin &&
+    !isPlatformOperator &&
     !isAdmin &&
     !isMentor &&
     (userForNavigationChecks.role === Role.MENTEE || userRoleString === "MENTEE");
@@ -197,7 +196,7 @@ const Layout: React.FC<LayoutProps> = ({
       return (
         u.organizationId === currentUser.organizationId &&
         (u.role === Role.ADMIN || roleStr === "ADMIN" || roleStr === "ORGANIZATION_ADMIN") &&
-        !(u.role === Role.PLATFORM_ADMIN || roleStr === "PLATFORM_ADMIN" || roleStr === "PLATFORM_OPERATOR") &&
+        !(u.role === Role.PLATFORM_OPERATOR || roleStr === "PLATFORM_OPERATOR") &&
         u.id !== currentUser.id // Don't select self if user is an admin
       );
     });
@@ -617,7 +616,7 @@ const Layout: React.FC<LayoutProps> = ({
               isFirst={true}
             />
 
-            {isPlatformAdmin && (
+            {isPlatformOperator && (
               <>
                 <NavItem
                   page="user-management"
@@ -664,7 +663,7 @@ const Layout: React.FC<LayoutProps> = ({
             <NavItem page="calendar" icon={CalendarIcon} label="Calendar" />
 
             {/* Community Links - Only show if there are items to display */}
-            {((isMentor || isAdmin) || (isMentee || isAdmin) || !isPlatformAdmin) && (
+            {((isMentor || isAdmin) || (isMentee || isAdmin) || !isPlatformOperator) && (
               <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
                 <p className="px-3 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">
                   Community
@@ -688,7 +687,7 @@ const Layout: React.FC<LayoutProps> = ({
                   />
                 )}
                 {/* Support: visible to all users except platform admins */}
-                {!isPlatformAdmin && (
+                {!isPlatformOperator && (
                   <button
                     onClick={handleSupportClick}
                     aria-label="Contact support"

@@ -519,7 +519,7 @@ export const createMatch = async (
             email: authUser.email,
             role: authUserData.role,
             organizationId: authUserData.organizationId,
-            isPlatformAdmin: authUserData.role === 'PLATFORM_ADMIN' || 
+            isPlatformOperator: authUserData.role === 'PLATFORM_OPERATOR' || 
                            authUserData.role === 'PLATFORM_OPERATOR' ||
                            authUserData.organizationId === 'platform',
             belongsToTargetOrg: authUserData.organizationId === matchData.organizationId,

@@ -2,7 +2,7 @@
 
 ## Problem
 
-When running `npm run set-platform-admin-password`, you see this error:
+When running `npm run set-platform-operator-password`, you see this error:
 
 ```
 ❌ Firebase Auth error: Credential implementation provided to initializeApp() via the "credential" property has insufficient permission to access the requested resource.
@@ -38,7 +38,7 @@ Grant the service account the **Firebase Admin SDK Administrator Service Agent**
 
 6. **Try again:**
    ```bash
-   npm run set-platform-admin-password support@meant2grow.com '!Meant2Grow'
+   npm run set-platform-operator-password support@meant2grow.com '!Meant2Grow'
    ```
 
 ## Alternative Roles (if the above doesn't work)

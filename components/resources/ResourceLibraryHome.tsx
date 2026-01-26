@@ -9,9 +9,9 @@ interface ResourceLibraryHomeProps {
 }
 
 export const ResourceLibraryHome: React.FC<ResourceLibraryHomeProps> = ({ user, onViewChange }) => {
-    const isPlatformAdmin = user.role === Role.PLATFORM_ADMIN;
+    const isPlatformOperator = user.role === Role.PLATFORM_OPERATOR;
     const isOrgAdmin = user.role === Role.ADMIN;
-    const canManage = isOrgAdmin || isPlatformAdmin;
+    const canManage = isOrgAdmin || isPlatformOperator;
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">

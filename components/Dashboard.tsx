@@ -32,8 +32,8 @@ import {
   exportRatingsToCSV,
   exportToPDF,
 } from "../utils/exportUtils";
-import { platformAdminCache, cacheKeys } from "../utils/cache";
-import { platformAdminRateLimiter } from "../utils/rateLimiter";
+import { platformOperatorCache, cacheKeys } from "../utils/cache";
+import { platformOperatorRateLimiter } from "../utils/rateLimiter";
 import { logger } from "../services/logger";
 import { parseDurationToHours } from "../services/utils";
 import {
@@ -114,26 +114,24 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Role checks - handle both enum and string values for robustness
   const userRoleString = String(user.role);
 
-  // Check both enum and string value for platform operator (database stores as string "PLATFORM_ADMIN")
-  // Also check for legacy "PLATFORM_OPERATOR" value for backwards compatibility
+  // Check both enum and string value for platform operator (database stores as string "PLATFORM_OPERATOR")
   // THIS CHECK MUST COME FIRST before admin/mentor checks
   // IMPORTANT: When impersonating, NEVER show platform operator dashboard - always show impersonated user's dashboard
-  const isPlatformAdmin =
+  const isPlatformOperator =
     !isImpersonating &&
-    (user.role === Role.PLATFORM_ADMIN ||
-      userRoleString === "PLATFORM_ADMIN" ||
+    (user.role === Role.PLATFORM_OPERATOR ||
       userRoleString === "PLATFORM_OPERATOR");
 
   // Check for organization admin - handle both "ORGANIZATION_ADMIN" and "ADMIN" values
   // Must check AFTER platform operator to avoid conflicts
   const isAdmin =
-    !isPlatformAdmin &&
+    !isPlatformOperator &&
     (user.role === Role.ADMIN ||
       userRoleString === "ORGANIZATION_ADMIN" ||
       userRoleString === "ADMIN");
 
   const isMentor =
-    !isPlatformAdmin &&
+    !isPlatformOperator &&
     !isAdmin &&
     (user.role === Role.MENTOR || userRoleString === "MENTOR");
 
@@ -164,7 +162,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [allGoals, setAllGoals] = useState<Goal[]>([]);
   const [allRatings, setAllRatings] = useState<Rating[]>([]);
-  const [platformAdminLoading, setPlatformAdminLoading] = useState(true);
+  const [platformOperatorLoading, setPlatformOperatorLoading] = useState(true);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   
@@ -516,30 +514,30 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // --- PLATFORM OPERATOR VIEW ---
   // Load platform operator data
-  // Memoize isPlatformAdmin to prevent unnecessary re-renders
-  const isPlatformAdminMemo = useMemo(
-    () => isPlatformAdmin,
+  // Memoize isPlatformOperator to prevent unnecessary re-renders
+  const isPlatformOperatorMemo = useMemo(
+    () => isPlatformOperator,
     [user.role, userRoleString]
   );
 
   // Load paginated users
   useEffect(() => {
-    if (isPlatformAdminMemo && !useRealTime) {
+    if (isPlatformOperatorMemo && !useRealTime) {
       let cancelled = false;
       const loadPaginatedUsers = async () => {
         try {
           setUsersLoading(true);
           
           // Check rate limit
-          if (!platformAdminRateLimiter.isAllowed(`users:${user.id}`)) {
-            const remaining = platformAdminRateLimiter.getRemaining(`users:${user.id}`);
+          if (!platformOperatorRateLimiter.isAllowed(`users:${user.id}`)) {
+            const remaining = platformOperatorRateLimiter.getRemaining(`users:${user.id}`);
             logger.warn(`Rate limit reached. ${remaining} requests remaining.`);
             return;
           }
 
           // Check cache first
           const cacheKey = `users:page:${usersPage}:filter:${roleFilter}:${orgFilter}`;
-          const cached = platformAdminCache.get<User[]>(cacheKey);
+          const cached = platformOperatorCache.get<User[]>(cacheKey);
           if (cached) {
             setPaginatedUsers(cached);
             setUsersLoading(false);
@@ -570,7 +568,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           setUsersHasMore(result.hasMore);
 
           // Cache the result
-          platformAdminCache.set(cacheKey, result.data, 30000); // 30 second cache
+          platformOperatorCache.set(cacheKey, result.data, 30000); // 30 second cache
         } catch (error) {
           if (cancelled) return;
           logger.error("Error loading paginated users", error);
@@ -587,15 +585,15 @@ const Dashboard: React.FC<DashboardProps> = ({
         cancelled = true;
       };
     }
-  }, [isPlatformAdminMemo, usersPage, roleFilter, orgFilter, dateRangeFilter, useRealTime, usersLastDoc, usersPerPage, user.id]);
+  }, [isPlatformOperatorMemo, usersPage, roleFilter, orgFilter, dateRangeFilter, useRealTime, usersLastDoc, usersPerPage, user.id]);
 
   // Real-time subscriptions for platform admin
   useEffect(() => {
-    if (isPlatformAdminMemo && useRealTime) {
+    if (isPlatformOperatorMemo && useRealTime) {
       let cancelled = false;
 
       // Check rate limit for subscriptions
-      if (!platformAdminRateLimiter.isAllowed(`subscriptions:${user.id}`)) {
+      if (!platformOperatorRateLimiter.isAllowed(`subscriptions:${user.id}`)) {
         logger.warn("Rate limit reached for subscriptions. Falling back to one-time fetch.");
         setUseRealTime(false);
         return;
@@ -624,7 +622,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             setPaginatedUsers(filtered.slice(0, usersPerPage * usersPage));
           }
         },
-        platformAdminCache
+        platformOperatorCache
       );
 
       const unsubscribeOrgs = subscribeToAllOrganizations(
@@ -633,7 +631,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             setAllOrganizations(orgs);
           }
         },
-        platformAdminCache
+        platformOperatorCache
       );
 
       return () => {
@@ -642,15 +640,15 @@ const Dashboard: React.FC<DashboardProps> = ({
         unsubscribeOrgs();
       };
     }
-  }, [isPlatformAdminMemo, useRealTime, roleFilter, orgFilter, dateRangeFilter, usersPage, usersPerPage, user.id]);
+  }, [isPlatformOperatorMemo, useRealTime, roleFilter, orgFilter, dateRangeFilter, usersPage, usersPerPage, user.id]);
 
   // Load other platform data (matches, goals, ratings, events)
   useEffect(() => {
-    if (isPlatformAdminMemo) {
+    if (isPlatformOperatorMemo) {
       let cancelled = false;
       const loadPlatformData = async () => {
         try {
-          setPlatformAdminLoading(true);
+          setPlatformOperatorLoading(true);
           logger.debug("Loading platform operator data...");
 
           // Check cache first
@@ -659,22 +657,22 @@ const Dashboard: React.FC<DashboardProps> = ({
           const ratingsCacheKey = cacheKeys.allRatings();
           const eventsCacheKey = cacheKeys.allCalendarEvents();
 
-          const cachedMatches = platformAdminCache.get<Match[]>(matchesCacheKey);
-          const cachedGoals = platformAdminCache.get<Goal[]>(goalsCacheKey);
-          const cachedRatings = platformAdminCache.get<Rating[]>(ratingsCacheKey);
-          const cachedEvents = platformAdminCache.get<CalendarEvent[]>(eventsCacheKey);
+          const cachedMatches = platformOperatorCache.get<Match[]>(matchesCacheKey);
+          const cachedGoals = platformOperatorCache.get<Goal[]>(goalsCacheKey);
+          const cachedRatings = platformOperatorCache.get<Rating[]>(ratingsCacheKey);
+          const cachedEvents = platformOperatorCache.get<CalendarEvent[]>(eventsCacheKey);
 
           if (cachedMatches && cachedGoals && cachedRatings && cachedEvents) {
             setAllMatches(cachedMatches);
             setAllGoals(cachedGoals);
             setAllRatings(cachedRatings);
             setAllCalendarEvents(cachedEvents);
-            setPlatformAdminLoading(false);
+            setPlatformOperatorLoading(false);
             return;
           }
 
           // Check rate limit
-          if (!platformAdminRateLimiter.isAllowed(`platform-data:${user.id}`)) {
+          if (!platformOperatorRateLimiter.isAllowed(`platform-data:${user.id}`)) {
             logger.warn("Rate limit reached for platform data");
             return;
           }
@@ -706,10 +704,10 @@ const Dashboard: React.FC<DashboardProps> = ({
           setAllRatings(ratingsData);
 
           // Cache the results
-          platformAdminCache.set(matchesCacheKey, matchesData, 60000);
-          platformAdminCache.set(goalsCacheKey, goalsData, 60000);
-          platformAdminCache.set(ratingsCacheKey, ratingsData, 60000);
-          platformAdminCache.set(eventsCacheKey, eventsData, 60000);
+          platformOperatorCache.set(matchesCacheKey, matchesData, 60000);
+          platformOperatorCache.set(goalsCacheKey, goalsData, 60000);
+          platformOperatorCache.set(ratingsCacheKey, ratingsData, 60000);
+          platformOperatorCache.set(eventsCacheKey, eventsData, 60000);
         } catch (error) {
           if (cancelled) return;
           logger.error("Error loading platform operator data", error);
@@ -720,7 +718,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 userId: user.id,
                 role: user.role,
                 organizationId: user.organizationId,
-                isPlatformAdmin,
+                isPlatformOperator,
               });
             }
           }
@@ -730,7 +728,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           setAllRatings([]);
         } finally {
           if (!cancelled) {
-            setPlatformAdminLoading(false);
+            setPlatformOperatorLoading(false);
           }
         }
       };
@@ -740,11 +738,11 @@ const Dashboard: React.FC<DashboardProps> = ({
         cancelled = true;
       };
     }
-  }, [isPlatformAdminMemo, user.id]);
+  }, [isPlatformOperatorMemo, user.id]);
 
   // Check both the role enum and string comparison for safety - Platform Operator should see platform dashboard
   // This check MUST come first before admin/mentor/mentee checks
-  if (isPlatformAdmin) {
+  if (isPlatformOperator) {
     // Calculate platform-wide metrics
     const activeMatches = allMatches.filter(
       (m) => m.status === MatchStatus.ACTIVE
@@ -777,7 +775,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     const platformStats = {
       totalUsers: allUsers.length,
-      platformAdmins: allUsers.filter((u) => u.role === Role.PLATFORM_ADMIN)
+      platformOperators: allUsers.filter((u) => u.role === Role.PLATFORM_OPERATOR)
         .length,
       orgAdmins: allUsers.filter((u) => u.role === Role.ADMIN).length,
       mentors: allUsers.filter((u) => u.role === Role.MENTOR).length,
@@ -810,7 +808,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     const getRoleIcon = (role: Role) => {
       switch (role) {
-        case Role.PLATFORM_ADMIN:
+        case Role.PLATFORM_OPERATOR:
           return <Crown className="w-3 h-3 text-amber-500" />;
         case Role.ADMIN:
           return <Shield className="w-3 h-3 text-blue-500" />;
@@ -825,7 +823,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     const getRoleBadgeColor = (role: Role) => {
       switch (role) {
-        case Role.PLATFORM_ADMIN:
+        case Role.PLATFORM_OPERATOR:
           return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
         case Role.ADMIN:
           return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
@@ -867,7 +865,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       switch (role) {
         case Role.ADMIN:
           return "Organization Admin";
-        case Role.PLATFORM_ADMIN:
+        case Role.PLATFORM_OPERATOR:
           return "Platform Operator";
         case Role.MENTOR:
           return "Mentor";
@@ -908,7 +906,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
-            {platformAdminLoading ? (
+            {platformOperatorLoading ? (
               <div className="text-center py-8 text-slate-500">Loading...</div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -1005,7 +1003,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 Total Users
               </div>
               <div className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-white">
-                {platformAdminLoading ? "..." : platformStats.totalUsers}
+                {platformOperatorLoading ? "..." : platformStats.totalUsers}
               </div>
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
@@ -1013,7 +1011,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <UserCheck className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Mentees</span>
               </div>
               <div className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600">
-                {platformAdminLoading ? "..." : platformStats.mentees}
+                {platformOperatorLoading ? "..." : platformStats.mentees}
               </div>
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
@@ -1021,7 +1019,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <GraduationCap className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Mentors</span>
               </div>
               <div className="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-600">
-                {platformAdminLoading ? "..." : platformStats.mentors}
+                {platformOperatorLoading ? "..." : platformStats.mentors}
               </div>
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
@@ -1029,7 +1027,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <Building className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Organizations</span>
               </div>
               <div className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-white">
-                {platformAdminLoading ? "..." : platformStats.totalOrgs}
+                {platformOperatorLoading ? "..." : platformStats.totalOrgs}
               </div>
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
@@ -1037,7 +1035,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <Shield className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Org Admins</span>
               </div>
               <div className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">
-                {platformAdminLoading ? "..." : platformStats.orgAdmins}
+                {platformOperatorLoading ? "..." : platformStats.orgAdmins}
               </div>
             </div>
             <div className={CARD_CLASS + " p-3 sm:p-4"}>
@@ -1045,7 +1043,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <Crown className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Operators</span>
               </div>
               <div className="text-lg sm:text-xl lg:text-2xl font-bold text-amber-600">
-                {platformAdminLoading ? "..." : platformStats.platformAdmins}
+                {platformOperatorLoading ? "..." : platformStats.platformOperators}
               </div>
             </div>
           </div>
@@ -1112,7 +1110,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   View All <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
-              {platformAdminLoading ? (
+              {platformOperatorLoading ? (
                 <div className="text-center py-3 text-slate-500 text-xs">
                   Loading...
                 </div>
@@ -1264,13 +1262,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                       setRoleFilter(e.target.value as Role | "ALL");
                       setUsersPage(1);
                       setUsersLastDoc(null);
-                      platformAdminCache.invalidatePattern("users:page:");
+                      platformOperatorCache.invalidatePattern("users:page:");
                     }}
                     className={INPUT_CLASS + " text-sm min-h-[44px]"}
                     aria-label="Filter users by role"
                   >
                     <option value="ALL">All Roles</option>
-                    <option value={Role.PLATFORM_ADMIN}>Platform Admin</option>
+                    <option value={Role.PLATFORM_OPERATOR}>Platform Operator</option>
                     <option value={Role.ADMIN}>Organization Admin</option>
                     <option value={Role.MENTOR}>Mentor</option>
                     <option value={Role.MENTEE}>Mentee</option>
@@ -1289,7 +1287,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       setOrgFilter(e.target.value);
                       setUsersPage(1);
                       setUsersLastDoc(null);
-                      platformAdminCache.invalidatePattern("users:page:");
+                      platformOperatorCache.invalidatePattern("users:page:");
                     }}
                     className={INPUT_CLASS + " text-sm min-h-[44px]"}
                     aria-label="Filter users by organization"
@@ -1415,7 +1413,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       setDateRangeFilter(null);
                       setUsersPage(1);
                       setUsersLastDoc(null);
-                      platformAdminCache.invalidatePattern("users:page:");
+                      platformOperatorCache.invalidatePattern("users:page:");
                     }}
                     className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline min-h-[32px] touch-manipulation"
                     aria-label="Clear all filters"
@@ -1446,7 +1444,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             {/* Users List */}
-            {(platformAdminLoading || usersLoading) ? (
+            {(platformOperatorLoading || usersLoading) ? (
               <div className="text-center py-8 text-slate-500">
                 Loading users...
               </div>
@@ -1574,7 +1572,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {platformAdminLoading ? (
+              {platformOperatorLoading ? (
                 <div className="text-center py-8 text-slate-500">
                   Loading...
                 </div>
@@ -1669,7 +1667,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {platformAdminLoading ? (
+              {platformOperatorLoading ? (
                 <div className="text-center py-8 text-slate-500">
                   Loading...
                 </div>
@@ -1759,7 +1757,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               )}
             </div>
 
-            {platformAdminLoading ? (
+            {platformOperatorLoading ? (
               <div className="text-center py-8 text-slate-500">Loading...</div>
             ) : (
               <div className="space-y-6">
@@ -2317,11 +2315,11 @@ const Dashboard: React.FC<DashboardProps> = ({
           {/* Management Actions */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
             {/* Manage Users */}
-            {(isPlatformAdmin || isAdmin) && (
+            {(isPlatformOperator || isAdmin) && (
               <button
                 type="button"
                 onClick={() => {
-                  if (isPlatformAdmin) {
+                  if (isPlatformOperator) {
                     onNavigate("user-management:users");
                   } else if (isAdmin) {
                     onNavigate("participants");

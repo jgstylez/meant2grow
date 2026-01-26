@@ -2,7 +2,7 @@
 
 This guide provides step-by-step instructions for creating new Platform Operator accounts.
 
-**Note:** "Platform Operator" is the preferred terminology throughout this documentation. The role value stored in the database is `PLATFORM_ADMIN` for technical reasons, but we refer to these users as "Platform Operators" for clarity and consistency.
+**Note:** "Platform Operator" is the preferred terminology throughout this documentation. The role value stored in the database is `PLATFORM_OPERATOR`.
 
 ## Prerequisites
 
@@ -30,17 +30,17 @@ This is the easiest method if you're already logged in as a Platform Operator.
 
 5. **Set the password** (required before they can sign in):
    ```bash
-   npm run set-platform-admin-password <email> <password>
+   npm run set-platform-operator-password <email> <password>
    ```
    
    Example:
    ```bash
-   npm run set-platform-admin-password operator@meant2grow.com "SecurePassword123"
+   npm run set-platform-operator-password operator@meant2grow.com "SecurePassword123"
    ```
    
    **Important:** If your password contains special characters (especially `!`), use single quotes instead of double quotes to prevent shell expansion:
    ```bash
-   npm run set-platform-admin-password operator@meant2grow.com '!SecurePassword123'
+   npm run set-platform-operator-password operator@meant2grow.com '!SecurePassword123'
    ```
 
 6. **Verify creation:**
@@ -90,18 +90,18 @@ Use this method when creating the very first Platform Operator, or when you don'
 
 5. **Set the password** (required before they can sign in):
    ```bash
-   npm run set-platform-admin-password <email> <password>
+   npm run set-platform-operator-password <email> <password>
    ```
    
    Example:
    ```bash
-   npm run set-platform-admin-password operator@meant2grow.com "SecurePassword123"
+   npm run set-platform-operator-password operator@meant2grow.com "SecurePassword123"
    ```
    
    **Important:** 
    - If your password contains special characters (especially `!`), use single quotes instead of double quotes to prevent shell expansion:
      ```bash
-     npm run set-platform-admin-password operator@meant2grow.com '!SecurePassword123'
+     npm run set-platform-operator-password operator@meant2grow.com '!SecurePassword123'
      ```
    - Make sure you're using the same Firebase environment as when you created the user (run `firebase use sandbox` or `firebase use production` first)
 
@@ -150,20 +150,20 @@ Use this method only if the other methods are unavailable.
    - Set the following fields:
      - `email`: Platform Operator's email (e.g., `operator@meant2grow.com`)
      - `name`: Their full name (e.g., `Jane Doe`)
-     - `role`: `PLATFORM_ADMIN` (must be exactly this, case-sensitive)
+     - `role`: `PLATFORM_OPERATOR` (must be exactly this, case-sensitive)
      - `organizationId`: `platform` (must be exactly this, lowercase)
      - `avatar`: `https://ui-avatars.com/api/?name=Jane+Doe&background=10b981&color=fff`
      - `title`: `Platform Operator`
      - `company`: `Meant2Grow`
      - `skills`: `[]` (empty array)
-     - `bio`: `Platform administrator for Meant2Grow`
+     - `bio`: `Platform operator for Meant2Grow`
      - `createdAt`: Click the timestamp icon to set current time
 
 4. **Save the document**
 
 5. **Set the password** (required before they can sign in):
    ```bash
-   npm run set-platform-admin-password <email> <password>
+   npm run set-platform-operator-password <email> <password>
    ```
 
 ---
@@ -177,12 +177,12 @@ Choose one of the three methods above.
 
 ### 2. Set the Password
 ```bash
-npm run set-platform-admin-password <email> <password>
+npm run set-platform-operator-password <email> <password>
 ```
 
 ### 3. Verify Account Creation
 Check that the user exists in Firestore with:
-- `role` = `PLATFORM_ADMIN`
+- `role` = `PLATFORM_OPERATOR`
 - `organizationId` = `platform`
 - `email` = correct email address
 
@@ -199,17 +199,17 @@ Check that the user exists in Firestore with:
 
 ### Update Email:
 ```bash
-npm run update-platform-admin-email <old-email> <new-email>
+npm run update-platform-operator-email <old-email> <new-email>
 ```
 
 ### Update Password:
 ```bash
-npm run set-platform-admin-password <email> <new-password>
+npm run set-platform-operator-password <email> <new-password>
 ```
 
 **Note:** If your password contains special characters (especially `!`), use single quotes:
 ```bash
-npm run set-platform-admin-password <email> '!PasswordWithSpecialChars'
+npm run set-platform-operator-password <email> '!PasswordWithSpecialChars'
 ```
 
 ### Update via UI:
@@ -256,23 +256,23 @@ Once created and logged in, Platform Operators can:
 
 **Via Script:**
 ```bash
-npm run create:platform-admin <email> "<name>"
+npm run create:platform-operator <email> "<name>"
 ```
 
 **Set Password:**
 ```bash
-npm run set-platform-admin-password <email> <password>
+npm run set-platform-operator-password <email> <password>
 ```
 
 **Update Email:**
 ```bash
-npm run update-platform-admin-email <old-email> <new-email>
+npm run update-platform-operator-email <old-email> <new-email>
 ```
 
 ### Verify Platform Operator Status
 
 Check Firestore document `users/{userId}`:
-- `role` = `"PLATFORM_ADMIN"`
+- `role` = `"PLATFORM_OPERATOR"`
 - `organizationId` = `"platform"`
 - `email` = correct email address
 
@@ -289,20 +289,20 @@ Check Firestore document `users/{userId}`:
 ### Issue: Platform Operator can't sign in
 
 **Check:**
-1. Password was set using `set-platform-admin-password` script
+1. Password was set using `set-platform-operator-password` script
 2. Email address is correct (case-insensitive)
 3. User exists in Firestore with correct role
 4. Firebase Auth account exists (check `firebaseAuthUid` field in Firestore)
 
 **Solution:**
 ```bash
-npm run set-platform-admin-password <email> <password>
+npm run set-platform-operator-password <email> <password>
 ```
 
 ### Issue: Platform Operator sees regular dashboard instead of Platform Operator Dashboard
 
 **Check:**
-1. User role in Firestore is `PLATFORM_ADMIN` (not `ADMIN`)
+1. User role in Firestore is `PLATFORM_OPERATOR` (not `ADMIN`)
 2. `organizationId` is `platform` (lowercase)
 3. Browser cache/localStorage cleared
 4. User signed out and signed back in

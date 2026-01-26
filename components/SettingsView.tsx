@@ -55,19 +55,18 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     
     // Robust role checks - handle both enum values and raw string values from database
     // Use useMemo to ensure proper initialization order
-    const { isPlatformAdmin, isOrgAdmin } = useMemo(() => {
+    const { isPlatformOperator, isOrgAdmin } = useMemo(() => {
         const userRoleString = String(user.role);
-        const platformAdmin = user.role === Role.PLATFORM_ADMIN || 
-                            userRoleString === "PLATFORM_ADMIN" || 
+        const platformOperator = user.role === Role.PLATFORM_OPERATOR || 
                             userRoleString === "PLATFORM_OPERATOR";
         
-        const orgAdmin = !platformAdmin && (
+        const orgAdmin = !platformOperator && (
             user.role === Role.ADMIN || 
             userRoleString === "ORGANIZATION_ADMIN" || 
             userRoleString === "ADMIN"
         );
         
-        return { isPlatformAdmin: platformAdmin, isOrgAdmin: orgAdmin };
+        return { isPlatformOperator: platformOperator, isOrgAdmin: orgAdmin };
     }, [user.role]);
     const [formData, setFormData] = useState(user);
     const [showSuccess, setShowSuccess] = useState(false);
@@ -364,7 +363,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     // - Platform Operators: all except billing (they don't manage org billing)
     // - Organization Admins: all tabs (they manage their org's billing)
     // - Mentors/Mentees: all except billing
-    const visibleTabs = isPlatformAdmin
+    const visibleTabs = isPlatformOperator
         ? tabs.filter(t => t.id !== 'billing')
         : isOrgAdmin
             ? tabs
@@ -372,14 +371,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
 
     // Redirect platform operators away from billing tab if they somehow land on it
     useEffect(() => {
-        if (isPlatformAdmin && activeTab === 'billing') {
+        if (isPlatformOperator && activeTab === 'billing') {
             setActiveTab('profile');
         }
         // Redirect away from platform-admin tab (now a separate page)
         if (activeTab === 'platform-admin') {
             setActiveTab('profile');
         }
-    }, [isPlatformAdmin, activeTab]);
+    }, [isPlatformOperator, activeTab]);
 
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     

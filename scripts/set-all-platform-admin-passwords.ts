@@ -1,11 +1,13 @@
 /**
- * Script to set passwords for all platform administrators
+ * Script to set passwords for all platform operators
  * Usage: npm run set-all-platform-admin-passwords [--password "DefaultPassword123"]
  * 
  * If no password is provided, generates a random secure password for each user.
  * 
+ * Note: "Platform Operator" is the preferred terminology. The role value stored in the database is `PLATFORM_OPERATOR`.
+ * 
  * This script:
- * 1. Finds all platform admin users in Firestore
+ * 1. Finds all platform operator users in Firestore
  * 2. Creates or updates their Firebase Auth accounts with passwords
  * 3. Links the firebaseAuthUid to the Firestore user documents
  */
@@ -161,7 +163,7 @@ function validatePassword(password: string): { valid: boolean; error?: string } 
   return { valid: true };
 }
 
-async function setPasswordForPlatformAdmin(
+async function setPasswordForPlatformOperator(
   userId: string,
   email: string,
   name: string,
@@ -231,21 +233,22 @@ async function setPasswordForPlatformAdmin(
 }
 
 async function setAllPlatformAdminPasswords(defaultPassword?: string) {
-  console.log(`🔐 Setting passwords for all platform administrators...\n`);
+  console.log(`🔐 Setting passwords for all platform operators...\n`);
 
   try {
-    // Find all platform admin users
+    // Find all platform operator users
+    // Note: Role is stored as PLATFORM_OPERATOR in database
     const usersSnapshot = await db
       .collection("users")
-      .where("role", "in", ["PLATFORM_ADMIN", "PLATFORM_OPERATOR"])
+      .where("role", "==", "PLATFORM_OPERATOR")
       .get();
 
     if (usersSnapshot.empty) {
-      console.log("ℹ️  No platform administrators found in Firestore.");
+      console.log("ℹ️  No platform operators found in Firestore.");
       return;
     }
 
-    console.log(`Found ${usersSnapshot.size} platform administrator(s):\n`);
+    console.log(`Found ${usersSnapshot.size} platform operator(s):\n`);
 
     const results: Array<{
       email: string;
@@ -256,12 +259,12 @@ async function setAllPlatformAdminPasswords(defaultPassword?: string) {
       error?: string;
     }> = [];
 
-    // Process each platform admin
+    // Process each platform operator
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
       const userId = userDoc.id;
       const email = userData.email;
-      const name = userData.name || "Platform Admin";
+      const name = userData.name || "Platform Operator";
 
       if (!email) {
         console.log(`⚠️  Skipping user ${userId} - no email address`);
@@ -288,7 +291,7 @@ async function setAllPlatformAdminPasswords(defaultPassword?: string) {
 
       console.log(`Processing: ${email} (${name})...`);
 
-      const result = await setPasswordForPlatformAdmin(userId, email, name, password);
+      const result = await setPasswordForPlatformOperator(userId, email, name, password);
 
       if (result.success) {
         console.log(`  ✅ Success! Firebase Auth UID: ${result.firebaseAuthUid}`);
@@ -341,13 +344,13 @@ async function setAllPlatformAdminPasswords(defaultPassword?: string) {
     // Save passwords to a file for reference
     if (successful.length > 0) {
       const fs = await import('fs');
-      const passwordsFile = resolve(__dirname, '../platform-admin-passwords.txt');
+      const passwordsFile = resolve(__dirname, '../platform-operator-passwords.txt');
       const content = successful.map(r => 
         `${r.email} | ${r.password} | ${r.firebaseAuthUid}`
       ).join('\n');
       
       fs.writeFileSync(passwordsFile, 
-        `Platform Administrator Passwords\n` +
+        `Platform Operator Passwords\n` +
         `Generated: ${new Date().toISOString()}\n` +
         `${'='.repeat(60)}\n\n` +
         `Email | Password | Firebase Auth UID\n` +
@@ -355,12 +358,12 @@ async function setAllPlatformAdminPasswords(defaultPassword?: string) {
         content + '\n'
       );
       
-      console.log(`\n💾 Passwords saved to: platform-admin-passwords.txt`);
+      console.log(`\n💾 Passwords saved to: platform-operator-passwords.txt`);
       console.log(`   ⚠️  Keep this file secure and delete it after use!`);
     }
 
   } catch (error: unknown) {
-    console.error("❌ Failed to set platform admin passwords:", getErrorMessage(error));
+    console.error("❌ Failed to set platform operator passwords:", getErrorMessage(error));
     process.exit(1);
   }
 }

@@ -150,8 +150,8 @@ export const useOrganizationData = (
       setLoading(true);
       setError(null);
 
-      // Check if this is a platform admin (organizationId === "platform" or role is PLATFORM_ADMIN)
-      const isPlatformAdmin = organizationId === "platform";
+      // Check if this is a platform operator (organizationId === "platform" or role is PLATFORM_OPERATOR)
+      const isPlatformOperator = organizationId === "platform";
 
       // Check cache first for initial load
       const cacheKey = `org-${organizationId}`;
@@ -187,14 +187,13 @@ export const useOrganizationData = (
           5 * 60 * 1000
         );
 
-        // For platform admins, set loading to false once user is loaded
-        // Also verify user role matches platform admin (check both enum and string values)
+        // For platform operators, set loading to false once user is loaded
+        // Also verify user role matches platform operator (check both enum and string values)
         const userRoleString = user?.role ? String(user.role) : "";
-        const isUserPlatformAdmin = isPlatformAdmin || 
-                                    user?.role === Role.PLATFORM_ADMIN || 
-                                    userRoleString === "PLATFORM_ADMIN" || 
+        const isUserPlatformOperator = isPlatformOperator || 
+                                    user?.role === Role.PLATFORM_OPERATOR || 
                                     userRoleString === "PLATFORM_OPERATOR";
-        if (isUserPlatformAdmin) {
+        if (isUserPlatformOperator) {
           setLoading(false);
           // Platform admins don't have organization data
           setOrganization(null);
@@ -215,8 +214,8 @@ export const useOrganizationData = (
       });
       unsubscribesRef.current.push(unsubscribeUser);
 
-      // Skip organization-specific subscriptions for platform admins
-      if (isPlatformAdmin) {
+      // Skip organization-specific subscriptions for platform operators
+      if (isPlatformOperator) {
         // Platform admins don't have an organization, so set these to empty/null
         setOrganization(null);
         setProgramSettings(null);

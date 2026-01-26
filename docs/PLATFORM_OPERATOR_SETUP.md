@@ -2,8 +2,6 @@
 
 This guide covers setting up platform operator users, migrating platform resources, and testing the new features.
 
-**Note:** "Platform Operator" is the preferred terminology, though the role value in the database is `PLATFORM_ADMIN` for technical reasons.
-
 ## Prerequisites
 
 1. **Install Dependencies**
@@ -44,9 +42,9 @@ npm run create:platform-operator operator@meant2grow.com "Platform Operator"
    {
      "email": "admin@meant2grow.com",
      "name": "Platform Operator",
-     "role": "PLATFORM_ADMIN",
+     "role": "PLATFORM_OPERATOR",
      "organizationId": "platform",
-     "avatar": "https://ui-avatars.com/api/?name=Platform+Admin&background=10b981&color=fff",
+     "avatar": "https://ui-avatars.com/api/?name=Platform+Operator&background=10b981&color=fff",
      "title": "Platform Operator",
      "company": "Meant2Grow",
      "skills": [],
@@ -99,7 +97,7 @@ This creates:
 - [ ] Verify tab is only visible to Platform Operators
 - [ ] Create a new platform operator user
 - [ ] Verify success message appears
-- [ ] Check Firestore to confirm user was created with `PLATFORM_ADMIN` role
+- [ ] Check Firestore to confirm user was created with `PLATFORM_OPERATOR` role
 
 #### ✅ Chat Groups Access
 - [ ] Verify platform operators do NOT see "Mentors Circle" or "Mentees Hub" in navigation
@@ -187,7 +185,7 @@ Verify the following collections exist and have data:
    - May contain videos with `isPlatform: false` (organization-specific)
 
 5. **users**
-   - Should contain users with `role: "PLATFORM_ADMIN"`
+   - Should contain users with `role: "PLATFORM_OPERATOR"`
    - Should contain users with `role: "ADMIN"` (organization admins)
 
 ## Troubleshooting
@@ -221,11 +219,11 @@ npm install --save-dev ts-node dotenv
 ### Platform Operator Tab Not Visible
 
 1. **Verify User Role**
-   - Check Firestore: `users/{userId}` → `role` should be `"PLATFORM_ADMIN"`
+   - Check Firestore: `users/{userId}` → `role` should be `"PLATFORM_OPERATOR"`
    - Sign out and sign back in to refresh role
 
 2. **Check SettingsView Component**
-   - Verify `isPlatformAdmin` check is working
+   - Verify `isPlatformOperator` check is working
    - Check browser console for errors
 
 ### Chat Groups Not Accessible
@@ -277,7 +275,6 @@ npm run migrate:platform-resources
 - `chatGroups` - Chat groups (Mentors Circle, Mentees Hub, etc.)
 
 ### Roles
-- `PLATFORM_ADMIN` - Platform Operator: Can manage platform-wide content, but NOT automatically included in organization chat groups
+- `PLATFORM_OPERATOR` - Platform Operator: Can manage platform-wide content, but NOT automatically included in organization chat groups
 - `ADMIN` / `ORGANIZATION_ADMIN` - Organization Admin: Can manage organization-specific content and automatically access Mentors Circle and Mentees Hub
 - `MENTOR` / `MENTEE` - Can view all resources and access their respective chat groups
-

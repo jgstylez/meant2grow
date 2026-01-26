@@ -2,7 +2,7 @@
  * Script to create a platform operator user
  * 
  * Note: "Platform Operator" is the preferred terminology. The role value stored in the 
- * database is `PLATFORM_ADMIN` for technical reasons, but we refer to these users as 
+ * database is `PLATFORM_OPERATOR`, and we refer to these users as 
  * "Platform Operators" to distinguish them from organization administrators.
  * 
  * Usage: npm run create:platform-operator <email> <name>
@@ -224,14 +224,14 @@ async function createPlatformOperator(email: string, name: string) {
       console.log(`  Current role: ${existingUser.role}`);
       console.log(`  Current organizationId: ${existingUser.organizationId}`);
 
-      // Update to platform operator (role stored as PLATFORM_ADMIN in database)
+      // Update to platform operator (role stored as PLATFORM_OPERATOR in database)
       await existingUserDoc.ref.update({
-        role: "PLATFORM_ADMIN",
+        role: "PLATFORM_OPERATOR",
         organizationId: "platform",
       });
 
       console.log(`\n✅ Updated user to Platform Operator role!`);
-      console.log(`   Note: Role is stored as PLATFORM_ADMIN in the database.`);
+      console.log(`   Note: Role is stored as PLATFORM_OPERATOR in the database.`);
       return;
     }
 
@@ -242,7 +242,7 @@ async function createPlatformOperator(email: string, name: string) {
     await userRef.set({
       email,
       name,
-      role: "PLATFORM_ADMIN", // Database role value (technical)
+      role: "PLATFORM_OPERATOR", // Database role value
       organizationId: "platform", // Distinguishes from organization administrators
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
         name
@@ -259,7 +259,7 @@ async function createPlatformOperator(email: string, name: string) {
     console.log(`\n⚠️  Note: This user will need to sign in through the app.`);
     console.log(`  They should use their email (${email}) to authenticate.`);
     console.log(`\n📝 Next step: Set a password for this platform operator:`);
-    console.log(`   npm run set-platform-admin-password ${email} "<password>"`);
+    console.log(`   npm run set-platform-operator-password ${email} "<password>"`);
   } catch (error: unknown) {
     console.error("❌ Failed to create platform operator:", error);
     const errorCode = getErrorCode(error);

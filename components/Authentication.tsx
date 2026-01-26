@@ -351,19 +351,35 @@ const Authentication: React.FC<AuthenticationProps> = ({
         
         if (!firebaseAuthUid) {
           // Firebase Auth migration failed or password needed
+          const userRoleString = String(user.role);
+          const isPlatformOperator = 
+            user.role === Role.PLATFORM_OPERATOR || 
+            userRoleString === "PLATFORM_OPERATOR" || 
+            userRoleString === "PLATFORM_OPERATOR" ||
+            user.organizationId === "platform";
+          
           if (user.firebaseAuthUid) {
             // User is migrated but password is wrong or missing
             if (!formData.password) {
               throw new Error("Password is required for this account.");
             } else {
-              throw new Error("Incorrect password. Please use 'Forgot Password' if you need to reset it.");
+              const errorMsg = isPlatformOperator 
+                ? "Incorrect password. Platform operators must set their password via CLI first. Run: npm run set-platform-operator-password <email> \"<password>\""
+                : "Incorrect password. Please use 'Forgot Password' if you need to reset it.";
+              throw new Error(errorMsg);
             }
           } else {
             // New user or migration needed
             if (!formData.password) {
-              throw new Error("Password is required. If this is your first time logging in, please use 'Forgot Password' to set your password.");
+              const errorMsg = isPlatformOperator
+                ? "Password is required. Platform operators must set their password via CLI first. Run: npm run set-platform-operator-password <email> \"<password>\""
+                : "Password is required. If this is your first time logging in, please use 'Forgot Password' to set your password.";
+              throw new Error(errorMsg);
             } else {
-              throw new Error("Authentication failed. Please ensure your email and password are correct, or use Google Sign-In if you previously used it.");
+              const errorMsg = isPlatformOperator
+                ? "Authentication failed. Platform operators must set their password via CLI first. Run: npm run set-platform-operator-password <email> \"<password>\""
+                : "Authentication failed. Please ensure your email and password are correct, or use Google Sign-In if you previously used it.";
+              throw new Error(errorMsg);
             }
           }
         }
