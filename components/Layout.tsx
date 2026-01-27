@@ -24,6 +24,8 @@ import {
 import { Role, User, Notification, ProgramSettings } from "../types";
 import { Logo } from "./Logo";
 import { PWAInstallBanner } from "./PWAInstallBanner";
+import { EnvironmentBanner } from "./EnvironmentBanner";
+import { isSandbox } from "../utils/environment";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -364,6 +366,9 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       )}
       
+      {/* Environment Banner */}
+      <EnvironmentBanner hasImpersonationBanner={isImpersonating} />
+      
       {/* PWA Installation Banner - Only shows on authenticated dashboard pages */}
       <PWAInstallBanner currentUser={currentUser} />
       
@@ -377,7 +382,7 @@ const Layout: React.FC<LayoutProps> = ({
 
       {/* Mobile Header */}
       <header className={`md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 flex justify-between items-center sticky z-30 ${
-        isImpersonating ? "top-14" : "top-0"
+        isImpersonating ? "top-14" : isSandbox() ? "top-10" : "top-0"
       }`}>
         <div className="flex items-center space-x-2 min-w-0 flex-1">
           <Logo className="w-8 h-8 flex-shrink-0" title="Meant2Grow" />
@@ -425,7 +430,7 @@ const Layout: React.FC<LayoutProps> = ({
           aria-label="Notifications"
           aria-modal="true"
           className={`md:hidden fixed inset-0 z-[101] bg-black/50 backdrop-blur-sm ${
-            isImpersonating ? "top-14" : "top-0"
+            isImpersonating ? "top-14" : isSandbox() ? "top-10" : "top-0"
           }`}
           onClick={() => setShowNotifications(false)}
         >
@@ -514,7 +519,7 @@ const Layout: React.FC<LayoutProps> = ({
       {isMobileMenuOpen && (
         <div
           className={`md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] ${
-            isImpersonating ? "top-14" : "top-0"
+            isImpersonating ? "top-14" : isSandbox() ? "top-10" : "top-0"
           }`}
           onClick={() => setIsMobileMenuOpen(false)}
         />
@@ -528,7 +533,7 @@ const Layout: React.FC<LayoutProps> = ({
         fixed inset-y-0 left-0 z-[101] w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-transform duration-200 ease-in-out touch-action-pan-y
         md:relative md:translate-x-0 md:z-10
         ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
-        ${isImpersonating ? "top-14 md:top-0" : ""}
+        ${isImpersonating ? "top-14 md:top-0" : isSandbox() ? "top-10 md:top-0" : ""}
       `}
       >
         <div className="p-4 h-full flex flex-col touch-action-pan-y">
@@ -726,8 +731,8 @@ const Layout: React.FC<LayoutProps> = ({
         role="main"
         data-impersonating={isImpersonating ? "true" : undefined}
         style={{
-          // Calculate top padding: PWA banner offset + impersonation banner (if present) + base padding
-          paddingTop: `calc(var(--pwa-banner-offset, 0px) + ${isImpersonating ? '2.75rem + ' : ''}var(--main-base-pt, 0.75rem))`
+          // Calculate top padding: PWA banner offset + impersonation banner (if present) + environment banner (if sandbox) + base padding
+          paddingTop: `calc(var(--pwa-banner-offset, 0px) + ${isImpersonating && isSandbox() ? '6rem + ' : isImpersonating ? '2.75rem + ' : isSandbox() ? '2.5rem + ' : ''}var(--main-base-pt, 0.75rem))`
         }}
       >
         {children}

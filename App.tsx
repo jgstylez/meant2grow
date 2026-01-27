@@ -6,6 +6,7 @@ import OrganizationSignup from "./components/OrganizationSignup";
 import PublicPages from "./components/PublicPages";
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
+import { EnvironmentBanner } from "./components/EnvironmentBanner";
 import {
   Role,
   User,
@@ -1726,6 +1727,7 @@ const App: React.FC = () => {
   if (publicRoute !== "hidden") {
     const CommonLayout = ({ children }: { children: React.ReactNode }) => (
       <>
+        <EnvironmentBanner />
         {children}
         <PrivacyBanner onNavigate={handlePublicNavigate} />
       </>
