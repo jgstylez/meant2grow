@@ -1619,6 +1619,22 @@ const Chat: React.FC<ChatProps> = ({
 
       logger.info("Message created successfully", { messageId });
 
+      // Optimistic update: show the message immediately so it doesn't disappear
+      // if a cache snapshot arrives before the server snapshot
+      const optimisticMessage: ChatMessageType = {
+        id: messageId,
+        ...messagePayload,
+        timestamp: messagePayload.timestamp,
+        createdAt: new Date().toISOString(),
+      };
+      setMessages((prev) => {
+        const current = prev[activeChatId] || [];
+        return {
+          ...prev,
+          [activeChatId]: [...current, optimisticMessage],
+        };
+      });
+
       // Clear typing status after sending message
       if (activeChatId) {
         try {

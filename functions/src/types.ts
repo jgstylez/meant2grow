@@ -51,6 +51,8 @@ export interface User {
   goalsPublic?: boolean; // Whether goals are visible to others (default: true)
   totalHoursCommitted?: number; // Total hours committed by mentor (sum of all scheduled appointment durations)
   createdAt: string;
+  onboardingCompleted?: boolean;
+  onboardingCompletedAt?: string;
 }
 
 export interface Match {

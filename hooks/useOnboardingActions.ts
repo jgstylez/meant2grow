@@ -12,6 +12,9 @@ export const useOnboardingActions = (
     setCurrentPage: (page: string) => void
 ) => {
     const handleMentorOnboardingComplete = useCallback(async (formData: any, currentUser: User, organizationId: string) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMentorOnboardingComplete',message:'Inner mentor complete entered',data:{userId:currentUser?.id,organizationId},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+        // #endregion
         try {
             const goalTitles: string[] = [];
             // Handle both formats: mentoringGoals (array of strings) or goals (array of objects with title and targetDate)
@@ -68,6 +71,8 @@ export const useOnboardingActions = (
                 phoneNumber: formData.phoneNumber,
                 maxMentees: maxMenteesValue,
                 acceptingNewMentees: true, // Default to accepting new mentees after onboarding
+                onboardingCompleted: true,
+                onboardingCompletedAt: new Date().toISOString(),
             };
 
             // Filter out undefined values - Firebase doesn't allow them
@@ -82,13 +87,22 @@ export const useOnboardingActions = (
 
             addToast('Welcome! Your profile is now live.', 'success');
             setCurrentPage('dashboard');
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMentorOnboardingComplete',message:'Mentor complete success path',data:{userId:currentUser.id},timestamp:Date.now(),hypothesisId:'H4_H5'})}).catch(()=>{});
+            // #endregion
         } catch (error: unknown) {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMentorOnboardingComplete',message:'Mentor complete catch',data:{error:String(error)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+            // #endregion
             console.error('Error completing mentor onboarding:', error);
             addToast(getErrorMessage(error) || 'Failed to save onboarding data', 'error');
         }
     }, [addToast, getOnboardingComplete, setOnboardingComplete, setCurrentPage]);
 
     const handleMenteeOnboardingComplete = useCallback(async (formData: any, currentUser: User, organizationId: string) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMenteeOnboardingComplete',message:'Inner mentee complete entered',data:{userId:currentUser?.id,organizationId},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+        // #endregion
         try {
             const goalTitles: string[] = [];
             // Handle both formats: careerGoals (array of strings) or goals (array of objects with title and targetDate)
@@ -129,6 +143,8 @@ export const useOnboardingActions = (
                 goals: goalTitles,
                 linkedinUrl: formData.linkedinUrl,
                 phoneNumber: formData.phoneNumber,
+                onboardingCompleted: true,
+                onboardingCompletedAt: new Date().toISOString(),
             };
 
             // Filter out undefined values - Firebase doesn't allow them
@@ -143,7 +159,13 @@ export const useOnboardingActions = (
 
             addToast('Welcome! Start exploring mentors.', 'success');
             setCurrentPage('dashboard');
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMenteeOnboardingComplete',message:'Mentee complete success path',data:{userId:currentUser.id},timestamp:Date.now(),hypothesisId:'H4_H5'})}).catch(()=>{});
+            // #endregion
         } catch (error: unknown) {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMenteeOnboardingComplete',message:'Mentee complete catch',data:{error:String(error)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+            // #endregion
             console.error('Error completing mentee onboarding:', error);
             addToast(getErrorMessage(error) || 'Failed to save onboarding data', 'error');
         }

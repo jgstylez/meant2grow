@@ -7,6 +7,7 @@ import PublicPages from "./components/PublicPages";
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
 import { EnvironmentBanner } from "./components/EnvironmentBanner";
+import { isSandbox } from "./utils/environment";
 import {
   Role,
   User,
@@ -575,20 +576,22 @@ const App: React.FC = () => {
   // Initialize Firebase Cloud Messaging for push notifications
   const fcm = useFCM(userId);
 
-  // Handle navigation based on user state and onboarding status
+  // Handle navigation based on user state and onboarding status (Firebase is source of truth so it works after refresh/sandbox/production)
   useEffect(() => {
     if (!loadedUser || publicRoute !== "hidden") return;
 
     const onboardingComplete = getOnboardingComplete();
+    const hasCompletedOnboarding =
+      onboardingComplete[loadedUser.id] === true || loadedUser.onboardingCompleted === true;
     const needsOrgSetup = loadedUser.role === Role.ADMIN && !programSettings;
     const needsMentorOnboarding =
       loadedUser.role === Role.MENTOR &&
       loadedUser.id &&
-      !onboardingComplete[loadedUser.id];
+      !hasCompletedOnboarding;
     const needsMenteeOnboarding =
       loadedUser.role === Role.MENTEE &&
       loadedUser.id &&
-      !onboardingComplete[loadedUser.id];
+      !hasCompletedOnboarding;
 
     // Don't redirect if user is already on an onboarding page - let them complete it
     const isOnOnboardingPage =
@@ -626,6 +629,14 @@ const App: React.FC = () => {
     getOnboardingComplete,
   ]);
 
+  // Sync onboarding completion from Firebase to localStorage so routing is correct after refresh or on another device/sandbox/production
+  useEffect(() => {
+    if (loadedUser?.id && loadedUser.onboardingCompleted === true) {
+      const prev = getOnboardingComplete();
+      setOnboardingComplete({ ...prev, [loadedUser.id]: true });
+    }
+  }, [loadedUser?.id, loadedUser?.onboardingCompleted, getOnboardingComplete, setOnboardingComplete]);
+
   // Action hooks
   const { handleAddBlogPost, handleUpdateBlogPost, handleDeleteBlogPost } =
     useBlogActions(addToast);
@@ -661,13 +672,31 @@ const App: React.FC = () => {
   );
 
   const handleMentorOnboardingComplete = (data: any) => {
-    if (currentUser && organizationId)
+    // #region agent log
+    const hasUser = !!currentUser;
+    const hasOrg = !!organizationId;
+    const willCall = hasUser && hasOrg;
+    fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:handleMentorOnboardingComplete',message:'Mentor onboarding complete invoked',data:{currentUserId:currentUser?.id??null,organizationId:organizationId??null,willCall},timestamp:Date.now(),hypothesisId:'H1_H2_H3'})}).catch(()=>{});
+    // #endregion
+    if (currentUser && organizationId) {
       mentorComplete(data, currentUser, organizationId);
+    } else {
+      addToast('Unable to save profile. Please refresh and try again.', 'error');
+    }
   };
 
   const handleMenteeOnboardingComplete = (data: any) => {
-    if (currentUser && organizationId)
+    // #region agent log
+    const hasUser = !!currentUser;
+    const hasOrg = !!organizationId;
+    const willCall = hasUser && hasOrg;
+    fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:handleMenteeOnboardingComplete',message:'Mentee onboarding complete invoked',data:{currentUserId:currentUser?.id??null,organizationId:organizationId??null,willCall},timestamp:Date.now(),hypothesisId:'H1_H2_H3'})}).catch(()=>{});
+    // #endregion
+    if (currentUser && organizationId) {
       menteeComplete(data, currentUser, organizationId);
+    } else {
+      addToast('Unable to save profile. Please refresh and try again.', 'error');
+    }
   };
 
   const markAsRead = async (id: string) => {
@@ -787,6 +816,9 @@ const App: React.FC = () => {
     if (!currentUser) return;
     const onboardingComplete = getOnboardingComplete();
 
+    const hasCompletedOnboarding = (user: { id: string; onboardingCompleted?: boolean }) =>
+      onboardingComplete[user.id] === true || user.onboardingCompleted === true;
+
     if (currentUser.role === Role.ADMIN) {
       const next = users.find((u) => u.role === Role.MENTOR);
       if (next) {
@@ -794,7 +826,7 @@ const App: React.FC = () => {
         localStorage.setItem("userId", next.id);
         addToast(`Switched to Mentor: ${next.name}`, "success");
         setCurrentPage(
-          !onboardingComplete[next.id] ? "mentor-onboarding" : "dashboard"
+          hasCompletedOnboarding(next) ? "dashboard" : "mentor-onboarding"
         );
       }
     } else if (currentUser.role === Role.MENTOR) {
@@ -804,7 +836,7 @@ const App: React.FC = () => {
         localStorage.setItem("userId", next.id);
         addToast(`Switched to Mentee: ${next.name}`, "success");
         setCurrentPage(
-          !onboardingComplete[next.id] ? "mentee-onboarding" : "dashboard"
+          hasCompletedOnboarding(next) ? "dashboard" : "mentee-onboarding"
         );
       }
     } else {
@@ -1728,7 +1760,9 @@ const App: React.FC = () => {
     const CommonLayout = ({ children }: { children: React.ReactNode }) => (
       <>
         <EnvironmentBanner />
-        {children}
+        <div className={isSandbox() ? "pt-10" : ""}>
+          {children}
+        </div>
         <PrivacyBanner onNavigate={handlePublicNavigate} />
       </>
     );

@@ -58,6 +58,9 @@ export interface User {
   zip?: string; // ZIP code
   totalHoursCommitted?: number; // Total hours committed by mentor (sum of all scheduled appointment durations)
   createdAt: string;
+  /** Set when user completes role-specific onboarding; persisted in Firebase so it never shows again (e.g. after refresh or on another device). */
+  onboardingCompleted?: boolean;
+  onboardingCompletedAt?: string; // ISO date string
 }
 
 export interface Match {

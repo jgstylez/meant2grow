@@ -2600,6 +2600,10 @@ export const subscribeToChatMessages = (
       (snapshot: QuerySnapshot) => {
         if (isUnsubscribed) return;
 
+        // Only apply server snapshots; ignore cache-only snapshots so we don't
+        // overwrite the list with stale cache and make newly sent messages disappear
+        if (snapshot.metadata.fromCache) return;
+
         try {
           const messages = snapshot.docs.map((doc) => ({
             id: doc.id,
@@ -2750,13 +2754,14 @@ export const subscribeToDMMessages = (
         if (isUnsubscribed) return;
 
         try {
-          // Use docChanges() to handle added, modified, and removed documents
+          // Use docChanges() to handle added, modified, and removed documents.
+          // Only apply "removed" when snapshot is from server; cache-only snapshots
+          // can incorrectly report removes and make newly sent messages disappear.
+          const fromServer = !snapshot.metadata.fromCache;
           snapshot.docChanges().forEach((change) => {
             if (change.type === "removed") {
-              // Remove deleted messages from the map
-              messagesMap.delete(change.doc.id);
+              if (fromServer) messagesMap.delete(change.doc.id);
             } else if (change.type === "added" || change.type === "modified") {
-              // Add or update messages in the map
               const message = {
                 id: change.doc.id,
                 ...change.doc.data(),
@@ -2819,8 +2824,8 @@ export const subscribeToDMMessages = (
           currentUserId,
           organizationId
         });
-        // Call callback with empty array on error to prevent UI from hanging
-        callback([]);
+        // Keep existing messages on transient errors instead of wiping the list
+        mergeAndCallback();
       },
     });
 
@@ -2835,16 +2840,15 @@ export const subscribeToDMMessages = (
             if (isUnsubscribed) return;
 
             try {
-              // Use docChanges() to handle added, modified, and removed documents
+              // Only apply "removed" when snapshot is from server (see query 1 comment)
+              const fromServer = !snapshot.metadata.fromCache;
               snapshot.docChanges().forEach((change) => {
                 if (change.type === "removed") {
-                  // Remove deleted messages from the map
-                  messagesMap.delete(change.doc.id);
+                  if (fromServer) messagesMap.delete(change.doc.id);
                 } else if (
                   change.type === "added" ||
                   change.type === "modified"
                 ) {
-                  // Add or update messages in the map
                   const message = {
                     id: change.doc.id,
                     ...change.doc.data(),
@@ -2921,8 +2925,8 @@ export const subscribeToDMMessages = (
               currentUserId,
               organizationId
             });
-            // Call callback with empty array on error to prevent UI from hanging
-            callback([]);
+            // Keep existing messages on transient errors
+            mergeAndCallback();
           },
         });
       } catch (error) {
