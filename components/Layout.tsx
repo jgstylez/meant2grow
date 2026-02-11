@@ -343,8 +343,20 @@ const Layout: React.FC<LayoutProps> = ({
     </div>
   );
 
+  // Reserve space so content begins underneath fixed banners (sandbox and/or impersonation)
+  const layoutTopPadding =
+    isImpersonating && isSandbox()
+      ? "pt-24"
+      : isImpersonating
+        ? "pt-14"
+        : isSandbox()
+          ? "pt-10"
+          : "";
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div
+      className={`min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row text-slate-900 dark:text-slate-100 transition-colors duration-300 ${layoutTopPadding}`}
+    >
       {/* Impersonation Banner */}
       {isImpersonating && (
         <div className="fixed top-0 left-0 right-0 z-[100] bg-amber-500 text-white px-3 py-2 shadow-lg pointer-events-auto h-14 flex items-center">
@@ -731,8 +743,8 @@ const Layout: React.FC<LayoutProps> = ({
         role="main"
         data-impersonating={isImpersonating ? "true" : undefined}
         style={{
-          // Calculate top padding: PWA banner offset + impersonation banner (if present) + environment banner (if sandbox) + base padding
-          paddingTop: `calc(var(--pwa-banner-offset, 0px) + ${isImpersonating && isSandbox() ? '6rem + ' : isImpersonating ? '2.75rem + ' : isSandbox() ? '2.5rem + ' : ''}var(--main-base-pt, 0.75rem))`
+          // Top spacing: PWA banner offset + base padding (banner space is reserved by root layoutTopPadding)
+          paddingTop: `calc(var(--pwa-banner-offset, 0px) + var(--main-base-pt, 0.75rem))`
         }}
       >
         {children}

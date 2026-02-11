@@ -1759,10 +1759,8 @@ const App: React.FC = () => {
   if (publicRoute !== "hidden") {
     const CommonLayout = ({ children }: { children: React.ReactNode }) => (
       <>
-        <EnvironmentBanner />
-        <div className={isSandbox() ? "pt-10" : ""}>
-          {children}
-        </div>
+        <EnvironmentBanner fixed={false} />
+        {children}
         <PrivacyBanner onNavigate={handlePublicNavigate} />
       </>
     );

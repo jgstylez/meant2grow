@@ -31,8 +31,6 @@ import {
 import { Logo } from "./Logo";
 import { CARD_CLASS, INPUT_CLASS, BUTTON_PRIMARY } from "../styles/common";
 import { BlogPost } from "../types";
-import { isSandbox } from "../utils/environment";
-
 // Input styling for better contrast
 const FORM_INPUT_CLASS =
   "w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors";
@@ -64,7 +62,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({
     ];
 
     return (
-      <nav className={`bg-white border-b border-slate-100 py-3 sm:py-4 px-4 sm:px-6 flex justify-between items-center sticky z-50 backdrop-blur-sm bg-white/95 ${isSandbox() ? "top-10" : "top-0"}`}>
+      <nav className="bg-white border-b border-slate-100 py-3 sm:py-4 px-4 sm:px-6 flex justify-between items-center sticky top-0 z-50 backdrop-blur-sm bg-white/95">
         <div
           className="flex items-center space-x-2 cursor-pointer"
           onClick={() => onNavigate("landing")}

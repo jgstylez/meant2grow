@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Logo } from "./Logo";
 import { optimizeImage } from "../services/utils";
-import { isSandbox } from "../utils/environment";
 import {
   ArrowRight,
   CheckCircle,
@@ -36,7 +35,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSignup, onLogin, onNavigate
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans overflow-x-hidden w-full">
       {/* Navigation */}
-      <nav className={`max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between sticky bg-white/80 backdrop-blur-md z-50 border-b border-slate-100 ${isSandbox() ? "top-10" : "top-0"}`}>
+      <nav className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-50 border-b border-slate-100">
         <div
           className="flex items-center gap-2 cursor-pointer"
           onClick={() => onNavigate("landing")}
