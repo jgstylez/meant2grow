@@ -11,6 +11,9 @@ import {
   Calendar as CalendarIcon,
   ExternalLink,
   Edit,
+  Trash2,
+  CalendarX,
+  CalendarClock,
 } from "lucide-react";
 import {
   getCalendarCredentials,
@@ -18,7 +21,12 @@ import {
 } from "../services/calendarService";
 import { syncFromAllCalendars } from "../services/unifiedCalendarService";
 import { createMeetLink } from "../services/meetApi";
-import { createCalendarEvent, updateCalendarEvent } from "../services/database";
+import {
+  createCalendarEvent,
+  updateCalendarEvent,
+  createNotification,
+  createChatMessage,
+} from "../services/database";
 import {
   openCalendarEvent,
   generateGoogleCalendarLink,
@@ -33,6 +41,7 @@ interface CalendarViewProps {
   currentUser: User;
   onAddEvent: (e: Omit<CalendarEvent, "id" | "createdAt">) => void;
   onUpdateEvent?: (eventId: string, updates: Partial<CalendarEvent>) => void;
+  onDeleteEvent?: (eventId: string) => void;
   onNavigate: (page: string, tab?: string) => void;
   users: User[];
   matches: Match[];
@@ -43,6 +52,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   currentUser,
   onAddEvent,
   onUpdateEvent,
+  onDeleteEvent,
   onNavigate,
   users,
   matches,
@@ -64,6 +74,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [hoveredEventId, setHoveredEventId] = useState<string | null>(null);
+  const [viewingEvent, setViewingEvent] = useState<CalendarEvent | null>(null);
+  const [requestSent, setRequestSent] = useState<"cancel" | "reschedule" | null>(null);
 
   useEffect(() => {
     // Check if any calendar is connected
@@ -264,6 +276,61 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       // Error handling is done in onUpdateEvent (toast shown there)
       // Don't reset state on error so user can retry
       logger.error("Error updating event", error);
+    }
+  };
+
+  const handleViewEvent = (event: CalendarEvent) => {
+    setViewingEvent(event);
+    setRequestSent(null);
+  };
+
+  const sendMeetingRequest = async (
+    ev: CalendarEvent,
+    type: "cancel" | "reschedule"
+  ) => {
+    const creatorId = ev.createdBy;
+    if (!creatorId || !currentUser.organizationId) return;
+
+    const label = type === "cancel" ? "cancel" : "reschedule";
+    const emoji = type === "cancel" ? "❌" : "📅";
+    const dateStr = new Date(ev.date + "T00:00:00").toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+    const text =
+      type === "cancel"
+        ? `${emoji} ${currentUser.name} requested to cancel: "${ev.title}" on ${dateStr} at ${ev.startTime}.`
+        : `${emoji} ${currentUser.name} requested to reschedule: "${ev.title}" (${dateStr} at ${ev.startTime}). Please coordinate in chat.`;
+
+    try {
+      // Notify creator (chatId links to chat with participant for quick navigation)
+      await createNotification({
+        organizationId: currentUser.organizationId,
+        userId: creatorId,
+        type: "meeting",
+        title: `Meeting ${type === "cancel" ? "cancellation" : "reschedule"} request`,
+        body: `${currentUser.name} requested to ${label}: ${ev.title}`,
+        isRead: false,
+        timestamp: new Date().toISOString(),
+        chatId: currentUser.id,
+      });
+
+      // Send chat message - chatId=creatorId ensures both creator and participant see it in their DM
+      await createChatMessage({
+        organizationId: currentUser.organizationId,
+        chatId: creatorId,
+        chatType: "dm",
+        senderId: currentUser.id,
+        text,
+        type: "text",
+        timestamp: new Date().toISOString(),
+      });
+
+      setRequestSent(type);
+    } catch (error) {
+      logger.error(`Error sending ${label} request`, error);
+      alert(`Failed to send ${label} request. Please try again.`);
     }
   };
 
@@ -500,15 +567,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         <button
                           key={ev.id}
                           type="button"
-                          aria-label={`${ev.title} at ${ev.startTime}${participantNames ? ` with ${participantNames}${extraCount > 0 ? ` and ${extraCount} more` : ""}` : ""}${canEdit ? ". Click to edit" : ""}`}
+                          aria-label={`${ev.title} at ${ev.startTime}${participantNames ? ` with ${participantNames}${extraCount > 0 ? ` and ${extraCount} more` : ""}` : ""}. Click to ${canEdit ? "edit" : "view details"}`}
                           className="text-[10px] sm:text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 px-1.5 py-1 rounded truncate border border-indigo-200 dark:border-indigo-800 group relative cursor-pointer hover:z-10 w-full text-left min-h-[32px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           onMouseEnter={() => setHoveredEventId(ev.id)}
                           onMouseLeave={() => setHoveredEventId(null)}
                           onClick={(e) => {
-                            // If user can edit, clicking the event opens edit modal
+                            e.stopPropagation();
                             if (canEdit && onUpdateEvent) {
-                              e.stopPropagation();
                               handleEditEvent(ev);
+                            } else {
+                              handleViewEvent(ev);
                             }
                           }}
                         >
@@ -576,9 +644,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               >
                                 <span aria-hidden="true">📅</span> Apple Calendar <span className="text-[8px] text-slate-500">(Coming Soon)</span>
                               </div>
-                              {canEdit && onUpdateEvent && (
+                              <div className="border-t border-slate-700 my-1"></div>
+                              {canEdit && onUpdateEvent ? (
                                 <>
-                                  <div className="border-t border-slate-700 my-1"></div>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -591,9 +659,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     <span aria-hidden="true">✏️</span> Edit Event
                                   </button>
                                   <div className="text-[8px] sm:text-[9px] text-slate-400 mt-1 pt-1 border-t border-slate-700">
-                                    Or click anywhere on event to edit
+                                    Or click anywhere to edit
                                   </div>
                                 </>
+                              ) : (
+                                <div className="text-[8px] sm:text-[9px] text-slate-400">
+                                  Click to view details
+                                </div>
                               )}
                             </div>
                           </div>
@@ -860,6 +932,29 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             {/* Footer with Button - Fixed */}
             <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-b-none sm:rounded-b-xl">
               <div className="flex flex-col sm:flex-row gap-2">
+                {editingEvent && onDeleteEvent && (
+                  <button
+                    onClick={() => {
+                      if (confirm("Delete this event? This cannot be undone.")) {
+                        onDeleteEvent(editingEvent.id);
+                        setIsAddEventOpen(false);
+                        setEditingEvent(null);
+                        setNewEvent({
+                          title: "",
+                          date: "",
+                          time: "10:00",
+                          duration: "1h",
+                          type: "Virtual",
+                          participants: [],
+                        });
+                      }
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 min-h-[44px] touch-manipulation"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                )}
                 <button
                   onClick={async () => {
                     if (editingEvent) {
@@ -917,6 +1012,116 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Participant view modal - read-only meeting details + request actions */}
+      {viewingEvent && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="view-meeting-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setViewingEvent(null);
+          }}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl max-w-sm w-full border border-slate-200 dark:border-slate-800 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 sm:p-5">
+              <h2
+                id="view-meeting-title"
+                className="text-base font-semibold text-slate-900 dark:text-white mb-3"
+              >
+                {viewingEvent.title}
+              </h2>
+              <dl className="space-y-2 text-sm text-slate-600 dark:text-slate-400 mb-4">
+                <div className="flex justify-between">
+                  <dt className="text-slate-500 dark:text-slate-500">Date</dt>
+                  <dd>
+                    {new Date(viewingEvent.date + "T00:00:00").toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500 dark:text-slate-500">Time</dt>
+                  <dd>
+                    {viewingEvent.startTime} · {viewingEvent.duration}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500 dark:text-slate-500">Type</dt>
+                  <dd>{viewingEvent.type}</dd>
+                </div>
+                {viewingEvent.participants && viewingEvent.participants.length > 0 && (
+                  <div>
+                    <dt className="text-slate-500 dark:text-slate-500 mb-1">Participants</dt>
+                    <dd className="text-slate-700 dark:text-slate-300">
+                      {viewingEvent.participants
+                        .map((id) => users.find((u) => u.id === id)?.name)
+                        .filter(Boolean)
+                        .join(", ")}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              <div className="flex flex-col gap-2">
+                <a
+                  href={generateGoogleCalendarLink(
+                    viewingEvent,
+                    viewingEvent.googleMeetLink
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Add to Google Calendar
+                </a>
+                {viewingEvent.googleMeetLink && (
+                  <a
+                    href={viewingEvent.googleMeetLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Join Meet
+                  </a>
+                )}
+                <div className="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <button
+                    onClick={() => sendMeetingRequest(viewingEvent, "cancel")}
+                    disabled={!!requestSent}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <CalendarX className="w-4 h-4" />
+                    {requestSent === "cancel" ? "Sent" : "Request Cancel"}
+                  </button>
+                  <button
+                    onClick={() => sendMeetingRequest(viewingEvent, "reschedule")}
+                    disabled={!!requestSent}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <CalendarClock className="w-4 h-4" />
+                    {requestSent === "reschedule" ? "Sent" : "Reschedule"}
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingEvent(null)}
+                aria-label="Close"
+                className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>

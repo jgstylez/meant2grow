@@ -1568,6 +1568,7 @@ const App: React.FC = () => {
                 currentUser={currentUser}
                 onAddEvent={handleAddEvent}
                 onUpdateEvent={handleUpdateEvent}
+                onDeleteEvent={handleDeleteEvent}
                 onNavigate={setCurrentPage}
                 users={users}
                 matches={matches}
