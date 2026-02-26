@@ -2753,10 +2753,13 @@ export const subscribeToDMMessages = (
       next: (snapshot: QuerySnapshot) => {
         if (isUnsubscribed) return;
 
+        // Only apply server snapshots; ignore cache-only snapshots so we don't
+        // get rapid cache-then-server updates that cause message list flickering.
+        // Matches subscribeToChatMessages behavior.
+        if (snapshot.metadata.fromCache) return;
+
         try {
           // Use docChanges() to handle added, modified, and removed documents.
-          // Only apply "removed" when snapshot is from server; cache-only snapshots
-          // can incorrectly report removes and make newly sent messages disappear.
           const fromServer = !snapshot.metadata.fromCache;
           snapshot.docChanges().forEach((change) => {
             if (change.type === "removed") {
@@ -2839,8 +2842,10 @@ export const subscribeToDMMessages = (
           next: (snapshot: QuerySnapshot) => {
             if (isUnsubscribed) return;
 
+            // Only apply server snapshots; ignore cache-only to prevent flickering.
+            if (snapshot.metadata.fromCache) return;
+
             try {
-              // Only apply "removed" when snapshot is from server (see query 1 comment)
               const fromServer = !snapshot.metadata.fromCache;
               snapshot.docChanges().forEach((change) => {
                 if (change.type === "removed") {
