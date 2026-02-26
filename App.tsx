@@ -8,6 +8,7 @@ import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
 import { EnvironmentBanner } from "./components/EnvironmentBanner";
 import { isSandbox } from "./utils/environment";
+import { getMentorsCircleId, getMenteesHubId } from "./utils/chatGroups";
 import {
   Role,
   User,
@@ -1537,10 +1538,10 @@ const App: React.FC = () => {
         if (currentPage.startsWith("chat:")) {
           // Extract chatId from "chat:userId" format
           chatId = currentPage.split(":")[1];
-        } else if (currentPage === "chat-mentors") {
-          chatId = "g-mentors";
-        } else if (currentPage === "chat-mentees") {
-          chatId = "g-mentees";
+        } else if (currentPage === "chat-mentors" && organizationId) {
+          chatId = getMentorsCircleId(organizationId);
+        } else if (currentPage === "chat-mentees" && organizationId) {
+          chatId = getMenteesHubId(organizationId);
         }
         return (
           <Suspense fallback={<LoadingSpinner message="Loading messages..." />}>

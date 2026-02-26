@@ -350,6 +350,23 @@ service cloud.firestore {
                         isOrgAdmin(resource.data.organizationId)));
     }
     
+    // ==================== TYPING STATUS ====================
+    
+    match /typingStatus/{typingId} {
+      // Users can set/update their own typing status in their org; platform operators can when impersonating
+      allow create, update: if isAuthenticated() &&
+                              ((request.resource.data.userId == request.auth.uid &&
+                                belongsToOrg(request.resource.data.organizationId)) ||
+                               isPlatformOperator());
+      
+      // Users can delete their own typing status; platform operators when impersonating
+      allow delete: if isAuthenticated() &&
+                      (resource.data.userId == request.auth.uid || isPlatformOperator());
+      
+      // Users can read typing status for chats in their organization
+      allow read: if isPlatformOperator() || isOrgScoped(resource.data.organizationId);
+    }
+    
     // ==================== CHAT GROUPS ====================
     
     match /chatGroups/{groupId} {

@@ -48,6 +48,7 @@ import {
   subscribeToChatMessages,
   subscribeToDMMessages,
   updateChatMessage,
+  deleteChatMessage,
   createChatGroup,
   subscribeToChatGroups,
   getChatGroupsByOrganization,
@@ -71,6 +72,12 @@ import { logger } from "../services/logger";
 import { uploadFile, generateUniquePath } from "../services/storage";
 import { parseDurationToHours } from "../services/utils";
 import { getErrorMessage } from "../utils/errors";
+import {
+  getMentorsCircleId,
+  getMenteesHubId,
+  isMentorsCircleId,
+  isMenteesHubId,
+} from "../utils/chatGroups";
 
 // Using ChatMessage and ChatGroup from types.ts
 
@@ -332,27 +339,30 @@ const Chat: React.FC<ChatProps> = ({
           existingGroupIds: existingGroups.map(g => ({ id: g.id, name: g.name })),
         });
 
-        // Find existing groups - prioritize by ID, then by name
-        const mentorGroupById = existingGroups.find((g) => g.id === "g-mentors");
+        // Use org-scoped IDs so each organization has its own Mentors Circle and Mentees Hub
+        const mentorsCircleId = getMentorsCircleId(organizationId);
+        const menteesHubId = getMenteesHubId(organizationId);
+
+        // Find existing groups - prioritize by org-scoped ID, then by name
+        const mentorGroupById = existingGroups.find((g) => g.id === mentorsCircleId);
         const mentorGroupByName = existingGroups.find((g) => g.name === "Mentors Circle");
         const mentorGroup = mentorGroupById || mentorGroupByName;
         
-        const menteeGroupById = existingGroups.find((g) => g.id === "g-mentees");
+        const menteeGroupById = existingGroups.find((g) => g.id === menteesHubId);
         const menteeGroupByName = existingGroups.find((g) => g.name === "Mentees Hub");
         const menteeGroup = menteeGroupById || menteeGroupByName;
         
-        // If group exists with wrong ID, we need to handle it
-        if (mentorGroupByName && mentorGroupByName.id !== "g-mentors") {
-          logger.warn("Found Mentors Circle with wrong ID", {
-            wrongId: mentorGroupByName.id,
-            correctId: "g-mentors",
+        // Legacy: if group exists with old global ID (g-mentors/g-mentees), we still use it
+        if (mentorGroupByName && mentorGroupByName.id !== mentorsCircleId && mentorGroupByName.id !== "g-mentors") {
+          logger.warn("Found Mentors Circle with unexpected ID", {
+            foundId: mentorGroupByName.id,
+            expectedId: mentorsCircleId,
           });
-          // We'll create the correct one and the old one will be orphaned (could delete it later)
         }
-        if (menteeGroupByName && menteeGroupByName.id !== "g-mentees") {
-          logger.warn("Found Mentees Hub with wrong ID", {
-            wrongId: menteeGroupByName.id,
-            correctId: "g-mentees",
+        if (menteeGroupByName && menteeGroupByName.id !== menteesHubId && menteeGroupByName.id !== "g-mentees") {
+          logger.warn("Found Mentees Hub with unexpected ID", {
+            foundId: menteeGroupByName.id,
+            expectedId: menteesHubId,
           });
         }
 
@@ -390,11 +400,11 @@ const Chat: React.FC<ChatProps> = ({
               members: mentorGroupMembers,
               createdBy: currentUser.id,
             },
-            "g-mentors"
+            mentorsCircleId
           );
           logger.info("Created Mentors Circle group", {
             id: createdId,
-            expectedId: "g-mentors",
+            expectedId: mentorsCircleId,
             membersCount: mentorGroupMembers.length,
           });
         } else {
@@ -419,7 +429,7 @@ const Chat: React.FC<ChatProps> = ({
             currentMembers.some((id) => !expectedMembers.includes(id));
 
           if (needsUpdate) {
-            await updateChatGroup("g-mentors", { members: expectedMembers });
+            await updateChatGroup(mentorGroupById.id, { members: expectedMembers });
             logger.info("Updated Mentors Circle membership", {
               mentors: mentorIds.length,
               admins: adminIds.length,
@@ -446,11 +456,11 @@ const Chat: React.FC<ChatProps> = ({
               members: menteeGroupMembers,
               createdBy: currentUser.id,
             },
-            "g-mentees"
+            menteesHubId
           );
           logger.info("Created Mentees Hub group", {
             id: createdId,
-            expectedId: "g-mentees",
+            expectedId: menteesHubId,
             membersCount: menteeGroupMembers.length,
           });
         } else {
@@ -475,7 +485,7 @@ const Chat: React.FC<ChatProps> = ({
             currentMembers.some((id) => !expectedMembers.includes(id));
 
           if (needsUpdate) {
-            await updateChatGroup("g-mentees", { members: expectedMembers });
+            await updateChatGroup(menteeGroupById.id, { members: expectedMembers });
             logger.info("Updated Mentees Hub membership", {
               mentees: menteeIds.length,
               admins: adminIds.length,
@@ -543,18 +553,21 @@ const Chat: React.FC<ChatProps> = ({
     const isMentor = currentUser.role === Role.MENTOR;
     const isMentee = currentUser.role === Role.MENTEE;
     
+    const mentorsCircleId = organizationId ? getMentorsCircleId(organizationId) : "g-mentors";
+    const menteesHubId = organizationId ? getMenteesHubId(organizationId) : "g-mentees";
+
     const needsMentors =
-      initialChatId === "g-mentors" ||
+      isMentorsCircleId(initialChatId || "", organizationId) ||
       (chatGroups.length === 0 && (isMentor || isAdmin)) ||
       (isMentor || isAdmin); // Always show if user should have access (mentors or org admins only)
     const needsMentees =
-      initialChatId === "g-mentees" ||
+      isMenteesHubId(initialChatId || "", organizationId) ||
       (chatGroups.length === 0 && (isMentee || isAdmin)) ||
       (isMentee || isAdmin); // Always show if user should have access (mentees or org admins only)
 
     // Check if groups already exist in Firestore groups
-    const hasMentorsGroup = groups.some((g) => g.id === "g-mentors");
-    const hasMenteesGroup = groups.some((g) => g.id === "g-mentees");
+    const hasMentorsGroup = groups.some((g) => g.id === mentorsCircleId || g.id === "g-mentors");
+    const hasMenteesGroup = groups.some((g) => g.id === menteesHubId || g.id === "g-mentees");
 
     if (needsMentors && !hasMentorsGroup) {
       // Include mentors + organization admins (platform operators must be explicitly invited)
@@ -569,7 +582,7 @@ const Chat: React.FC<ChatProps> = ({
           .map((u) => u.id),
       ];
       fallback.push({
-        id: "g-mentors",
+        id: mentorsCircleId,
         name: "Mentors Circle",
         avatar:
           "https://ui-avatars.com/api/?name=Mentors+Circle&background=0D9488&color=fff",
@@ -593,7 +606,7 @@ const Chat: React.FC<ChatProps> = ({
           .map((u) => u.id),
       ];
       fallback.push({
-        id: "g-mentees",
+        id: menteesHubId,
         name: "Mentees Hub",
         avatar:
           "https://ui-avatars.com/api/?name=Mentees+Hub&background=4F46E5&color=fff",
@@ -619,7 +632,7 @@ const Chat: React.FC<ChatProps> = ({
     // Ensure default groups have current user in members if they should have access
     // Platform operators are NOT automatically added - they must be explicitly invited
     merged.forEach((g) => {
-      if (g.id === "g-mentors" || g.id === "g-mentees") {
+      if (isMentorsCircleId(g.id, organizationId) || isMenteesHubId(g.id, organizationId)) {
         const userRoleStr = String(currentUser.role);
         const isPlatformOperator = currentUser.role === Role.PLATFORM_OPERATOR || 
                                userRoleStr === "PLATFORM_OPERATOR";
@@ -629,8 +642,8 @@ const Chat: React.FC<ChatProps> = ({
           userRoleStr === "ORGANIZATION_ADMIN"
         );
         const shouldHaveAccess = 
-          (g.id === "g-mentors" && (currentUser.role === Role.MENTOR || isOrgAdmin)) ||
-          (g.id === "g-mentees" && (currentUser.role === Role.MENTEE || isOrgAdmin));
+          (isMentorsCircleId(g.id, organizationId) && (currentUser.role === Role.MENTOR || isOrgAdmin)) ||
+          (isMenteesHubId(g.id, organizationId) && (currentUser.role === Role.MENTEE || isOrgAdmin));
         
         if (shouldHaveAccess && (!g.members || !g.members.includes(currentUser.id))) {
           // Ensure user is in members array (only for mentors/mentees/org admins, not platform operators)
@@ -672,10 +685,10 @@ const Chat: React.FC<ChatProps> = ({
       return false;
     }
 
-    // Special handling for default groups (g-mentors, g-mentees)
+    // Special handling for default groups (Mentors Circle, Mentees Hub)
     // These groups should be visible based on role, even if membership hasn't synced yet
     // Platform operators must be explicit members - no automatic access
-    if (g.id === "g-mentors" || g.id === "g-mentees") {
+    if (isMentorsCircleId(g.id, organizationId) || isMenteesHubId(g.id, organizationId)) {
       // Check if user is a member
       const isMember = g.members && g.members.includes(currentUser.id);
       
@@ -703,8 +716,8 @@ const Chat: React.FC<ChatProps> = ({
                         userRoleStr === "ADMIN" || 
                         userRoleStr === "ORGANIZATION_ADMIN";
       const shouldHaveAccess = 
-        (g.id === "g-mentors" && (currentUser.role === Role.MENTOR || isOrgAdmin)) ||
-        (g.id === "g-mentees" && (currentUser.role === Role.MENTEE || isOrgAdmin));
+        (isMentorsCircleId(g.id, organizationId) && (currentUser.role === Role.MENTOR || isOrgAdmin)) ||
+        (isMenteesHubId(g.id, organizationId) && (currentUser.role === Role.MENTEE || isOrgAdmin));
       
       // Show group if user is a member OR should have access (handles race conditions)
       if (shouldHaveAccess) {
@@ -905,7 +918,9 @@ const Chat: React.FC<ChatProps> = ({
     | "clearHistory"
     | "shareContact"
     | "newMessage"
+    | "deleteMessage"
   >(null);
+  const [messageIdToDelete, setMessageIdToDelete] = useState<string | null>(null);
 
   // New States for Actions
   const [pinnedChats, setPinnedChats] = useState<string[]>([]);
@@ -926,6 +941,7 @@ const Chat: React.FC<ChatProps> = ({
   const [reactionMenuMessageId, setReactionMenuMessageId] = useState<
     string | null
   >(null);
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [newMessageSearchQuery, setNewMessageSearchQuery] = useState("");
   const [sentiment, setSentiment] = useState<
@@ -1210,18 +1226,26 @@ const Chat: React.FC<ChatProps> = ({
         return isSender || isRecipient;
       });
 
+      // Dedupe by id (handles race between optimistic update and subscription)
+      const seenIds = new Set<string>();
+      const deduped = filteredMessages.filter((m) => {
+        if (seenIds.has(m.id)) return false;
+        seenIds.add(m.id);
+        return true;
+      });
+
       setMessages((prev) => {
         // Only update if messages actually changed
         const prevMessages = prev[activeChatId] || [];
         if (
-          prevMessages.length === filteredMessages.length &&
-          prevMessages.every((msg, idx) => msg.id === filteredMessages[idx]?.id)
+          prevMessages.length === deduped.length &&
+          prevMessages.every((msg, idx) => msg.id === deduped[idx]?.id)
         ) {
           return prev; // No changes
         }
         return {
           ...prev,
-          [activeChatId]: filteredMessages,
+          [activeChatId]: deduped,
         };
       });
 
@@ -1502,7 +1526,7 @@ const Chat: React.FC<ChatProps> = ({
   const isWaitingForSpecificChat =
     activeChatId &&
     !activeChat &&
-    (activeChatId === "g-mentors" || activeChatId === "g-mentees") &&
+    (isMentorsCircleId(activeChatId, organizationId) || isMenteesHubId(activeChatId, organizationId)) &&
     allChats.length === 0; // Only show loading if we're still loading the chat list
 
   if (isWaitingForSpecificChat) {
@@ -1529,7 +1553,7 @@ const Chat: React.FC<ChatProps> = ({
           availableChatIds: allChats.map(c => c.id),
         });
         // Don't clear if it's a DM (might be loading)
-        if (activeChatId === "g-mentors" || activeChatId === "g-mentees") {
+        if (isMentorsCircleId(activeChatId, organizationId) || isMenteesHubId(activeChatId, organizationId)) {
           setActiveChatId("");
         }
       }
@@ -1629,6 +1653,8 @@ const Chat: React.FC<ChatProps> = ({
       };
       setMessages((prev) => {
         const current = prev[activeChatId] || [];
+        // Dedupe: subscription may have already added this message; avoid duplicate
+        if (current.some((m) => m.id === messageId)) return prev;
         return {
           ...prev,
           [activeChatId]: [...current, optimisticMessage],
@@ -1816,6 +1842,24 @@ const Chat: React.FC<ChatProps> = ({
       setReactionMenuMessageId(null);
     } catch (error: unknown) {
       logger.error("Error updating reaction", error);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (deletingMessageId) return;
+    const message = messages[activeChatId]?.find((m) => m.id === messageId);
+    if (!message || message.senderId !== currentUser.id) return;
+    try {
+      setDeletingMessageId(messageId);
+      await deleteChatMessage(messageId);
+      setMessages((prev) => {
+        const current = prev[activeChatId] || [];
+        return { ...prev, [activeChatId]: current.filter((m) => m.id !== messageId) };
+      });
+    } catch (error: unknown) {
+      logger.error("Error deleting message", error);
+    } finally {
+      setDeletingMessageId(null);
     }
   };
 
@@ -2268,6 +2312,43 @@ const Chat: React.FC<ChatProps> = ({
       </div>
     </div>
   );
+
+  const DeleteMessageModal = () => {
+    if (!messageIdToDelete) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-4">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-xl p-4 max-w-xs w-full border border-slate-200 dark:border-slate-800">
+          <p className="text-sm font-medium text-slate-900 dark:text-white text-center mb-3">
+            Delete message? This cannot be undone.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setActiveModal(null);
+                setMessageIdToDelete(null);
+              }}
+              className="flex-1 py-2 px-3 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                if (messageIdToDelete) {
+                  await handleDeleteMessage(messageIdToDelete);
+                  setActiveModal(null);
+                  setMessageIdToDelete(null);
+                }
+              }}
+              disabled={deletingMessageId === messageIdToDelete}
+              className="flex-1 py-2 px-3 bg-red-600 text-white hover:bg-red-700 rounded-lg text-sm font-medium disabled:opacity-50"
+            >
+              {deletingMessageId === messageIdToDelete ? "Deleting..." : "Delete"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const ReportUserModal = () => {
     const [reason, setReason] = useState("Harassment");
@@ -2991,7 +3072,7 @@ const Chat: React.FC<ChatProps> = ({
                     } group mb-4 items-end`}
                   >
                     {isMe && (
-                      <div className="relative opacity-0 group-hover:opacity-100 transition-opacity mr-2 mb-2">
+                      <div className="relative opacity-0 group-hover:opacity-100 transition-opacity mr-2 mb-2 flex items-center gap-0.5">
                         <button
                           onClick={() =>
                             setReactionMenuMessageId(
@@ -3001,6 +3082,18 @@ const Chat: React.FC<ChatProps> = ({
                           className="p-1.5 text-slate-400 hover:text-emerald-500 bg-slate-50 dark:bg-slate-800 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700"
                         >
                           <SmilePlus className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMessageIdToDelete(msg.id);
+                            setActiveModal("deleteMessage");
+                          }}
+                          disabled={deletingMessageId === msg.id}
+                          className="p-1.5 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-800 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
+                          title="Delete message"
+                        >
+                          <Trash className="w-4 h-4" />
                         </button>
                         {reactionMenuMessageId === msg.id && (
                           <div className="absolute bottom-full mb-2 right-0 bg-white dark:bg-slate-800 shadow-xl rounded-full border border-slate-200 dark:border-slate-700 p-1 flex gap-1 z-10 animate-in zoom-in-95">
@@ -3828,6 +3921,7 @@ const Chat: React.FC<ChatProps> = ({
       {activeModal === "shareContact" && <ShareContactModal />}
       {activeModal === "newMessage" && <NewMessageModal />}
       {activeModal === "clearHistory" && <ClearHistoryModal />}
+      {activeModal === "deleteMessage" && <DeleteMessageModal />}
 
       {/* Private Message Requests Modal */}
       {privateMessageRequests.length > 0 && (

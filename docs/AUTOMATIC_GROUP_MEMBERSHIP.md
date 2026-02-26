@@ -6,8 +6,8 @@ Mentors Circle and Mentees Hub are **preset, persistent groups** that automatica
 ## How It Works
 
 ### Group Creation
-- **Mentors Circle** (ID: `g-mentors`) - Created automatically when first mentor joins
-- **Mentees Hub** (ID: `g-mentees`) - Created automatically when first mentee joins
+- **Mentors Circle** (ID: `g-mentors-{organizationId}`) - Created automatically when first mentor joins per organization
+- **Mentees Hub** (ID: `g-mentees-{organizationId}`) - Created automatically when first mentee joins per organization
 
 ### Automatic Membership Sync
 The system automatically:
@@ -74,7 +74,7 @@ The system automatically:
 ## Group Details
 
 ### Mentors Circle
-- **ID**: `g-mentors` (fixed)
+- **ID**: `g-mentors-{organizationId}` (org-scoped)
 - **Name**: "Mentors Circle"
 - **Avatar**: Teal background with initials
 - **Members**: All users with `role === 'MENTOR'` + Organization Admins (auto-added) **from the same organization**
@@ -82,7 +82,7 @@ The system automatically:
 - **Organization Scoping**: Only includes mentors and admins from the group's `organizationId`
 
 ### Mentees Hub
-- **ID**: `g-mentees` (fixed)
+- **ID**: `g-mentees-{organizationId}` (org-scoped)
 - **Name**: "Mentees Hub"
 - **Avatar**: Indigo background with initials
 - **Members**: All users with `role === 'MENTEE'` + Organization Admins (auto-added) **from the same organization**
@@ -94,7 +94,7 @@ The system automatically:
 ### Firestore Collection: `chatGroups`
 ```typescript
 {
-  id: 'g-mentors',  // Fixed ID
+  id: 'g-mentors-org-123',  // Org-scoped ID
   organizationId: 'org-123',
   name: 'Mentors Circle',
   avatar: 'https://...',
@@ -144,7 +144,7 @@ The system logs sync operations:
 
 1. **Zero Manual Setup** - Groups created automatically
 2. **Always Current** - Membership stays in sync
-3. **Reliable IDs** - Fixed IDs (`g-mentors`, `g-mentees`) enable direct navigation
+3. **Org-scoped IDs** - Each organization has its own groups (`g-mentors-{orgId}`, `g-mentees-{orgId}`) for message isolation
 4. **Scalable** - Works for 2 users or 2000 users
 5. **Self-Healing** - Corrects membership if out of sync
 
