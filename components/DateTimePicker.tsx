@@ -50,6 +50,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
           value={dateValue}
           onChange={onDateChange}
           minDate={minDate}
+          maxDate={maxDate}
           placeholder={datePlaceholder}
           className={disabled ? 'opacity-50 cursor-not-allowed' : ''}
         />

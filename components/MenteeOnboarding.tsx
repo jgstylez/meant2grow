@@ -120,11 +120,19 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
 
   const handleCustomFieldsSubmit = (data: Record<string, any>) => {
     setCustomFieldData(data);
+    // Clear DynamicSignupForm localStorage after successful submission
+    if (typeof window !== "undefined" && programSettings?.programName) {
+      localStorage.removeItem(`dynamicSignupForm_${programSettings.programName}`);
+    }
     // Save all form data and complete onboarding
     onComplete({ ...formData, customFieldData: data });
   };
 
   const handleComplete = () => {
+    // Clear DynamicSignupForm localStorage if used (step 5)
+    if (typeof window !== "undefined" && programSettings?.programName) {
+      localStorage.removeItem(`dynamicSignupForm_${programSettings.programName}`);
+    }
     // Save all form data and complete onboarding
     onComplete({ ...formData, customFieldData });
   };

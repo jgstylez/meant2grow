@@ -57,6 +57,7 @@ export interface User {
   state?: string; // State (2-letter code)
   zip?: string; // ZIP code
   totalHoursCommitted?: number; // Total hours committed by mentor (sum of all scheduled appointment durations)
+  profileData?: Record<string, unknown>; // Organization-specific custom profile fields from onboarding
   createdAt: string;
   /** Set when user completes role-specific onboarding; persisted in Firebase so it never shows again (e.g. after refresh or on another device). */
   onboardingCompleted?: boolean;

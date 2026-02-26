@@ -71,6 +71,7 @@ export const useOnboardingActions = (
                 phoneNumber: formData.phoneNumber,
                 maxMentees: maxMenteesValue,
                 acceptingNewMentees: true, // Default to accepting new mentees after onboarding
+                profileData: formData.customFieldData,
                 onboardingCompleted: true,
                 onboardingCompletedAt: new Date().toISOString(),
             };
@@ -139,10 +140,12 @@ export const useOnboardingActions = (
                 title: formData.jobTitle || formData.title,
                 company: formData.company,
                 bio: formData.bio,
+                experience: formData.experience,
                 skills: formData.skillsToImprove || formData.areas,
                 goals: goalTitles,
                 linkedinUrl: formData.linkedinUrl,
                 phoneNumber: formData.phoneNumber,
+                profileData: formData.customFieldData,
                 onboardingCompleted: true,
                 onboardingCompletedAt: new Date().toISOString(),
             };
