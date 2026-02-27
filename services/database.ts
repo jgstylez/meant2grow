@@ -2593,6 +2593,8 @@ export const subscribeToChatMessages = (
 
   let isUnsubscribed = false;
   let unsubscribe: Unsubscribe | null = null;
+  // Fix 2: Accept cache for initial load to avoid empty flash on navigation
+  let hasReceivedServerSnapshot = false;
 
   try {
     unsubscribe = onSnapshot(
@@ -2600,9 +2602,10 @@ export const subscribeToChatMessages = (
       (snapshot: QuerySnapshot) => {
         if (isUnsubscribed) return;
 
-        // Only apply server snapshots; ignore cache-only snapshots so we don't
-        // overwrite the list with stale cache and make newly sent messages disappear
-        if (snapshot.metadata.fromCache) return;
+        // Fix 2: Accept cache for initial load; after server data, prefer server only
+        const fromServer = !snapshot.metadata.fromCache;
+        if (fromServer) hasReceivedServerSnapshot = true;
+        if (snapshot.metadata.fromCache && hasReceivedServerSnapshot) return;
 
         try {
           const messages = snapshot.docs.map((doc) => ({
@@ -2720,18 +2723,24 @@ export const subscribeToDMMessages = (
   let unsubscribe2: Unsubscribe | null = null;
   let isUnsubscribed = false;
   let secondListenerTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  let query2CreationTimeoutId: ReturnType<typeof setTimeout> | null = null;
   const messagesMap = new Map<string, ChatMessage>();
+  // Fix 1: Track whether each query has fired - prevents partial overwrites
+  let query1HasFired = false;
+  let query2HasFired = false;
+  // Fix 2: Accept cache for initial load to avoid empty flash on navigation
+  let hasReceivedServerSnapshot = false;
 
-  const mergeAndCallback = () => {
-    // Don't call callback if already unsubscribed
+  const mergeAndCallback = (forceCall = false) => {
     if (isUnsubscribed) return;
+    // Fix 1: Don't callback until BOTH queries have fired (unless forceCall for errors)
+    if (!forceCall && (!query1HasFired || !query2HasFired)) return;
 
     const mergedMessages = Array.from(messagesMap.values());
-    // Sort by timestamp descending, then reverse to show oldest first
     mergedMessages.sort((a, b) => {
       const aTime = new Date(a.timestamp).getTime();
       const bTime = new Date(b.timestamp).getTime();
-      return bTime - aTime; // Descending
+      return bTime - aTime;
     });
     callback(mergedMessages.reverse());
   };
@@ -2753,14 +2762,13 @@ export const subscribeToDMMessages = (
       next: (snapshot: QuerySnapshot) => {
         if (isUnsubscribed) return;
 
-        // Only apply server snapshots; ignore cache-only snapshots so we don't
-        // get rapid cache-then-server updates that cause message list flickering.
-        // Matches subscribeToChatMessages behavior.
-        if (snapshot.metadata.fromCache) return;
+        // Fix 2: Accept cache for initial load to avoid empty flash; after server data, prefer server
+        const fromServer = !snapshot.metadata.fromCache;
+        if (fromServer) hasReceivedServerSnapshot = true;
+        if (snapshot.metadata.fromCache && hasReceivedServerSnapshot) return;
 
         try {
-          // Use docChanges() to handle added, modified, and removed documents.
-          const fromServer = !snapshot.metadata.fromCache;
+          query1HasFired = true;
           snapshot.docChanges().forEach((change) => {
             if (change.type === "removed") {
               if (fromServer) messagesMap.delete(change.doc.id);
@@ -2827,8 +2835,9 @@ export const subscribeToDMMessages = (
           currentUserId,
           organizationId
         });
-        // Keep existing messages on transient errors instead of wiping the list
-        mergeAndCallback();
+        // Fix 4: On transient errors, still callback with what we have
+        query1HasFired = true;
+        mergeAndCallback(true);
       },
     });
 
@@ -2842,11 +2851,13 @@ export const subscribeToDMMessages = (
           next: (snapshot: QuerySnapshot) => {
             if (isUnsubscribed) return;
 
-            // Only apply server snapshots; ignore cache-only to prevent flickering.
-            if (snapshot.metadata.fromCache) return;
+            // Fix 2: Accept cache for initial load; prefer server after we have it
+            const fromServer = !snapshot.metadata.fromCache;
+            if (fromServer) hasReceivedServerSnapshot = true;
+            if (snapshot.metadata.fromCache && hasReceivedServerSnapshot) return;
 
             try {
-              const fromServer = !snapshot.metadata.fromCache;
+              query2HasFired = true;
               snapshot.docChanges().forEach((change) => {
                 if (change.type === "removed") {
                   if (fromServer) messagesMap.delete(change.doc.id);
@@ -2930,8 +2941,9 @@ export const subscribeToDMMessages = (
               currentUserId,
               organizationId
             });
-            // Keep existing messages on transient errors
-            mergeAndCallback();
+            // Fix 4: On transient errors, still callback with what we have
+            query2HasFired = true;
+            mergeAndCallback(true);
           },
         });
       } catch (error) {
@@ -2947,6 +2959,19 @@ export const subscribeToDMMessages = (
         callback([]);
       }
     }, 50); // 50ms delay to ensure sequential initialization
+
+    // Fix 4: Fallback - if Query 2 never fires within 10s, callback with Query 1 data
+    query2CreationTimeoutId = setTimeout(() => {
+      if (isUnsubscribed) return;
+      if (!query2HasFired) {
+        logger.warn("DM subscription: Query 2 did not fire within 10s, using Query 1 data only", {
+          partnerId,
+          currentUserId,
+        });
+        query2HasFired = true;
+        mergeAndCallback(true);
+      }
+    }, 10000);
   } catch (error) {
     // If listener creation fails, clean up what was created
     logger.error("Error creating first DM listener", error);
@@ -2971,10 +2996,13 @@ export const subscribeToDMMessages = (
   return () => {
     isUnsubscribed = true;
 
-    // Clear the timeout if second listener hasn't been created yet
     if (secondListenerTimeoutId) {
       clearTimeout(secondListenerTimeoutId);
       secondListenerTimeoutId = null;
+    }
+    if (query2CreationTimeoutId) {
+      clearTimeout(query2CreationTimeoutId);
+      query2CreationTimeoutId = null;
     }
 
     try {

@@ -824,6 +824,17 @@ const Chat: React.FC<ChatProps> = ({
     }
   }, [initialChatId]);
 
+  // Fix 6: Persist active chat so it restores when user returns to Messages
+  useEffect(() => {
+    if (activeChatId && organizationId) {
+      try {
+        localStorage.setItem(`lastActiveChatId_${organizationId}`, activeChatId);
+      } catch {
+        // Ignore storage errors (e.g. private browsing)
+      }
+    }
+  }, [activeChatId, organizationId]);
+
   // Auto-select the chat once it's loaded (for group chats and user chats)
   useEffect(() => {
     if (initialChatId) {
@@ -1235,17 +1246,30 @@ const Chat: React.FC<ChatProps> = ({
       });
 
       setMessages((prev) => {
-        // Only update if messages actually changed
         const prevMessages = prev[activeChatId] || [];
+        // Fix 3: Don't overwrite with fewer messages - could be partial subscription data
+        let finalMessages = deduped;
+        if (deduped.length < prevMessages.length && prevMessages.length > 0) {
+          const dedupedIds = new Set(deduped.map((m) => m.id));
+          const merged = [
+            ...prevMessages.filter((m) => !dedupedIds.has(m.id)),
+            ...deduped,
+          ];
+          merged.sort((a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          finalMessages = merged;
+        }
+        // Only update if messages actually changed
         if (
-          prevMessages.length === deduped.length &&
-          prevMessages.every((msg, idx) => msg.id === deduped[idx]?.id)
+          prevMessages.length === finalMessages.length &&
+          prevMessages.every((msg, idx) => msg.id === finalMessages[idx]?.id)
         ) {
           return prev; // No changes
         }
         return {
           ...prev,
-          [activeChatId]: deduped,
+          [activeChatId]: finalMessages,
         };
       });
 

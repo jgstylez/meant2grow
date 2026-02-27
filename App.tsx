@@ -1544,12 +1544,19 @@ const App: React.FC = () => {
         // Handle chat page with optional chatId (format: "chat:userId" or "chat:groupId")
         let chatId: string | undefined;
         if (currentPage.startsWith("chat:")) {
-          // Extract chatId from "chat:userId" format
           chatId = currentPage.split(":")[1];
         } else if (currentPage === "chat-mentors" && organizationId) {
           chatId = getMentorsCircleId(organizationId);
         } else if (currentPage === "chat-mentees" && organizationId) {
           chatId = getMenteesHubId(organizationId);
+        } else if (currentPage === "chat" && organizationId) {
+          // Fix 6: Restore last active chat when returning to Messages
+          try {
+            const stored = localStorage.getItem(`lastActiveChatId_${organizationId}`);
+            if (stored) chatId = stored;
+          } catch {
+            // Ignore storage errors
+          }
         }
         return (
           <Suspense fallback={<LoadingSpinner message="Loading messages..." />}>
