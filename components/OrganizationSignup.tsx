@@ -9,7 +9,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Logo } from "./Logo";
-import { signInWithGoogle, initializeGoogleAuth, signInToFirebaseAuth } from "../services/googleAuth";
+import { signInWithGoogle, initializeGoogleAuth } from "../services/googleAuth";
 import {
   createUser,
   getOrganizationByCode,
@@ -282,37 +282,10 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
     setError(null);
 
     try {
+      // signInWithGoogle uses Firebase signInWithPopup - user is already signed into Firebase Auth
       const { user, idToken } = await signInWithGoogle();
-
-      // Sign in to Firebase Auth with Google ID token
-      // This is required for Firebase Cloud Functions and Firestore security rules
-      // Firebase Auth will automatically handle token refresh
-      let firebaseAuthUid: string | null = null;
-      try {
-        if (!idToken || idToken.trim().length === 0) {
-          throw new Error('Google ID token is missing or empty');
-        }
-        await signInToFirebaseAuth(idToken);
-        logger.info('Successfully authenticated with Firebase Auth');
-        
-        // Get Firebase Auth UID after successful authentication
-        const { auth } = await import("../services/firebase");
-        firebaseAuthUid = auth.currentUser?.uid || null;
-      } catch (firebaseAuthError: any) {
-        const errorMessage = firebaseAuthError?.message || String(firebaseAuthError);
-        console.error('Failed to sign in to Firebase Auth:', firebaseAuthError);
-        
-        // If token is invalid/expired, clear it and show error
-        if (errorMessage.includes('expired') || errorMessage.includes('invalid-credential')) {
-          localStorage.removeItem('google_id_token');
-          setError('Authentication token expired. Please try signing in again.');
-          setIsGoogleLoading(false);
-          return;
-        }
-        
-        // For other errors, continue but warn that Firestore operations may fail
-        logger.warn('Firebase Auth sign-in failed, but continuing. Firestore operations may fail.');
-      }
+      const { auth } = await import("../services/firebase");
+      const firebaseAuthUid = auth.currentUser?.uid ?? null;
 
       // Join existing organization via invitation
       if (!participantRole) {

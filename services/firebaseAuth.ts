@@ -40,6 +40,26 @@ export const ensureFirebaseAuthAccount = async (
           await updateUser(firestoreUserId, { firebaseAuthUid });
         }
         
+        // Ensure doc exists at users/{firebaseAuthUid} for Firestore rules (platform operators, legacy users)
+        try {
+          const authUidDocRef = doc(db, 'users', firebaseAuthUid);
+          const authUidDoc = await getDoc(authUidDocRef);
+          if (!authUidDoc.exists()) {
+            await setDoc(authUidDocRef, {
+              ...userDoc,
+              id: firebaseAuthUid,
+              firebaseAuthUid: firebaseAuthUid,
+              originalFirestoreUserId: firestoreUserId,
+            }, { merge: true });
+          }
+        } catch (docError: any) {
+          logger.warn('Failed to create user document at auth UID path', {
+            firebaseAuthUid,
+            firestoreUserId,
+            error: docError?.message,
+          });
+        }
+        
         logger.info('Authenticated existing Firebase Auth account (skipped fetchSignInMethodsForEmail)', {
           email,
           firebaseAuthUid,

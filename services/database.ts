@@ -232,6 +232,21 @@ export const getOrganizationByCode = async (
   } as Organization;
 };
 
+/** Check if an organization code is available (unique). Exclude current org when updating. */
+export const checkOrganizationCodeAvailable = async (
+  code: string,
+  excludeOrgId?: string
+): Promise<boolean> => {
+  const normalized = code.trim().toUpperCase();
+  if (!normalized) return false;
+  const snapshot = await getDocs(
+    query(collection(db, "organizations"), where("organizationCode", "==", normalized))
+  );
+  if (snapshot.empty) return true;
+  if (excludeOrgId && snapshot.docs[0].id === excludeOrgId) return true;
+  return false;
+};
+
 export const updateOrganization = async (
   organizationId: string,
   updates: Partial<Organization>

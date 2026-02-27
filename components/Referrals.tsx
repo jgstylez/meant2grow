@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import { User, Role, Invitation } from '../types';
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
-import { ArrowLeft, Send, Mail, UserPlus, Upload, FileText, CheckCircle, Clock, X, Eye, Copy, Check, Link as LinkIcon, ExternalLink } from 'lucide-react';
-import { createInvitation, getInvitation, getInvitationByEmail } from '../services/database';
+import { ArrowLeft, Send, Mail, UserPlus, Upload, FileText, CheckCircle, Clock, X, Eye, Copy, Check, Link as LinkIcon, ExternalLink, Pencil } from 'lucide-react';
+import { createInvitation, getInvitation, getInvitationByEmail, checkOrganizationCodeAvailable } from '../services/database';
+
+// Organization code constraints (for security/UX) - avoid confusing chars: 0,O,1,I,L
+const ORG_CODE_MIN = 4;
+const ORG_CODE_MAX = 8;
+const ORG_CODE_SAFE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 interface ReferralsProps {
   currentUser: User;
@@ -11,10 +16,15 @@ interface ReferralsProps {
   existingInvitations: Invitation[];
   organizationCode?: string;
   organizationId?: string;
+  onUpdateOrganizationCode?: (newCode: string) => Promise<void>;
 }
 
-const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendInvite, existingInvitations, organizationCode, organizationId }) => {
+const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendInvite, existingInvitations, organizationCode, organizationId, onUpdateOrganizationCode }) => {
   const [activeTab, setActiveTab] = useState<'invite' | 'bulk' | 'track'>('invite');
+  const [showChangeCodeModal, setShowChangeCodeModal] = useState(false);
+  const [newCodeInput, setNewCodeInput] = useState('');
+  const [changeCodeError, setChangeCodeError] = useState('');
+  const [isChangingCode, setIsChangingCode] = useState(false);
   // Separate copied state for each copy button to prevent all showing "Copied!" simultaneously
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedOrgSignupLink, setCopiedOrgSignupLink] = useState(false);
@@ -210,6 +220,51 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
     }
   };
 
+  const validateOrgCode = (raw: string): string | null => {
+    const s = raw.trim().toUpperCase();
+    if (!s) return 'Code is required';
+    if (s.length < ORG_CODE_MIN) return `Min ${ORG_CODE_MIN} characters`;
+    if (s.length > ORG_CODE_MAX) return `Max ${ORG_CODE_MAX} characters`;
+    const invalid = [...s].find((c) => !ORG_CODE_SAFE_CHARS.includes(c));
+    if (invalid) return `Use only A–Z and 2–9 (no 0, 1, I, O, L)`;
+    return null;
+  };
+
+  const handleOpenChangeCode = () => {
+    setNewCodeInput(organizationCode || '');
+    setChangeCodeError('');
+    setShowChangeCodeModal(true);
+  };
+
+  const handleSaveNewCode = async () => {
+    if (!onUpdateOrganizationCode || !organizationId) return;
+    const err = validateOrgCode(newCodeInput);
+    if (err) {
+      setChangeCodeError(err);
+      return;
+    }
+    const normalized = newCodeInput.trim().toUpperCase();
+    if (normalized === organizationCode) {
+      setShowChangeCodeModal(false);
+      return;
+    }
+    setIsChangingCode(true);
+    setChangeCodeError('');
+    try {
+      const available = await checkOrganizationCodeAvailable(normalized, organizationId);
+      if (!available) {
+        setChangeCodeError('Code already in use by another organization');
+        return;
+      }
+      await onUpdateOrganizationCode(normalized);
+      setShowChangeCodeModal(false);
+    } catch (e) {
+      setChangeCodeError(e instanceof Error ? e.message : 'Failed to update code');
+    } finally {
+      setIsChangingCode(false);
+    }
+  };
+
   const InvitePreviewModal = () => (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl max-w-lg w-full mx-4 border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -250,9 +305,59 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
       </div>
   );
 
+  const ChangeCodeModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl max-w-md w-full mx-4 border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+          <h3 className="font-bold text-slate-800 dark:text-white flex items-center">
+            <Pencil className="w-4 h-4 mr-2" /> Customize Invite Code
+          </h3>
+          <button onClick={() => setShowChangeCodeModal(false)}><X className="w-5 h-5 text-slate-400" /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Choose a code that's easy to remember. Participants will enter this to join your organization.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Code</label>
+            <input
+              type="text"
+              value={newCodeInput}
+              onChange={(e) => {
+                const v = [...e.target.value.toUpperCase()]
+                  .filter((c) => ORG_CODE_SAFE_CHARS.includes(c))
+                  .join('')
+                  .slice(0, ORG_CODE_MAX);
+                setNewCodeInput(v);
+                setChangeCodeError('');
+              }}
+              placeholder="e.g. ACME24"
+              className={INPUT_CLASS}
+              maxLength={ORG_CODE_MAX}
+              autoComplete="off"
+            />
+            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+              {ORG_CODE_MIN}–{ORG_CODE_MAX} chars • A–Z, 2–9 only • Must be unique
+            </p>
+          </div>
+          {changeCodeError && (
+            <p className="text-sm text-red-600 dark:text-red-400">{changeCodeError}</p>
+          )}
+        </div>
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+          <button onClick={() => setShowChangeCodeModal(false)} className="px-4 py-2 text-slate-500 hover:text-slate-700 font-medium">Cancel</button>
+          <button onClick={handleSaveNewCode} disabled={isChangingCode || !newCodeInput.trim()} className={BUTTON_PRIMARY}>
+            {isChangingCode ? 'Saving...' : 'Save Code'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
       <div className="space-y-6 animate-in fade-in">
           {showPreview && <InvitePreviewModal />}
+          {showChangeCodeModal && <ChangeCodeModal />}
           
           <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -275,7 +380,7 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                   <p className="text-emerald-50 text-sm mb-4">
                     Share this code with colleagues to let them join your organization directly. They'll be able to choose their own role (Mentor or Mentee).
                   </p>
-                  <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center gap-3 mb-4 flex-wrap">
                     <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-3 font-mono text-2xl font-bold tracking-wider">
                       {organizationCode}
                     </div>
@@ -295,6 +400,16 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                         </>
                       )}
                     </button>
+                    {currentUser.role === Role.ADMIN && onUpdateOrganizationCode && (
+                      <button
+                        onClick={handleOpenChangeCode}
+                        className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+                        title="Customize code"
+                      >
+                        <Pencil className="w-5 h-5" />
+                        Customize
+                      </button>
+                    )}
                   </div>
                   
                   {/* Organization Signup Link */}

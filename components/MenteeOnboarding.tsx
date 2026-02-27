@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from "../styles/common";
 import {
   Check,
@@ -31,21 +31,72 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
   programSettings,
   currentUser,
 }) => {
+  // Restore from localStorage (returning user, same device) or currentUser (returning user, different device)
+  const getStoredFormData = () => {
+    if (typeof window === "undefined") return null;
+    const stored = localStorage.getItem(`menteeOnboarding_${currentUser?.id || "default"}`);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const storedData = getStoredFormData();
+  // Convert user.goals (string[]) to GoalInput[] for returning users
+  const goalsFromUser = (currentUser?.goals || []).map((title: string) => ({
+    title,
+    targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+  }));
+
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    title: "",
-    company: "",
-    goals: [] as GoalInput[],
-    bio: "",
-    experience: "",
-    areas: [] as string[],
-    phoneNumber: "",
+    title: storedData?.title ?? currentUser?.title ?? "",
+    company: storedData?.company ?? currentUser?.company ?? "",
+    goals: ((storedData?.goals?.length ? storedData.goals : goalsFromUser) || []) as GoalInput[],
+    bio: storedData?.bio ?? currentUser?.bio ?? "",
+    experience: storedData?.experience ?? currentUser?.experience ?? "",
+    areas: ((storedData?.areas?.length ? storedData.areas : currentUser?.skills) || []) as string[],
+    phoneNumber: storedData?.phoneNumber ?? currentUser?.phoneNumber ?? "",
   });
   const [currentGoal, setCurrentGoal] = useState("");
   const [currentTargetDate, setCurrentTargetDate] = useState("");
   const [customFieldData, setCustomFieldData] = useState<Record<string, any>>(
-    {}
+    storedData?.customFieldData ?? {}
   );
+
+  // Persist form data to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined" && currentUser?.id) {
+      localStorage.setItem(
+        `menteeOnboarding_${currentUser.id}`,
+        JSON.stringify({ ...formData, customFieldData })
+      );
+    }
+  }, [formData, customFieldData, currentUser?.id]);
+
+  // Update formData when currentUser loads async (returning user, no stored data)
+  useEffect(() => {
+    if (currentUser && !storedData) {
+      const userGoals = (currentUser.goals || []).map((title: string) => ({
+        title,
+        targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      }));
+      setFormData((prev) => ({
+        ...prev,
+        title: prev.title || currentUser.title || "",
+        company: prev.company || currentUser.company || "",
+        goals: prev.goals.length > 0 ? prev.goals : userGoals,
+        bio: prev.bio || currentUser.bio || "",
+        experience: prev.experience || currentUser.experience || "",
+        areas: prev.areas.length > 0 ? prev.areas : (currentUser.skills || currentUser.goals || []),
+        phoneNumber: prev.phoneNumber || currentUser.phoneNumber || "",
+      }));
+    }
+  }, [currentUser, storedData]);
 
   const addGoal = () => {
     if (currentGoal.trim() && currentTargetDate) {
@@ -106,20 +157,18 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
 
   const handleCustomFieldsSubmit = (data: Record<string, any>) => {
     setCustomFieldData(data);
-    // Clear DynamicSignupForm localStorage after successful submission
-    if (typeof window !== "undefined" && programSettings?.programName) {
-      localStorage.removeItem(`dynamicSignupForm_${programSettings.programName}`);
+    if (typeof window !== "undefined") {
+      if (programSettings?.programName) localStorage.removeItem(`dynamicSignupForm_${programSettings.programName}`);
+      if (currentUser?.id) localStorage.removeItem(`menteeOnboarding_${currentUser.id}`);
     }
-    // Save all form data and complete onboarding
     onComplete({ ...formData, customFieldData: data });
   };
 
   const handleComplete = () => {
-    // Clear DynamicSignupForm localStorage if used (step 5)
-    if (typeof window !== "undefined" && programSettings?.programName) {
-      localStorage.removeItem(`dynamicSignupForm_${programSettings.programName}`);
+    if (typeof window !== "undefined") {
+      if (programSettings?.programName) localStorage.removeItem(`dynamicSignupForm_${programSettings.programName}`);
+      if (currentUser?.id) localStorage.removeItem(`menteeOnboarding_${currentUser.id}`);
     }
-    // Save all form data and complete onboarding
     onComplete({ ...formData, customFieldData });
   };
 

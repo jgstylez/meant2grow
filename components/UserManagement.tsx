@@ -146,12 +146,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
       setLoading(true);
       logger.debug("[UserManagement] Loading data...");
       
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Data loading timeout")), 30000)
-      );
-      
-      // Load data with individual error handling
+      // Load data with individual error handling (each call has its own 15s timeout)
       let allUsers: User[] = [];
       let allOrgs: Organization[] = [];
       

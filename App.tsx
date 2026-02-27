@@ -537,7 +537,8 @@ const App: React.FC = () => {
           }
         }
       } else if (userId) {
-        logger.warn('No Google ID token found for user', { userId, isImpersonating: isImpersonatingSession });
+        // Expected for email/password sign-in; only log at debug to reduce noise
+        logger.debug('No Google ID token (user may have signed in with email/password)', { userId, isImpersonating: isImpersonatingSession });
       }
     };
     restoreFirebaseAuth();
@@ -744,6 +745,18 @@ const App: React.FC = () => {
         getErrorMessage(error) || "Failed to delete notification",
         "error"
       );
+    }
+  };
+
+  const handleUpdateOrganizationCode = async (newCode: string) => {
+    if (!organizationId) throw new Error("Organization ID required");
+    try {
+      await updateOrganization(organizationId, { organizationCode: newCode });
+      await refreshData();
+      addToast("Invite code updated successfully", "success");
+    } catch (error) {
+      addToast(getErrorMessage(error) || "Failed to update invite code", "error");
+      throw error;
     }
   };
 
@@ -1618,6 +1631,7 @@ const App: React.FC = () => {
                 existingInvitations={invitations}
                 organizationCode={organization?.organizationCode}
                 organizationId={organizationId || undefined}
+                onUpdateOrganizationCode={handleUpdateOrganizationCode}
               />
             </ErrorBoundary>
           </Suspense>

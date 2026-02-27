@@ -1,6 +1,7 @@
 // Google OAuth 2.0 - Authentication only (no calendar/drive access)
+// Uses Firebase signInWithPopup to get ID token (initTokenClient only returns access_token, not id_token)
 
-import { signInWithCredential, GoogleAuthProvider, signOut as firebaseSignOut } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { logger } from './logger';
 
@@ -21,13 +22,6 @@ declare global {
     };
   }
 }
-
-// Minimal scopes - only what we need for authentication
-const GOOGLE_SCOPES = [
-  'openid',
-  'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/userinfo.profile',
-].join(' ');
 
 export interface GoogleUser {
   id: string;
@@ -63,64 +57,39 @@ export const initializeGoogleAuth = (): Promise<void> => {
   });
 };
 
-export const signInWithGoogle = (): Promise<{ user: GoogleUser; idToken: string }> => {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined' || !window.google) {
-      reject(new Error('Google API not loaded'));
-      return;
-    }
+/**
+ * Sign in with Google using Firebase's signInWithPopup.
+ * This ensures we get an ID token (initTokenClient only returns access_token).
+ * Returns user info and Firebase ID token for API verification.
+ */
+export const signInWithGoogle = async (): Promise<{ user: GoogleUser; idToken: string }> => {
+  const provider = new GoogleAuthProvider();
+  provider.addScope('openid');
+  provider.addScope('email');
+  provider.addScope('profile');
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      reject(new Error('VITE_GOOGLE_CLIENT_ID is not set'));
-      return;
-    }
+  const userCredential = await signInWithPopup(auth, provider);
+  const firebaseUser = userCredential.user;
 
-    const tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: GOOGLE_SCOPES,
-      callback: async (tokenResponse: any) => {
-        try {
-          if (tokenResponse.error) {
-            reject(new Error(tokenResponse.error));
-            return;
-          }
+  // Firebase ID token - API's verifyIdToken accepts this
+  const idToken = await firebaseUser.getIdToken();
+  if (!idToken || idToken.trim().length === 0) {
+    throw new Error('Google ID token is missing or empty');
+  }
 
-          // Fetch user info from Google
-          const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-            headers: {
-              Authorization: `Bearer ${tokenResponse.access_token}`,
-            },
-          });
+  // Google user ID (sub) from provider - use for API matching
+  const googleId = firebaseUser.providerData[0]?.uid ?? firebaseUser.uid;
 
-          if (!userInfoResponse.ok) {
-            throw new Error('Failed to fetch user info');
-          }
+  const user: GoogleUser = {
+    id: googleId,
+    email: firebaseUser.email ?? '',
+    name: firebaseUser.displayName ?? '',
+    picture: firebaseUser.photoURL ?? '',
+  };
 
-          const userInfo = await userInfoResponse.json();
+  localStorage.setItem('google_id_token', idToken);
 
-          // Store ID token (not access token) for backend verification
-          if (tokenResponse.id_token) {
-            localStorage.setItem('google_id_token', tokenResponse.id_token);
-          }
-
-          resolve({
-            user: {
-              id: userInfo.id,
-              email: userInfo.email,
-              name: userInfo.name,
-              picture: userInfo.picture,
-            },
-            idToken: tokenResponse.id_token,
-          });
-        } catch (error) {
-          reject(error);
-        }
-      },
-    });
-
-    tokenClient.requestAccessToken();
-  });
+  return { user, idToken };
 };
 
 /**

@@ -1756,8 +1756,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </div>
                     </div>
                   </div>
-                  <div className="w-full" style={{ height: "160px" }}>
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div className="w-full min-h-[160px]" style={{ height: "160px" }}>
+                    <ResponsiveContainer width="100%" height={160} minHeight={160}>
                       <PieChart>
                         <Pie
                           data={[

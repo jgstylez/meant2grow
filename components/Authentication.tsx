@@ -12,7 +12,9 @@ import {
   EyeOff,
 } from "lucide-react";
 import { Logo } from "./Logo";
-import { signInWithGoogle, initializeGoogleAuth, signInToFirebaseAuth } from "../services/googleAuth";
+import { signOut } from "firebase/auth";
+import { auth } from "../services/firebase";
+import { signInWithGoogle, initializeGoogleAuth } from "../services/googleAuth";
 import {
   createUser,
   createOrganization,
@@ -158,6 +160,16 @@ const Authentication: React.FC<AuthenticationProps> = ({
     setError(null);
 
     try {
+      // Sign out any existing session before login - ensures findUserByEmail and Firestore
+      // operations run with request.auth == null, avoiding permission errors when switching accounts
+      if (mode === "login" && auth.currentUser) {
+        try {
+          await signOut(auth);
+        } catch {
+          // Ignore sign-out errors
+        }
+      }
+
       if (mode === "org-signup") {
         // Check if email already exists
         const existingUserCheck = await findUserByEmail(formData.email);
@@ -423,7 +435,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
         if (!idToken || idToken.trim().length === 0) {
           throw new Error('Google ID token is missing or empty');
         }
-        await signInToFirebaseAuth(idToken);
+        // No-op: signInWithGoogle uses signInWithPopup, user is already signed in
         logger.info('Successfully authenticated with Firebase Auth');
         
         // Get Firebase Auth UID after successful authentication

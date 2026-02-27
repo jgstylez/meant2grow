@@ -122,9 +122,11 @@ service cloud.firestore {
       // Note: This allows checking if an email exists, which is needed for login but is a minor security trade-off
       // IMPORTANT: Check isPlatformOperator() FIRST for better performance in collection queries
       // Platform operators should be able to read all users without organization filtering
+      // Allow reading doc when firebaseAuthUid matches (legacy docs at users/randomId, e.g. platform operators)
       allow read: if isPlatformOperator() ||
                      belongsToOrg(resource.data.organizationId) || 
                      request.auth.uid == userId || 
+                     (resource.data.firebaseAuthUid != null && resource.data.firebaseAuthUid == request.auth.uid) ||
                      // Allow unauthenticated reads for login flow (email lookups)
                      request.auth == null;
       
