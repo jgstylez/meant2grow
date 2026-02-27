@@ -1414,6 +1414,7 @@ const App: React.FC = () => {
                 programSettings={programSettings}
                 organizationCode={organization?.organizationCode}
                 organization={organization}
+                onUpdateOrganizationCode={handleUpdateOrganizationCode}
                 isImpersonating={isImpersonating}
                 onApproveRating={async (id) => {
                   try {

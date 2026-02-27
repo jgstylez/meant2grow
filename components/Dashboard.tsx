@@ -10,9 +10,10 @@ import {
   CalendarEvent,
   Organization,
 } from "../types";
-import { INPUT_CLASS, CARD_CLASS } from "../styles/common";
+import { INPUT_CLASS, CARD_CLASS, BUTTON_PRIMARY } from "../styles/common";
 import {
   getAllUsers,
+  checkOrganizationCodeAvailable,
   getAllOrganizations,
   getAllCalendarEvents,
   getAllMatches,
@@ -75,6 +76,7 @@ import {
   Medal,
   Clock,
   BookOpen,
+  Pencil,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -84,6 +86,11 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+
+// Organization code constraints (same as Referrals)
+const ORG_CODE_MIN = 4;
+const ORG_CODE_MAX = 8;
+const ORG_CODE_SAFE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 interface DashboardProps {
   user: User;
@@ -95,6 +102,7 @@ interface DashboardProps {
   programSettings?: ProgramSettings | null;
   organizationCode?: string;
   organization?: Organization | null;
+  onUpdateOrganizationCode?: (newCode: string) => Promise<void>;
   onApproveRating: (id: string) => void;
   onRejectRating?: (id: string) => void;
   onAddRating: (rating: Omit<Rating, "id">) => void;
@@ -153,6 +161,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   programSettings,
   organizationCode,
   organization,
+  onUpdateOrganizationCode,
   onApproveRating,
   onRejectRating,
   onAddRating,
@@ -189,6 +198,12 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [ratingComment, setRatingComment] = useState("");
   const [showRatingSuccess, setShowRatingSuccess] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
+
+  // Change org code modal (org admin only)
+  const [showChangeCodeModal, setShowChangeCodeModal] = useState(false);
+  const [newCodeInput, setNewCodeInput] = useState("");
+  const [changeCodeError, setChangeCodeError] = useState("");
+  const [isChangingCode, setIsChangingCode] = useState(false);
 
   // Participants Modal State
   const [showParticipantsModal, setShowParticipantsModal] = useState<
@@ -257,6 +272,56 @@ const Dashboard: React.FC<DashboardProps> = ({
       navigator.clipboard.writeText(organizationCode);
       setCodeCopied(true);
       setTimeout(() => setCodeCopied(false), 2000);
+    }
+  };
+
+  const validateOrgCode = (s: string): string | null => {
+    const t = s.trim();
+    if (!t) return "Code is required";
+    if (t.length < ORG_CODE_MIN) return `Min ${ORG_CODE_MIN} characters`;
+    if (t.length > ORG_CODE_MAX) return `Max ${ORG_CODE_MAX} characters`;
+    const invalid = [...t].find((c) => !ORG_CODE_SAFE_CHARS.includes(c));
+    if (invalid) return "Use only A–Z and 2–9 (no 0, 1, I, O, L)";
+    return null;
+  };
+
+  const handleOpenChangeCode = () => {
+    setNewCodeInput(organizationCode || "");
+    setChangeCodeError("");
+    setShowChangeCodeModal(true);
+  };
+
+  const handleSaveNewCode = async () => {
+    if (!onUpdateOrganizationCode || !organization?.id) return;
+    const err = validateOrgCode(newCodeInput);
+    if (err) {
+      setChangeCodeError(err);
+      return;
+    }
+    const normalized = newCodeInput.trim().toUpperCase();
+    if (normalized === organizationCode) {
+      setShowChangeCodeModal(false);
+      return;
+    }
+    setIsChangingCode(true);
+    setChangeCodeError("");
+    try {
+      const available = await checkOrganizationCodeAvailable(
+        normalized,
+        organization.id
+      );
+      if (!available) {
+        setChangeCodeError("Code already in use by another organization");
+        return;
+      }
+      await onUpdateOrganizationCode(normalized);
+      setShowChangeCodeModal(false);
+    } catch (e) {
+      setChangeCodeError(
+        e instanceof Error ? e.message : "Failed to update code"
+      );
+    } finally {
+      setIsChangingCode(false);
     }
   };
 
@@ -2446,6 +2511,68 @@ const Dashboard: React.FC<DashboardProps> = ({
     return (
       <>
         {renderParticipantsModal()}
+        {showChangeCodeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                <h3 className="font-bold text-slate-800 dark:text-white flex items-center">
+                  <Pencil className="w-4 h-4 mr-2" /> Customize Invite Code
+                </h3>
+                <button
+                  onClick={() => setShowChangeCodeModal(false)}
+                  className="text-slate-400 hover:text-slate-600 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Choose a code that&apos;s easy to remember. Participants will enter this to join your organization.
+                </p>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Code</label>
+                  <input
+                    type="text"
+                    value={newCodeInput}
+                    onChange={(e) => {
+                      const v = [...e.target.value.toUpperCase()]
+                        .filter((c) => ORG_CODE_SAFE_CHARS.includes(c))
+                        .join("")
+                        .slice(0, ORG_CODE_MAX);
+                      setNewCodeInput(v);
+                      setChangeCodeError("");
+                    }}
+                    placeholder="e.g. ACME24"
+                    className={INPUT_CLASS}
+                    maxLength={ORG_CODE_MAX}
+                    autoComplete="off"
+                  />
+                  <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    {ORG_CODE_MIN}–{ORG_CODE_MAX} chars • A–Z, 2–9 only • Must be unique
+                  </p>
+                </div>
+                {changeCodeError && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{changeCodeError}</p>
+                )}
+              </div>
+              <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowChangeCodeModal(false)}
+                  className="px-4 py-2 text-slate-500 hover:text-slate-700 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveNewCode}
+                  disabled={isChangingCode || !newCodeInput.trim()}
+                  className={BUTTON_PRIMARY}
+                >
+                  {isChangingCode ? "Saving..." : "Save Code"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500 px-2 sm:px-0">
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -2854,8 +2981,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <p className="text-indigo-100 text-xs mb-2 sm:mb-3">
                   Share this code to add participants
                 </p>
-                <div className="flex items-center gap-2">
-                  <div className="bg-white/20 backdrop-blur-sm rounded px-2 sm:px-3 py-1.5 sm:py-2 font-mono text-sm sm:text-lg font-bold tracking-wider flex-1 overflow-x-auto overflow-y-hidden break-all">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="bg-white/20 backdrop-blur-sm rounded px-2 sm:px-3 py-1.5 sm:py-2 font-mono text-sm sm:text-lg font-bold tracking-wider flex-1 min-w-0 overflow-x-auto overflow-y-hidden break-all">
                     {organizationCode}
                   </div>
                   <button
@@ -2869,6 +2996,16 @@ const Dashboard: React.FC<DashboardProps> = ({
                       <Copy className="w-4 h-4 sm:w-5 sm:h-5" />
                     )}
                   </button>
+                  {isAdmin && onUpdateOrganizationCode && (
+                    <button
+                      onClick={handleOpenChangeCode}
+                      className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-2 sm:px-3 py-1.5 sm:py-2 rounded transition-colors shrink-0 flex items-center gap-1.5 font-medium text-xs sm:text-sm"
+                      title="Customize code"
+                    >
+                      <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      Customize
+                    </button>
+                  )}
                 </div>
               </div>
             )}
