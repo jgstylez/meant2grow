@@ -56,7 +56,8 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
         name: `${formData.firstName} ${formData.lastName}`,
         role: formData.role.toUpperCase() as Role,
         sentDate: new Date().toISOString(),
-        invitationId: generatedInvitationId // Pass the existing invitation ID
+        invitationId: generatedInvitationId, // Pass the existing invitation ID
+        personalNote: formData.personalNote,
       });
       // Clear the generated link state since we're sending it
       setGeneratedLink(null);
@@ -77,7 +78,8 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
             name: `${formData.firstName} ${formData.lastName}`,
             role: formData.role.toUpperCase() as Role,
             sentDate: new Date().toISOString(),
-            invitationId: existingInvitation.id
+            invitationId: existingInvitation.id,
+            personalNote: formData.personalNote,
           });
           setFormData({ firstName: '', lastName: '', email: '', role: 'Mentee', personalNote: '' });
           setShowPreview(false);
@@ -94,7 +96,8 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
       email: formData.email,
       name: `${formData.firstName} ${formData.lastName}`,
       role: formData.role.toUpperCase() as Role,
-      sentDate: new Date().toISOString()
+      sentDate: new Date().toISOString(),
+      personalNote: formData.personalNote,
     });
     setFormData({ firstName: '', lastName: '', email: '', role: 'Mentee', personalNote: '' });
     setShowPreview(false);

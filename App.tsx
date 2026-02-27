@@ -1261,11 +1261,13 @@ const App: React.FC = () => {
       if (createdInvitation && createdInvitation.invitationLink) {
         // Send invitation email via Cloud Function
         try {
-          const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL
-            ? `${import.meta.env.VITE_FUNCTIONS_URL}/sendInvitationEmail`
+          const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'meant2grow-dev';
+          const functionsBase = import.meta.env.VITE_FUNCTIONS_URL
+            ? import.meta.env.VITE_FUNCTIONS_URL.replace(/\/$/, '')
             : (import.meta.env.DEV
-              ? 'http://localhost:5001/meant2grow-dev/us-central1/sendInvitationEmail'
-              : 'https://us-central1-meant2grow-dev.cloudfunctions.net/sendInvitationEmail');
+              ? `http://localhost:5001/${projectId}/us-central1`
+              : `https://us-central1-${projectId}.cloudfunctions.net`);
+          const functionsUrl = `${functionsBase}/sendInvitationEmail`;
 
           const response = await fetch(functionsUrl, {
             method: 'POST',
@@ -1285,8 +1287,14 @@ const App: React.FC = () => {
           });
 
           if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to send invitation email');
+            let errorMessage = 'Failed to send invitation email';
+            try {
+              const error = await response.json();
+              errorMessage = error.message || error.error || errorMessage;
+            } catch {
+              errorMessage = await response.text().then((t) => t || errorMessage).catch(() => errorMessage);
+            }
+            throw new Error(errorMessage);
           }
 
           addToast(`Invitation email sent to ${inviteData.email}`, "success");
