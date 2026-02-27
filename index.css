@@ -75,6 +75,16 @@
     }
   }
   
+  /* iOS PWA safe area - ensures content doesn't go under notch/home indicator */
+  @supports (padding: env(safe-area-inset-top)) {
+    .pwa-safe-top {
+      padding-top: env(safe-area-inset-top);
+    }
+    .pwa-safe-bottom {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
+
   /* Main content area spacing with PWA banner support */
   /* Responsive top padding that accounts for PWA banner offset */
   main#main-content {

@@ -6,62 +6,65 @@ import { getErrorMessage } from './utils/errors';
 
 // Register service worker for PWA and push notifications (required for iOS)
 if ('serviceWorker' in navigator) {
-  // Register immediately, don't wait for load event (better for production)
+  let swRegistration: ServiceWorkerRegistration | null = null;
+
   const registerSW = async () => {
     try {
-      // First, verify the service worker file is accessible
       const swUrl = '/firebase-messaging-sw.js';
       try {
         const response = await fetch(swUrl, { method: 'HEAD' });
         if (!response.ok) {
           console.warn('[SW] Service worker file not found or not accessible:', swUrl);
-          console.warn('[SW] This may prevent PWA installation banner from showing');
         }
       } catch (fetchError) {
         console.warn('[SW] Could not verify service worker file:', fetchError);
       }
 
-      // Try to register the service worker
       const registration = await navigator.serviceWorker.register(swUrl, {
         scope: '/',
       });
-      
-      // Only log in development mode
-      if (import.meta.env?.DEV) {
-        console.log('[SW] Service Worker registered successfully:', registration.scope);
-      }
-      
-      // Check for updates
+      swRegistration = registration;
+
+      // When a new SW is installed, skipWaiting so it activates immediately (fixes stale cache on iPhone)
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // Only log in development mode
-              if (import.meta.env?.DEV) {
-                console.log('[SW] New service worker available');
-              }
+              newWorker.skipWaiting();
             }
           });
         }
       });
+
+      // When controller changes (new SW took over), reload to get fresh content
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
     } catch (error: unknown) {
       console.error('[SW] Service Worker registration failed:', error);
-      // Log more details for debugging
       const errorMessage = getErrorMessage(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
       console.error('[SW] Error details:', {
         message: errorMessage,
         stack: errorStack,
         url: window.location.href,
-        protocol: window.location.protocol,
-        hostname: window.location.hostname,
         swUrl: '/firebase-messaging-sw.js',
       });
     }
   };
 
-  // Register immediately if DOM is ready, otherwise wait for load
+  // Check for SW updates when app becomes visible (e.g. user opens PWA from home screen)
+  const checkForUpdates = () => {
+    swRegistration?.update();
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForUpdates();
+  });
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) checkForUpdates();
+  });
+
   if (document.readyState === 'loading') {
     window.addEventListener('load', registerSW);
   } else {

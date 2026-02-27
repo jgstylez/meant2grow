@@ -54,8 +54,8 @@ export default defineConfig(({ mode }) => {
           enabled: false, // Disable service worker in dev mode
         },
         workbox: {
-          // Workbox options for precaching
           globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+          cleanupOutdatedCaches: true,
         },
       }),
     ],

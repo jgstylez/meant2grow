@@ -8,6 +8,11 @@ import { precacheAndRoute } from "workbox-precaching";
 // Precache and route all assets
 precacheAndRoute(self.__WB_MANIFEST);
 
+// Skip waiting so new SW activates immediately (fixes stale cache on iPhone PWA)
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
 // Initialize Firebase in the service worker
 // Environment variables are injected at build time via Vite's define option
 const firebaseConfig = {

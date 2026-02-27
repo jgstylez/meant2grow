@@ -21,7 +21,10 @@ export const EnvironmentBanner: React.FC<EnvironmentBannerProps> = ({
   }
 
   // Calculate top offset based on impersonation banner (only when fixed)
-  const topOffset = hasImpersonationBanner ? '3.5rem' : '0';
+  // Include safe-area-inset-top for iOS PWA standalone (notch); falls back to 0 on desktop
+  const topOffset = hasImpersonationBanner
+    ? 'calc(3.5rem + env(safe-area-inset-top, 0px))'
+    : 'env(safe-area-inset-top, 0px)';
 
   const baseClass = 'left-0 right-0 z-[99] bg-orange-500 text-white px-3 py-2 shadow-lg pointer-events-auto flex items-center h-10';
   const positionClass = fixed ? 'fixed' : 'w-full';

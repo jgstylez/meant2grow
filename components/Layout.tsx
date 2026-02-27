@@ -353,13 +353,23 @@ const Layout: React.FC<LayoutProps> = ({
           ? "pt-10"
           : "";
 
+  // Sidebar on desktop: fixed to viewport (top to bottom) so Settings/Log Out always pinned bottom-left
+  const sidebarDesktopTop =
+    isImpersonating && isSandbox()
+      ? "md:top-24"
+      : isImpersonating
+        ? "md:top-14"
+        : isSandbox()
+          ? "md:top-10"
+          : "md:top-0";
+
   return (
     <div
-      className={`min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row text-slate-900 dark:text-slate-100 transition-colors duration-300 ${layoutTopPadding}`}
+      className={`min-h-screen md:h-screen md:overflow-hidden bg-slate-50 dark:bg-slate-950 flex flex-col md:flex-row text-slate-900 dark:text-slate-100 transition-colors duration-300 ${layoutTopPadding}`}
     >
-      {/* Impersonation Banner */}
+      {/* Impersonation Banner - safe-area for iOS notch when PWA standalone */}
       {isImpersonating && (
-        <div className="fixed top-0 left-0 right-0 z-[100] bg-amber-500 text-white px-3 py-2 shadow-lg pointer-events-auto h-14 flex items-center">
+        <div className="fixed top-0 left-0 right-0 z-[100] bg-amber-500 text-white px-3 py-2 shadow-lg pointer-events-auto min-h-14 flex items-center pt-[env(safe-area-inset-top)]">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 w-full">
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <LogIn className="w-3.5 h-3.5 flex-shrink-0" />
@@ -392,8 +402,8 @@ const Layout: React.FC<LayoutProps> = ({
         Skip to main content
       </a>
 
-      {/* Mobile Header */}
-      <header className={`md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 flex justify-between items-center sticky z-30 ${
+      {/* Mobile Header - safe-area for iOS notch when PWA standalone */}
+      <header className={`md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 flex justify-between items-center sticky z-30 pt-[max(0.75rem,env(safe-area-inset-top))] ${
         isImpersonating ? "top-14" : isSandbox() ? "top-10" : "top-0"
       }`}>
         <div className="flex items-center space-x-2 min-w-0 flex-1">
@@ -537,18 +547,18 @@ const Layout: React.FC<LayoutProps> = ({
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - fixed on desktop so Settings/Log Out always pinned to bottom-left */}
       <aside
         ref={mobileMenuRef}
         aria-label="Main navigation"
         className={`
-        fixed inset-y-0 left-0 z-[101] w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-transform duration-200 ease-in-out touch-action-pan-y
-        md:relative md:translate-x-0 md:z-10
+        fixed left-0 bottom-0 z-[101] w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transform transition-transform duration-200 ease-in-out touch-action-pan-y overflow-hidden
+        md:translate-x-0 md:z-10 ${sidebarDesktopTop}
         ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
-        ${isImpersonating ? "top-14 md:top-0" : isSandbox() ? "top-10 md:top-0" : ""}
+        ${isImpersonating && isSandbox() ? "top-24" : isImpersonating ? "top-14" : isSandbox() ? "top-10" : "top-0"}
       `}
       >
-        <div className="p-4 h-full flex flex-col touch-action-pan-y">
+        <div className="p-4 h-full flex flex-col touch-action-pan-y pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           <div className="hidden md:flex items-center mb-4">
             <div className="flex items-center space-x-2 min-w-0 flex-1">
               <Logo className="w-7 h-7 flex-shrink-0" title="Meant2Grow" />
@@ -558,7 +568,7 @@ const Layout: React.FC<LayoutProps> = ({
             </div>
           </div>
 
-          <div className="mb-4 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
+          <div className="mb-3 md:mb-4 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
             <div className="flex items-center space-x-2">
               <img
                 src={currentUser.avatar}
@@ -624,7 +634,7 @@ const Layout: React.FC<LayoutProps> = ({
 
           <nav
             aria-label="Main navigation"
-            className="flex-1 space-y-0.5 overflow-y-auto touch-action-pan-y"
+            className="flex-1 min-h-0 space-y-0.5 overflow-y-auto touch-action-pan-y"
           >
             <NavItem
               page="dashboard"
@@ -718,7 +728,7 @@ const Layout: React.FC<LayoutProps> = ({
             )}
           </nav>
 
-          <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1">
+          <div className="mt-auto flex-shrink-0 pt-2 md:pt-3 border-t border-slate-100 dark:border-slate-800 space-y-0.5 md:space-y-1">
             <NavItem page="settings" icon={Settings} label="Settings" />
 
             <button
@@ -736,10 +746,10 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content - scrollable on desktop, ml-64 for fixed sidebar */}
       <main
         id="main-content"
-        className="flex-1 min-h-screen px-3 pb-3 sm:px-4 sm:pb-4 md:px-8 md:pb-8 relative touch-action-pan-y w-full max-w-full overflow-x-hidden"
+        className="flex-1 min-h-screen md:min-h-0 px-3 pb-3 sm:px-4 sm:pb-4 md:px-8 md:pb-8 md:ml-64 relative touch-action-pan-y w-full max-w-full overflow-x-hidden md:overflow-y-auto"
         role="main"
         data-impersonating={isImpersonating ? "true" : undefined}
         style={{
@@ -749,13 +759,13 @@ const Layout: React.FC<LayoutProps> = ({
       >
         {children}
 
-        {/* Toast Container */}
+        {/* Toast Container - safe-area for iOS home indicator when PWA standalone */}
         <div
           role="region"
           aria-label="Notifications"
           aria-live="polite"
           aria-atomic="false"
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col gap-2 pointer-events-none max-w-[calc(100vw-2rem)] sm:max-w-none"
+          className="fixed right-4 sm:right-6 z-50 flex flex-col gap-2 pointer-events-none max-w-[calc(100vw-2rem)] sm:max-w-none bottom-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-[max(1.5rem,env(safe-area-inset-bottom))]"
         >
           {toasts.map((toast) => (
             <div
