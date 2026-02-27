@@ -70,9 +70,13 @@ This document provides a comprehensive review of all features and functionality 
   - Approve ratings
   - Reject ratings
   - See rating details (score, comment, date, organization)
+- ✅ **Approved Reviews** (view after approval):
+  - View all approved ratings with full details
+  - See who submitted (from user), who was reviewed (to user), organization
+  - Score, comment, and submission date for each approved review
 - ✅ **Rating Metrics**:
   - Approved vs Total ratings
-  - Average rating score display
+  - Average rating score display (sum of approved scores / count of approved)
 
 #### 1.5 Navigation & Access
 - ✅ **Navigation Menu Items**:
@@ -381,6 +385,12 @@ This document provides a comprehensive review of all features and functionality 
 - Charts render properly
 - Lists filter correctly
 - Modals open/close correctly
+
+### ✅ Rating Calculations (utils/ratingsUtils.ts)
+- **Platform Operator**: avg = sum(approved scores) / count(approved); uses `allRatings` (platform-wide)
+- **Organization Admin**: pending count = ratings where !isApproved; uses org-scoped `ratings`
+- **Mentor Dashboard**: avg = sum(approved ratings received) / count; ratings where toUserId = mentor
+- **Mentee Dashboard**: approved feedback = ratings where fromUserId = mentee && isApproved
 
 ### ✅ User Interactions
 - Buttons respond correctly

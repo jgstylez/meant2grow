@@ -34,6 +34,13 @@ import {
 } from "../utils/exportUtils";
 import { platformOperatorCache, cacheKeys } from "../utils/cache";
 import { platformOperatorRateLimiter } from "../utils/rateLimiter";
+import {
+  getApprovedRatings,
+  getPendingRatings,
+  computeAverageRating,
+  getApprovedRatingsForUser,
+  computeAverageFromRatings,
+} from "../utils/ratingsUtils";
 import { logger } from "../services/logger";
 import { parseDurationToHours } from "../services/utils";
 import {
@@ -718,6 +725,8 @@ const Dashboard: React.FC<DashboardProps> = ({
           const goalsCacheKey = cacheKeys.allGoals();
           const ratingsCacheKey = cacheKeys.allRatings();
           const eventsCacheKey = cacheKeys.allCalendarEvents();
+          const usersCacheKey = cacheKeys.allUsers();
+          const orgsCacheKey = cacheKeys.allOrganizations();
 
           const cachedMatches =
             platformOperatorCache.get<Match[]>(matchesCacheKey);
@@ -726,12 +735,25 @@ const Dashboard: React.FC<DashboardProps> = ({
             platformOperatorCache.get<Rating[]>(ratingsCacheKey);
           const cachedEvents =
             platformOperatorCache.get<CalendarEvent[]>(eventsCacheKey);
+          const cachedUsers =
+            platformOperatorCache.get<User[]>(usersCacheKey);
+          const cachedOrgs =
+            platformOperatorCache.get<Organization[]>(orgsCacheKey);
 
-          if (cachedMatches && cachedGoals && cachedRatings && cachedEvents) {
+          if (
+            cachedMatches &&
+            cachedGoals &&
+            cachedRatings &&
+            cachedEvents &&
+            cachedUsers &&
+            cachedOrgs
+          ) {
             setAllMatches(cachedMatches);
             setAllGoals(cachedGoals);
             setAllRatings(cachedRatings);
             setAllCalendarEvents(cachedEvents);
+            setAllUsers(cachedUsers);
+            setAllOrganizations(cachedOrgs);
             setPlatformOperatorLoading(false);
             return;
           }
@@ -744,13 +766,21 @@ const Dashboard: React.FC<DashboardProps> = ({
             return;
           }
 
-          const [eventsData, matchesData, goalsData, ratingsData] =
-            await Promise.all([
-              getAllCalendarEvents(),
-              getAllMatches(),
-              getAllGoals(),
-              getAllRatings(),
-            ]);
+          const [
+            eventsData,
+            matchesData,
+            goalsData,
+            ratingsData,
+            usersData,
+            orgsData,
+          ] = await Promise.all([
+            getAllCalendarEvents(),
+            getAllMatches(),
+            getAllGoals(),
+            getAllRatings(),
+            getAllUsers(),
+            getAllOrganizations(),
+          ]);
 
           if (cancelled) return;
 
@@ -759,18 +789,24 @@ const Dashboard: React.FC<DashboardProps> = ({
             matches: matchesData.length,
             goals: goalsData.length,
             ratings: ratingsData.length,
+            users: usersData.length,
+            orgs: orgsData.length,
           });
 
           setAllCalendarEvents(eventsData);
           setAllMatches(matchesData);
           setAllGoals(goalsData);
           setAllRatings(ratingsData);
+          setAllUsers(usersData);
+          setAllOrganizations(orgsData);
 
           // Cache the results
           platformOperatorCache.set(matchesCacheKey, matchesData, 60000);
           platformOperatorCache.set(goalsCacheKey, goalsData, 60000);
           platformOperatorCache.set(ratingsCacheKey, ratingsData, 60000);
           platformOperatorCache.set(eventsCacheKey, eventsData, 60000);
+          platformOperatorCache.set(usersCacheKey, usersData, 60000);
+          platformOperatorCache.set(orgsCacheKey, orgsData, 60000);
         } catch (error) {
           if (cancelled) return;
           logger.error("Error loading platform operator data", error);
@@ -789,6 +825,8 @@ const Dashboard: React.FC<DashboardProps> = ({
           setAllMatches([]);
           setAllGoals([]);
           setAllRatings([]);
+          setAllUsers([]);
+          setAllOrganizations([]);
         } finally {
           if (!cancelled) {
             setPlatformOperatorLoading(false);
@@ -821,13 +859,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       (g) => g.status === "In Progress",
     ).length;
     const totalRatings = allRatings.length;
-    const approvedRatings = allRatings.filter((r) => r.isApproved).length;
-    const avgRating =
-      approvedRatings > 0
-        ? allRatings
-            .filter((r) => r.isApproved)
-            .reduce((sum, r) => sum + r.score, 0) / approvedRatings
-        : 0;
+    const approvedRatings = getApprovedRatings(allRatings).length;
+    const avgRating = computeAverageRating(allRatings);
 
     // User growth (last 30 days)
     const thirtyDaysAgo = new Date();
@@ -1863,9 +1896,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                   Platform Operator
                 </span>
               </div>
-              {allRatings.filter((r) => !r.isApproved).length > 0 && (
+              {getPendingRatings(allRatings).length > 0 && (
                 <span className="px-3 py-1 text-xs sm:text-sm font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-full w-fit">
-                  {allRatings.filter((r) => !r.isApproved).length} Pending
+                  {getPendingRatings(allRatings).length} Pending
                 </span>
               )}
             </div>
@@ -1909,8 +1942,98 @@ const Dashboard: React.FC<DashboardProps> = ({
                   )}
                 </div>
 
-                {/* Pending Reviews Section */}
-                <div className="border-t border-slate-200 dark:border-slate-800 pt-4 sm:pt-6">
+                {/* Approved Reviews & Pending Reviews - Side by side on desktop */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 border-t border-slate-200 dark:border-slate-800 pt-4 sm:pt-6">
+                  {/* Approved Reviews Section - View all approved ratings with details */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 flex-shrink-0" />
+                      <h3 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">
+                        Approved Reviews
+                      </h3>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-4">
+                      View all approved ratings and who they belong to across
+                      the platform
+                    </p>
+                    {platformStats.approvedRatings > 0 ? (
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {getApprovedRatings(allRatings).map((rating) => {
+                          const fromUser = allUsers.find(
+                            (u) => u.id === rating.fromUserId,
+                          );
+                          const toUser = allUsers.find(
+                            (u) => u.id === rating.toUserId,
+                          );
+                          const ratingOrg = allOrganizations.find(
+                            (o) => o.id === rating.organizationId,
+                          );
+                          return (
+                            <div
+                              key={rating.id}
+                              className="p-3 sm:p-4 border-2 border-emerald-200 dark:border-emerald-800 rounded-lg bg-emerald-50/50 dark:bg-emerald-900/10"
+                            >
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                <Building className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500 flex-shrink-0" />
+                                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
+                                  {ratingOrg?.name || "Unknown Organization"}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1 rounded">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Approved
+                                </span>
+                              </div>
+                              <p className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white mb-1 break-words">
+                                <span className="font-semibold">
+                                  {fromUser?.name || "Unknown User"}
+                                </span>
+                                <span className="text-slate-400 mx-1">
+                                  reviewed
+                                </span>
+                                <span className="font-semibold">
+                                  {toUser?.name || "Unknown User"}
+                                </span>
+                              </p>
+                              <div className="flex items-center gap-1 mt-1 mb-2 flex-wrap">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${
+                                      i < rating.score
+                                        ? "text-amber-400 fill-amber-400"
+                                        : "text-slate-300 dark:text-slate-600"
+                                    }`}
+                                  />
+                                ))}
+                                <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">
+                                  ({rating.score}/5)
+                                </span>
+                              </div>
+                              {rating.comment && (
+                                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2 italic line-clamp-3 bg-white dark:bg-slate-800 p-2.5 sm:p-3 rounded border border-slate-200 dark:border-slate-700 break-words">
+                                  "{rating.comment}"
+                                </p>
+                              )}
+                              <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                                Submitted:{" "}
+                                {new Date(rating.date).toLocaleDateString()}
+                              </p>
+                            </div>
+                          );
+                        })}
+                    </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3 opacity-50" />
+                        <p className="text-slate-400 text-sm">
+                          No approved reviews yet
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pending Reviews Section */}
+                  <div>
                   <div className="flex items-center gap-2 mb-3 sm:mb-4">
                     <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 flex-shrink-0" />
                     <h3 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">
@@ -1921,7 +2044,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     Review and approve or reject ratings from all organizations
                     across the platform
                   </p>
-                  {allRatings.filter((r) => !r.isApproved).length === 0 ? (
+                  {getPendingRatings(allRatings).length === 0 ? (
                     <div className="text-center py-8">
                       <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3 opacity-50" />
                       <p className="text-slate-400 text-sm">
@@ -1930,9 +2053,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   ) : (
                     <div className="space-y-4 max-h-96 overflow-y-auto">
-                      {allRatings
-                        .filter((r) => !r.isApproved)
-                        .map((rating) => {
+                      {getPendingRatings(allRatings).map((rating) => {
                           const fromUser = allUsers.find(
                             (u) => u.id === rating.fromUserId,
                           );
@@ -2022,6 +2143,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         })}
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
             )}
@@ -2260,7 +2382,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const activeMatches = matches.filter(
       (m) => m.status === MatchStatus.ACTIVE,
     ).length;
-    const pendingReviews = ratings.filter((r) => !r.isApproved).length;
+    const pendingReviews = getPendingRatings(ratings).length;
 
     // Calculate matched vs unmatched participants
     const matchedParticipants = activeMatches * 2; // Each match has 2 participants
@@ -2586,7 +2708,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
                 Approve or reject reviews from your organization participants
               </p>
-              {ratings.filter((r) => !r.isApproved).length === 0 ? (
+              {getPendingRatings(ratings).length === 0 ? (
                 <div className="text-center py-6">
                   <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-50" />
                   <p className="text-slate-400 text-xs sm:text-sm">
@@ -2595,9 +2717,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3 sm:space-y-4 max-h-64 sm:max-h-80 overflow-y-auto">
-                  {ratings
-                    .filter((r) => !r.isApproved)
-                    .map((rating) => {
+                  {getPendingRatings(ratings).map((rating) => {
                       const fromUser = users.find(
                         (u) => u.id === rating.fromUserId,
                       );
@@ -2738,18 +2858,19 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10">
                 <div className="text-2xl font-bold flex items-center">
                   {(() => {
-                    const mentorRatings = ratings.filter(
-                      (r) => r.toUserId === user.id && r.isApproved,
+                    const mentorRatings = getApprovedRatingsForUser(
+                      ratings,
+                      user.id,
+                      "to",
                     );
                     if (mentorRatings.length === 0) return "N/A";
-                    const avgRating =
-                      mentorRatings.reduce((sum, r) => sum + r.score, 0) /
-                      mentorRatings.length;
-                    return avgRating.toFixed(1);
+                    return computeAverageFromRatings(mentorRatings).toFixed(1);
                   })()}
                   {(() => {
-                    const mentorRatings = ratings.filter(
-                      (r) => r.toUserId === user.id && r.isApproved,
+                    const mentorRatings = getApprovedRatingsForUser(
+                      ratings,
+                      user.id,
+                      "to",
                     );
                     if (mentorRatings.length > 0) {
                       return (
@@ -3321,8 +3442,10 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
           <div className="space-y-4">
             {(() => {
-              const myApprovedRatings = ratings.filter(
-                (r) => r.fromUserId === user.id && r.isApproved,
+              const myApprovedRatings = getApprovedRatingsForUser(
+                ratings,
+                user.id,
+                "from",
               );
               if (myApprovedRatings.length === 0) {
                 return (
