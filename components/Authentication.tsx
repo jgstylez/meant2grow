@@ -309,7 +309,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
         }
 
         // Create User
-        const userId = await createUser({
+        const userData = {
           name: formData.name,
           email: formData.email,
           role:
@@ -323,13 +323,14 @@ const Authentication: React.FC<AuthenticationProps> = ({
           )}&background=random`,
           title: "",
           company: org.name,
-        });
+        };
+        const userId = await createUser(userData);
 
         // Optionally create Firebase Auth account if password is provided
         if (formData.password) {
           try {
             const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
-            await createFirebaseAuthAccount(formData.email, formData.password, userId);
+            await createFirebaseAuthAccount(formData.email, formData.password, userId, userData);
           } catch (authError) {
             logger.warn("Failed to create Firebase Auth account during signup (will be created on first login)", authError);
             // Continue with signup even if Firebase Auth creation fails

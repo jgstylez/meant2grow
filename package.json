@@ -19,6 +19,7 @@
     "firebase:deploy:production": "npm run build:production && firebase use production && firebase deploy",
     "firebase:deploy:hosting": "npm run build && firebase deploy --only hosting",
     "firebase:deploy:functions": "firebase deploy --only functions",
+    "firebase:deploy:indexes": "firebase deploy --only firestore:indexes",
     "firebase:serve": "firebase emulators:start",
     "firebase:serve:hosting": "npm run build && firebase emulators:start --only hosting",
     "firebase:serve:functions": "firebase emulators:start --only functions",

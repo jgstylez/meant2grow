@@ -141,12 +141,12 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
     }
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Crown className="w-6 h-6 text-amber-500" />
-                    Platform Operator Management
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white flex flex-wrap items-center gap-2">
+                    <Crown className="w-6 h-6 text-amber-500 flex-shrink-0" />
+                    <span>Platform Operator Management</span>
                 </h1>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     Create new platform operator users who can manage platform-wide content and resources.
@@ -155,7 +155,7 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
 
             <div className={CARD_CLASS}>
                 <h4 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center">
-                    <UserPlus className="w-4 h-4 mr-2" /> Create Platform Operator
+                    <UserPlus className="w-4 h-4 mr-2 flex-shrink-0" /> Create Platform Operator
                 </h4>
                 <div className="space-y-4">
                     <div>
@@ -195,13 +195,13 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                     <button
                         onClick={handleCreateOperator}
                         disabled={creatingAdmin || !newAdminEmail || !newAdminName}
-                        className={BUTTON_PRIMARY + (creatingAdmin ? ' opacity-50 cursor-not-allowed' : '')}
+                        className={BUTTON_PRIMARY + ' w-full sm:w-auto' + (creatingAdmin ? ' opacity-50 cursor-not-allowed' : '')}
                     >
                         {creatingAdmin ? (
                             <>Creating...</>
                         ) : (
                             <>
-                                <UserPlus className="w-4 h-4 mr-2" /> Create Platform Operator
+                                <UserPlus className="w-4 h-4 mr-2 flex-shrink-0" /> Create Platform Operator
                             </>
                         )}
                     </button>
@@ -225,16 +225,16 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                         {platformOperators.map((operator) => (
                             <div
                                 key={operator.id}
-                                className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                             >
-                                <div className="flex items-center gap-4 flex-1">
+                                <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                                     <img
                                         src={operator.avatar}
                                         alt={operator.name}
-                                        className="w-12 h-12 rounded-full"
+                                        className="w-12 h-12 rounded-full flex-shrink-0"
                                     />
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
+                                        <div className="flex flex-wrap items-center gap-2 mb-1">
                                             <h5 className="font-semibold text-slate-900 dark:text-white">
                                                 {operator.name}
                                             </h5>
@@ -244,33 +244,35 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
-                                            <span className="flex items-center gap-1">
-                                                <Mail className="w-3 h-3" />
-                                                {operator.email}
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-sm text-slate-600 dark:text-slate-400">
+                                            <span className="flex items-center gap-1 min-w-0 truncate">
+                                                <Mail className="w-3 h-3 flex-shrink-0" />
+                                                <span className="truncate">{operator.email}</span>
                                             </span>
                                             {operator.title && (
-                                                <span>{operator.title}</span>
+                                                <span className="text-slate-500 dark:text-slate-500">{operator.title}</span>
                                             )}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-shrink-0">
                                     {operator.id !== currentUser.id && (
                                         <>
                                             <button
                                                 onClick={() => setEditingOperator(operator)}
-                                                className="p-2 text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
+                                                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-blue-400 hover:text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20 transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                                 title="Edit"
+                                                aria-label={`Edit ${operator.name}`}
                                             >
-                                                <Edit2 className="w-4 h-4" />
+                                                <Edit2 className="w-5 h-5" />
                                             </button>
                                             <button
                                                 onClick={() => setShowDeleteConfirm(operator.id)}
-                                                className="p-2 text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
+                                                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 transition-colors touch-manipulation focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                                                 title="Delete"
+                                                aria-label={`Delete ${operator.name}`}
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                <Trash2 className="w-5 h-5" />
                                             </button>
                                         </>
                                     )}
@@ -293,11 +295,11 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-0 pb-[env(safe-area-inset-bottom)]">
+                    <div className="bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-xl shadow-2xl p-6 max-w-md w-full max-h-[85vh] sm:max-h-none overflow-y-auto">
                         <div className="flex items-start gap-4 mb-4">
                             <AlertTriangle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
-                            <div>
+                            <div className="min-w-0">
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
                                     Confirm Deletion
                                 </h3>
@@ -306,18 +308,18 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                                 </p>
                             </div>
                         </div>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => handleDeleteOperator(showDeleteConfirm)}
-                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
-                            >
-                                Delete
-                            </button>
+                        <div className="flex flex-col-reverse sm:flex-row gap-3">
                             <button
                                 onClick={() => setShowDeleteConfirm(null)}
-                                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
+                                className="flex-1 min-h-[44px] px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium touch-manipulation"
                             >
                                 Cancel
+                            </button>
+                            <button
+                                onClick={() => handleDeleteOperator(showDeleteConfirm)}
+                                className="flex-1 min-h-[44px] px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium touch-manipulation"
+                            >
+                                Delete
                             </button>
                         </div>
                     </div>
@@ -326,13 +328,14 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
 
             {/* Edit Operator Modal */}
             {editingOperator && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-0 overflow-y-auto">
+                    <div className="bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-xl shadow-2xl p-6 max-w-md w-full my-auto max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-bold text-slate-900 dark:text-white">Edit Platform Operator</h3>
                             <button
                                 onClick={() => setEditingOperator(null)}
-                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                                className="min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 touch-manipulation"
+                                aria-label="Close"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -360,7 +363,13 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                                     onChange={(e) => setEditingOperator({ ...editingOperator, email: e.target.value })}
                                 />
                             </div>
-                            <div className="flex gap-3 pt-4">
+                            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+                                <button
+                                    onClick={() => setEditingOperator(null)}
+                                    className="flex-1 min-h-[44px] px-4 py-3 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium touch-manipulation"
+                                >
+                                    Cancel
+                                </button>
                                 <button
                                     onClick={async () => {
                                         try {
@@ -378,12 +387,6 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                                     className={BUTTON_PRIMARY + " flex-1"}
                                 >
                                     Save Changes
-                                </button>
-                                <button
-                                    onClick={() => setEditingOperator(null)}
-                                    className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
-                                >
-                                    Cancel
                                 </button>
                             </div>
                         </div>

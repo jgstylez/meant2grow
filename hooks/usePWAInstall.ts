@@ -162,18 +162,6 @@ function detectMobileDevice(): { isMobile: boolean; platform: 'ios' | 'android' 
   }
   
   detectionData.platform = platform;
-  
-  // Comprehensive debug logging - always log to help diagnose issues
-  console.group('🔍 [Mobile Detection]');
-  console.log('User Agent:', userAgent);
-  console.log('Detection Result:', {
-    isMobile,
-    platform,
-    isDesktopBrowser,
-  });
-  console.log('Detailed Checks:', detectionData);
-  console.groupEnd();
-  
   return { isMobile, platform };
 }
 

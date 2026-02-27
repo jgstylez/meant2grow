@@ -4,7 +4,7 @@ import {
   fetchSignInMethodsForEmail,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { updateUser, getUser } from './database';
 import { logger } from './logger';
@@ -475,15 +475,22 @@ export const ensureFirebaseAuthAccount = async (
 /**
  * Creates a Firebase Auth account for a new user during signup
  * 
+ * CRITICAL: Firestore rules use userExists() which checks for a document at users/{request.auth.uid}.
+ * We must create this document FIRST so belongsToOrg() and isOrgScoped() work for org data subscriptions.
+ * 
  * @param email - User's email address
  * @param password - User's password
- * @param firestoreUserId - The Firestore user document ID
+ * @param firestoreUserId - The Firestore user document ID (from createUser)
+ * @param userData - Optional user data from createUser - when provided, we create users/{firebaseAuthUid}
+ *   doc first (before updateUser) to avoid permission errors. The user cannot read users/{firestoreUserId}
+ *   until it has firebaseAuthUid, and belongsToOrg requires users/{auth.uid} to exist.
  * @returns Firebase Auth UID if successful, null if failed
  */
 export const createFirebaseAuthAccount = async (
   email: string,
   password: string,
-  firestoreUserId: string
+  firestoreUserId: string,
+  userData?: Record<string, unknown>
 ): Promise<string | null> => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -498,28 +505,52 @@ export const createFirebaseAuthAccount = async (
       });
     }
     
-    // Link Firebase Auth UID to Firestore user document
-    await updateUser(firestoreUserId, { firebaseAuthUid });
-    
-    // Also create user document with ID = Firebase Auth UID (for Firestore rules)
-    try {
-      const originalUser = await getUser(firestoreUserId);
-      if (originalUser) {
+    // CRITICAL: Create users/{firebaseAuthUid} FIRST so userExists() returns true for Firestore rules.
+    // belongsToOrg() and isOrgScoped() depend on userExists() which checks users/{request.auth.uid}.
+    // Without this doc, the new user gets "Missing or insufficient permissions" on all org subscriptions.
+    if (userData) {
+      try {
         const authUidDocRef = doc(db, 'users', firebaseAuthUid);
         await setDoc(authUidDocRef, {
-          ...originalUser,
+          ...userData,
           id: firebaseAuthUid,
           firebaseAuthUid: firebaseAuthUid,
           originalFirestoreUserId: firestoreUserId,
+          createdAt: userData.createdAt || Timestamp.now(),
         }, { merge: true });
+      } catch (docError: any) {
+        logger.warn('Failed to create user document at users/{firebaseAuthUid}', {
+          firebaseAuthUid,
+          firestoreUserId,
+          error: docError.message,
+        });
+        // Continue - we'll try the fallback path
       }
-    } catch (docError: any) {
-      // Log but don't fail - the original document update already succeeded
-      logger.warn('Failed to create user document with Firebase Auth UID as ID', {
-        firebaseAuthUid,
-        firestoreUserId,
-        error: docError.message,
-      });
+    }
+    
+    // Link Firebase Auth UID to the original Firestore user document
+    await updateUser(firestoreUserId, { firebaseAuthUid });
+    
+    // Fallback: If userData wasn't provided, try to copy from original doc (may fail if rules block read)
+    if (!userData) {
+      try {
+        const originalUser = await getUser(firestoreUserId);
+        if (originalUser) {
+          const authUidDocRef = doc(db, 'users', firebaseAuthUid);
+          await setDoc(authUidDocRef, {
+            ...originalUser,
+            id: firebaseAuthUid,
+            firebaseAuthUid: firebaseAuthUid,
+            originalFirestoreUserId: firestoreUserId,
+          }, { merge: true });
+        }
+      } catch (docError: any) {
+        logger.warn('Failed to create user document with Firebase Auth UID as ID', {
+          firebaseAuthUid,
+          firestoreUserId,
+          error: docError.message,
+        });
+      }
     }
     
     logger.info('Created Firebase Auth account for new user', {

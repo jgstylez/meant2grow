@@ -194,17 +194,23 @@ const AvatarCluster: React.FC<{
   users: User[];
   chatType: "group" | "dm";
   max: number;
-}> = ({ users, chatType, max = 3 }) => {
+  compact?: boolean;
+}> = ({ users, chatType, max = 3, compact = false }) => {
+  const size = compact ? "w-8 h-8 sm:w-10 sm:h-10" : "w-10 h-10";
+  const overlap = compact ? "-space-x-3 sm:-space-x-4" : "-space-x-4";
+  const badgeSize = compact ? "w-8 h-8 sm:w-10 sm:h-10" : "w-10 h-10";
+  const dotSize = compact ? "w-2.5 h-2.5 sm:w-3 sm:h-3" : "w-3 h-3";
+
   if (chatType === "dm") {
     const u = users[0];
     return (
-      <div className="relative inline-block">
+      <div className="relative inline-block flex-shrink-0">
         <img
           src={u?.avatar || "https://via.placeholder.com/40"}
-          className="w-10 h-10 rounded-full object-cover border-2 border-white dark:border-slate-800"
+          className={`${size} rounded-full object-cover border-2 border-white dark:border-slate-800`}
           alt={u?.name}
         />
-        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full"></span>
+        <span className={`absolute bottom-0 right-0 ${dotSize} bg-green-500 border-2 border-white dark:border-slate-800 rounded-full`}></span>
       </div>
     );
   }
@@ -213,7 +219,7 @@ const AvatarCluster: React.FC<{
   const extraCount = users.length - max;
 
   return (
-    <div className="flex items-center -space-x-4">
+    <div className={`flex items-center ${overlap} flex-shrink-0`}>
       {visibleUsers.map((u, i) => (
         <div
           key={i}
@@ -221,14 +227,14 @@ const AvatarCluster: React.FC<{
         >
           <img
             src={u.avatar}
-            className="w-10 h-10 rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-sm"
+            className={`${size} rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-sm`}
             alt={u.name}
             title={u.name}
           />
         </div>
       ))}
       {extraCount > 0 && (
-        <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300 z-0 relative">
+        <div className={`${badgeSize} rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center text-[10px] sm:text-xs font-bold text-slate-600 dark:text-slate-300 z-0 relative`}>
           +{extraCount}
         </div>
       )}
@@ -2797,8 +2803,8 @@ const Chat: React.FC<ChatProps> = ({
         {activeChat ? (
           <>
             {/* Header */}
-            <div className="p-3 sm:p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 shadow-sm z-20 sticky top-0">
-              <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
+            <div className="p-3 sm:p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2 sm:gap-4 bg-white dark:bg-slate-900 shadow-sm z-20 sticky top-0 min-h-[56px] sm:min-h-[60px]">
+              <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 overflow-hidden">
                 <button
                   onClick={() => {
                     setActiveChatId("");
@@ -2806,31 +2812,34 @@ const Chat: React.FC<ChatProps> = ({
                     setShowEmojiPicker(false);
                     setShowGifPicker(false);
                   }}
-                  className="md:hidden mr-1 sm:mr-2 p-1.5 flex-shrink-0 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                  className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0 -ml-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors touch-manipulation"
                   aria-label="Back to messages"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <AvatarCluster
-                  users={isGroup ? groupMembers : [activeChat as any]}
-                  chatType={isGroup ? "group" : "dm"}
-                  max={3}
-                />
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-slate-800 dark:text-white flex items-center text-sm sm:text-base truncate">
-                    {activeChat.name}
+                <div className="flex-shrink-0">
+                  <AvatarCluster
+                    users={isGroup ? groupMembers : [activeChat as any]}
+                    chatType={isGroup ? "group" : "dm"}
+                    max={3}
+                    compact
+                  />
+                </div>
+                <div className="min-w-0 flex-1 overflow-hidden flex flex-col justify-center gap-0.5 sm:gap-1 pr-1">
+                  <h3 className="font-bold text-slate-800 dark:text-white flex items-center text-sm sm:text-base truncate leading-snug">
+                    <span className="truncate">{activeChat.name}</span>
                     {mutedChats.includes(activeChat.id) && (
-                      <BellOff className="w-3.5 h-3.5 ml-2 text-slate-400 flex-shrink-0" />
+                      <BellOff className="w-3.5 h-3.5 ml-1.5 text-slate-400 flex-shrink-0" />
                     )}
                   </h3>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
                     {isGroup ? (
-                      <span
-                        className="text-xs text-slate-500 dark:text-slate-400 cursor-pointer hover:underline"
+                      <button
                         onClick={() => setActiveModal("groupInfo")}
+                        className="text-xs text-slate-500 dark:text-slate-400 hover:underline text-left min-h-[28px] py-1 -ml-0.5 touch-manipulation leading-relaxed"
                       >
                         {groupMembers.length} participants
-                      </span>
+                      </button>
                     ) : (
                       <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center">
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1"></span>
@@ -2915,36 +2924,65 @@ const Chat: React.FC<ChatProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-4 relative flex-shrink-0">
+              <div className="flex items-center gap-1 sm:gap-2 md:gap-4 relative flex-shrink-0">
+                {/* Video & Phone: hidden on mobile, shown in More menu instead */}
                 <button
                   onClick={() => setActiveModal("video")}
                   disabled={isBlocked}
-                  className="p-1.5 sm:p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-30"
+                  className="hidden sm:flex min-h-[44px] min-w-[44px] items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-30 touch-manipulation"
                   title="Video Call"
+                  aria-label="Start video call"
                 >
-                  <Video className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Video className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setActiveModal("phone")}
                   disabled={isBlocked}
-                  className="p-1.5 sm:p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-30"
+                  className="hidden sm:flex min-h-[44px] min-w-[44px] items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-30 touch-manipulation"
                   title="Phone Call"
+                  aria-label="Start phone call"
                 >
-                  <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Phone className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => setShowMenu(!showMenu)}
-                  className={`p-1.5 sm:p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500 dark:text-slate-400 ${
-                    showMenu
-                      ? "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white"
-                      : ""
+                  className={`min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500 dark:text-slate-400 touch-manipulation ${
+                    showMenu ? "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white" : ""
                   }`}
+                  aria-label="More options"
+                  aria-expanded={showMenu}
+                  title="More options"
                 >
-                  <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <MoreVertical className="w-5 h-5" />
                 </button>
 
                 {showMenu && (
                   <div className="absolute top-12 right-0 w-56 sm:w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-50 animate-in fade-in zoom-in-95 origin-top-right max-h-[80vh] overflow-y-auto">
+                    {/* Video & Phone: mobile only, at top of menu */}
+                    <div className="sm:hidden border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
+                      <button
+                        onClick={() => {
+                          setActiveModal("video");
+                          setShowMenu(false);
+                        }}
+                        disabled={isBlocked}
+                        className="w-full text-left px-4 py-3 flex items-center gap-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 min-h-[44px] touch-manipulation"
+                      >
+                        <Video className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                        Video Call
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveModal("phone");
+                          setShowMenu(false);
+                        }}
+                        disabled={isBlocked}
+                        className="w-full text-left px-4 py-3 flex items-center gap-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 min-h-[44px] touch-manipulation"
+                      >
+                        <Phone className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                        Phone Call
+                      </button>
+                    </div>
                     {isGroup ? (
                       <>
                         <button

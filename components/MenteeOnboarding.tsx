@@ -31,10 +31,10 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
   programSettings,
   currentUser,
 }) => {
-  // Restore from localStorage (returning user, same device) or currentUser (returning user, different device)
+  // Restore from localStorage only when we have a real user id (avoids cross-user pollution from "default" key)
   const getStoredFormData = () => {
-    if (typeof window === "undefined") return null;
-    const stored = localStorage.getItem(`menteeOnboarding_${currentUser?.id || "default"}`);
+    if (typeof window === "undefined" || !currentUser?.id) return null;
+    const stored = localStorage.getItem(`menteeOnboarding_${currentUser.id}`);
     if (stored) {
       try {
         return JSON.parse(stored);
@@ -46,6 +46,7 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
   };
 
   const storedData = getStoredFormData();
+  const isFirstTimeOnboarding = !currentUser?.onboardingCompleted;
   // Convert user.goals (string[]) to GoalInput[] for returning users
   const goalsFromUser = (currentUser?.goals || []).map((title: string) => ({
     title,
@@ -54,8 +55,8 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    title: storedData?.title ?? currentUser?.title ?? "",
-    company: storedData?.company ?? currentUser?.company ?? "",
+    title: storedData?.title ?? (isFirstTimeOnboarding ? "" : currentUser?.title ?? ""),
+    company: storedData?.company ?? (isFirstTimeOnboarding ? "" : currentUser?.company ?? ""),
     goals: ((storedData?.goals?.length ? storedData.goals : goalsFromUser) || []) as GoalInput[],
     bio: storedData?.bio ?? currentUser?.bio ?? "",
     experience: storedData?.experience ?? currentUser?.experience ?? "",
@@ -79,6 +80,7 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
   }, [formData, customFieldData, currentUser?.id]);
 
   // Update formData when currentUser loads async (returning user, no stored data)
+  // For first-time onboarding, don't pre-fill title/company so new mentees start with empty form
   useEffect(() => {
     if (currentUser && !storedData) {
       const userGoals = (currentUser.goals || []).map((title: string) => ({
@@ -87,8 +89,8 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
       }));
       setFormData((prev) => ({
         ...prev,
-        title: prev.title || currentUser.title || "",
-        company: prev.company || currentUser.company || "",
+        title: isFirstTimeOnboarding ? prev.title : (prev.title || currentUser.title || ""),
+        company: isFirstTimeOnboarding ? prev.company : (prev.company || currentUser.company || ""),
         goals: prev.goals.length > 0 ? prev.goals : userGoals,
         bio: prev.bio || currentUser.bio || "",
         experience: prev.experience || currentUser.experience || "",
@@ -96,7 +98,7 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
         phoneNumber: prev.phoneNumber || currentUser.phoneNumber || "",
       }));
     }
-  }, [currentUser, storedData]);
+  }, [currentUser, storedData, isFirstTimeOnboarding]);
 
   const addGoal = () => {
     if (currentGoal.trim() && currentTargetDate) {

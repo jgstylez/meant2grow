@@ -84,6 +84,22 @@ function isInternalAssertionError(error: unknown): boolean {
 }
 
 /**
+ * Check if error is a Firestore "query requires an index" error.
+ * When true, indexes must be deployed: npm run firebase:deploy:indexes
+ */
+function isFirestoreIndexError(error: unknown): boolean {
+  const msg = getErrorMessage(error);
+  const code = getErrorCode(error);
+  return (
+    msg.includes("requires an index") ||
+    (code === "failed-precondition" && msg.toLowerCase().includes("index"))
+  );
+}
+
+const FIRESTORE_INDEX_HINT =
+  "Add required indexes to firestore.indexes.json and run: npm run firebase:deploy:indexes";
+
+/**
  * Safely wrap onSnapshot to catch internal assertion errors and handle them gracefully
  * This prevents listener state corruption when queries require missing composite indexes
  * Note: This function is currently unused but kept for future use
@@ -2070,6 +2086,9 @@ export const subscribeToDiscussionGuides = (
       },
       (error) => {
         logger.error("Error subscribing to org discussion guides", error);
+        if (isFirestoreIndexError(error)) {
+          logger.info(FIRESTORE_INDEX_HINT);
+        }
         logger.debug("OrganizationId", { organizationId });
         updateCallback();
       }
@@ -2151,6 +2170,9 @@ export const subscribeToCareerTemplates = (
       },
       (error) => {
         logger.error("Error subscribing to org career templates", error);
+        if (isFirestoreIndexError(error)) {
+          logger.info(FIRESTORE_INDEX_HINT);
+        }
         logger.debug("OrganizationId", { organizationId });
         updateCallback();
       }
@@ -2232,6 +2254,9 @@ export const subscribeToTrainingVideos = (
       },
       (error) => {
         logger.error("Error subscribing to org training videos", error);
+        if (isFirestoreIndexError(error)) {
+          logger.info(FIRESTORE_INDEX_HINT);
+        }
         logger.debug("OrganizationId", { organizationId });
         updateCallback();
       }
@@ -3069,25 +3094,28 @@ export const getChatGroupsByOrganization = async (
   })) as ChatGroup[];
 };
 
+/**
+ * Subscribe to chat groups with polling instead of onSnapshot.
+ *
+ * Workaround for Firestore SDK bug: onSnapshot on a collection with insufficient
+ * permissions triggers "INTERNAL ASSERTION FAILED: Unexpected state (ID: ca9)" and
+ * crashes the app. Using getDocs + polling avoids the persistent listener that
+ * corrupts the SDK's internal state. See: https://github.com/firebase/firebase-js-sdk/issues/9267
+ */
+const CHAT_GROUPS_POLL_INTERVAL_MS = 15000; // 15 seconds
+
 export const subscribeToChatGroups = (
   organizationId: string,
   callback: (groups: ChatGroup[]) => void
 ): Unsubscribe => {
-  const q = query(
-    collection(db, "chatGroups"),
-    where("organizationId", "==", organizationId),
-    orderBy("createdAt", "desc")
-  );
+  let cancelled = false;
 
-  return onSnapshot(
-    q,
-    (snapshot: QuerySnapshot) => {
-      const groups = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: convertTimestamp(doc.data().createdAt),
-      })) as ChatGroup[];
-      console.log("[subscribeToChatGroups] Received groups", {
+  const fetchGroups = async () => {
+    if (cancelled) return;
+    try {
+      const groups = await getChatGroupsByOrganization(organizationId);
+      if (cancelled) return;
+      logger.debug("[subscribeToChatGroups] Received groups", {
         count: groups.length,
         groupIds: groups.map((g) => g.id),
         groupDetails: groups.map((g) => ({
@@ -3099,18 +3127,27 @@ export const subscribeToChatGroups = (
         organizationId,
       });
       callback(groups);
-    },
-    (error) => {
-      logger.error("Error subscribing to chat groups", error);
-      logger.debug("Chat groups subscription error details", {
+    } catch (error) {
+      if (cancelled) return;
+      logger.error("Error fetching chat groups", error);
+      logger.debug("Chat groups fetch error details", {
         organizationId,
         code: (error as any)?.code,
-        message: (error as any)?.message
+        message: (error as any)?.message,
       });
-      // Call callback with empty array on error to prevent UI from hanging
       callback([]);
     }
-  );
+  };
+
+  // Initial fetch
+  fetchGroups();
+
+  const intervalId = setInterval(fetchGroups, CHAT_GROUPS_POLL_INTERVAL_MS);
+
+  return () => {
+    cancelled = true;
+    clearInterval(intervalId);
+  };
 };
 
 export const updateChatGroup = async (

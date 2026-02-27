@@ -8,6 +8,7 @@ import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
 import { EnvironmentBanner } from "./components/EnvironmentBanner";
 import { isSandbox } from "./utils/environment";
+import { safeIngest } from "./utils/analyticsIngest";
 import { getMentorsCircleId, getMenteesHubId } from "./utils/chatGroups";
 import {
   Role,
@@ -491,7 +492,7 @@ const App: React.FC = () => {
           } else {
             // Don't exit impersonation - just log a warning
             // Impersonation can work without Firebase Auth (though Firestore operations will fail)
-            logger.warn('Impersonating but no Google ID token found. Firebase Auth will not work, but impersonation continues.');
+            logger.debug('Impersonating without Google ID token; Firebase Auth unavailable, impersonation continues.');
             // Continue without token - impersonation UI will still work
             return;
           }
@@ -678,7 +679,7 @@ const App: React.FC = () => {
     const hasUser = !!currentUser;
     const hasOrg = !!organizationId;
     const willCall = hasUser && hasOrg;
-    fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:handleMentorOnboardingComplete',message:'Mentor onboarding complete invoked',data:{currentUserId:currentUser?.id??null,organizationId:organizationId??null,willCall},timestamp:Date.now(),hypothesisId:'H1_H2_H3'})}).catch(()=>{});
+    safeIngest({location:'App.tsx:handleMentorOnboardingComplete',message:'Mentor onboarding complete invoked',data:{currentUserId:currentUser?.id??null,organizationId:organizationId??null,willCall},timestamp:Date.now(),hypothesisId:'H1_H2_H3'});
     // #endregion
     if (currentUser && organizationId) {
       mentorComplete(data, currentUser, organizationId);
@@ -692,7 +693,7 @@ const App: React.FC = () => {
     const hasUser = !!currentUser;
     const hasOrg = !!organizationId;
     const willCall = hasUser && hasOrg;
-    fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.tsx:handleMenteeOnboardingComplete',message:'Mentee onboarding complete invoked',data:{currentUserId:currentUser?.id??null,organizationId:organizationId??null,willCall},timestamp:Date.now(),hypothesisId:'H1_H2_H3'})}).catch(()=>{});
+    safeIngest({location:'App.tsx:handleMenteeOnboardingComplete',message:'Mentee onboarding complete invoked',data:{currentUserId:currentUser?.id??null,organizationId:organizationId??null,willCall},timestamp:Date.now(),hypothesisId:'H1_H2_H3'});
     // #endregion
     if (currentUser && organizationId) {
       menteeComplete(data, currentUser, organizationId);

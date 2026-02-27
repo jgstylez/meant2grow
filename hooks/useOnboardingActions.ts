@@ -1,5 +1,5 @@
-
 import { useCallback } from 'react';
+import { safeIngest } from '../utils/analyticsIngest';
 import { User, Goal, Role } from '../types';
 import { MentorOnboardingData, MenteeOnboardingData } from '../types/onboarding';
 import { getErrorMessage } from '../utils/errors';
@@ -13,7 +13,7 @@ export const useOnboardingActions = (
 ) => {
     const handleMentorOnboardingComplete = useCallback(async (formData: any, currentUser: User, organizationId: string) => {
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMentorOnboardingComplete',message:'Inner mentor complete entered',data:{userId:currentUser?.id,organizationId},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+        safeIngest({location:'useOnboardingActions.ts:handleMentorOnboardingComplete',message:'Inner mentor complete entered',data:{userId:currentUser?.id,organizationId},timestamp:Date.now(),hypothesisId:'H3'});
         // #endregion
         try {
             // Parse maxMentees - handle both string and number, and "4+" case
@@ -60,11 +60,11 @@ export const useOnboardingActions = (
             addToast('Welcome! Your profile is now live.', 'success');
             setCurrentPage('dashboard');
             // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMentorOnboardingComplete',message:'Mentor complete success path',data:{userId:currentUser.id},timestamp:Date.now(),hypothesisId:'H4_H5'})}).catch(()=>{});
+            safeIngest({location:'useOnboardingActions.ts:handleMentorOnboardingComplete',message:'Mentor complete success path',data:{userId:currentUser.id},timestamp:Date.now(),hypothesisId:'H4_H5'});
             // #endregion
         } catch (error: unknown) {
             // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMentorOnboardingComplete',message:'Mentor complete catch',data:{error:String(error)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+            safeIngest({location:'useOnboardingActions.ts:handleMentorOnboardingComplete',message:'Mentor complete catch',data:{error:String(error)},timestamp:Date.now(),hypothesisId:'H4'});
             // #endregion
             console.error('Error completing mentor onboarding:', error);
             addToast(getErrorMessage(error) || 'Failed to save onboarding data', 'error');
@@ -73,7 +73,7 @@ export const useOnboardingActions = (
 
     const handleMenteeOnboardingComplete = useCallback(async (formData: any, currentUser: User, organizationId: string) => {
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMenteeOnboardingComplete',message:'Inner mentee complete entered',data:{userId:currentUser?.id,organizationId},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+        safeIngest({location:'useOnboardingActions.ts:handleMenteeOnboardingComplete',message:'Inner mentee complete entered',data:{userId:currentUser?.id,organizationId},timestamp:Date.now(),hypothesisId:'H3'});
         // #endregion
         try {
             const goalTitles: string[] = [];
@@ -134,11 +134,11 @@ export const useOnboardingActions = (
             addToast('Welcome! Start exploring mentors.', 'success');
             setCurrentPage('dashboard');
             // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMenteeOnboardingComplete',message:'Mentee complete success path',data:{userId:currentUser.id},timestamp:Date.now(),hypothesisId:'H4_H5'})}).catch(()=>{});
+            safeIngest({location:'useOnboardingActions.ts:handleMenteeOnboardingComplete',message:'Mentee complete success path',data:{userId:currentUser.id},timestamp:Date.now(),hypothesisId:'H4_H5'});
             // #endregion
         } catch (error: unknown) {
             // #region agent log
-            fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMenteeOnboardingComplete',message:'Mentee complete catch',data:{error:String(error)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+            safeIngest({location:'useOnboardingActions.ts:handleMenteeOnboardingComplete',message:'Mentee complete catch',data:{error:String(error)},timestamp:Date.now(),hypothesisId:'H4'});
             // #endregion
             console.error('Error completing mentee onboarding:', error);
             addToast(getErrorMessage(error) || 'Failed to save onboarding data', 'error');

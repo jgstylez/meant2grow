@@ -1,0 +1,36 @@
+---
+description: Firestore composite index requirements when adding queries
+globs: services/database.ts
+alwaysApply: false
+---
+
+# Firestore Indexes
+
+When adding Firestore queries that use `where()` plus `orderBy()` on different fields, you must define a composite index.
+
+## Required Steps
+
+1. **Add the index** to `firestore.indexes.json` under the `indexes` array:
+   ```json
+   {
+     "collectionGroup": "yourCollection",
+     "queryScope": "COLLECTION",
+     "fields": [
+       {"fieldPath": "filterField", "order": "ASCENDING"},
+       {"fieldPath": "sortField", "order": "DESCENDING"}
+     ]
+   }
+   ```
+
+2. **Deploy indexes**: `npm run firebase:deploy:indexes`
+
+3. **Error handling**: If a subscription throws "The query requires an index", add an `isFirestoreIndexError` check and log `FIRESTORE_INDEX_HINT` (see database.ts for the constant).
+
+## Common Query → Index Mappings
+
+- `where("organizationId", "==", x) orderBy("createdAt", "desc")` → `organizationId` ASC, `createdAt` DESC
+- `where("isPlatform", "==", true) orderBy("createdAt", "desc")` → `isPlatform` ASC, `createdAt` DESC
+
+## Verify Indexes
+
+After adding queries, run the app and check the console. Index errors include the create-composite URL—use it or add the equivalent to `firestore.indexes.json` and deploy.
