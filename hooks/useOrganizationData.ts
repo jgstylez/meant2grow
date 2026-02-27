@@ -301,7 +301,7 @@ export const useOrganizationData = (
       );
       unsubscribesRef.current.push(unsubscribeGoals);
 
-      // Subscribe to ratings
+      // Subscribe to ratings (limit 200 to include all ratings for accurate averages)
       const unsubscribeRatings = subscribeToRatingsByOrganization(
         organizationId,
         (orgRatings) => {
@@ -312,7 +312,8 @@ export const useOrganizationData = (
             { ...currentCache, ratings: orgRatings },
             5 * 60 * 1000
           );
-        }
+        },
+        200
       );
       unsubscribesRef.current.push(unsubscribeRatings);
 

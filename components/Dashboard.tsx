@@ -1936,8 +1936,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                       </div>
                       <div className="text-xs sm:text-sm text-amber-700 dark:text-amber-300">
-                        Average Rating
+                        Platform-wide Average
                       </div>
+                      <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mt-1">
+                        All orgs combined · differs from org & mentor averages
+                      </p>
                     </div>
                   )}
                 </div>
@@ -2115,7 +2118,19 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 </div>
                                 <div className="flex flex-row sm:flex-col gap-2 shrink-0 w-full sm:w-auto">
                                   <button
-                                    onClick={() => onApproveRating(rating.id)}
+                                    onClick={async () => {
+                                      setAllRatings((prev) =>
+                                        prev.map((r) =>
+                                          r.id === rating.id
+                                            ? { ...r, isApproved: true }
+                                            : r
+                                        )
+                                      );
+                                      platformOperatorCache.invalidate(
+                                        cacheKeys.allRatings()
+                                      );
+                                      await onApproveRating(rating.id);
+                                    }}
                                     className="flex-1 sm:flex-none p-2.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 dark:hover:bg-emerald-600 transition-colors shadow-sm flex items-center justify-center gap-1 min-h-[44px] touch-manipulation"
                                     title="Approve Review"
                                   >
@@ -2207,6 +2222,43 @@ const Dashboard: React.FC<DashboardProps> = ({
                     {selectedUser.title}
                   </p>
                 </div>
+
+                {/* Average Rating - for mentors */}
+                {(selectedUser.role === Role.MENTOR ||
+                  String(selectedUser.role) === "MENTOR") && (
+                  <div className={CARD_CLASS}>
+                    <h5 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase mb-3">
+                      Average Rating
+                    </h5>
+                    {(() => {
+                      const mentorRatings = getApprovedRatingsForUser(
+                        allRatings,
+                        selectedUser.id,
+                        "to",
+                      );
+                      const avg =
+                        mentorRatings.length > 0
+                          ? computeAverageFromRatings(mentorRatings).toFixed(1)
+                          : null;
+                      return avg ? (
+                        <div className="flex items-center gap-2">
+                          <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                          <span className="text-lg font-semibold text-slate-900 dark:text-white">
+                            {avg}/5
+                          </span>
+                          <span className="text-sm text-slate-500 dark:text-slate-400">
+                            ({mentorRatings.length} approved{" "}
+                            {mentorRatings.length === 1 ? "rating" : "ratings"})
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-slate-400 dark:text-slate-500 italic">
+                          No approved ratings yet
+                        </p>
+                      );
+                    })()}
+                  </div>
+                )}
 
                 {/* Organization */}
                 <div className={CARD_CLASS}>
@@ -2835,6 +2887,18 @@ const Dashboard: React.FC<DashboardProps> = ({
       .map((m) => users.find((u) => u.id === m.menteeId))
       .filter(Boolean) as User[];
 
+    // Mentor avg rating: approved ratings where mentor is the one being rated (toUserId)
+    // Updates in real-time via subscribeToRatingsByOrganization (Firestore onSnapshot)
+    const mentorApprovedRatings = getApprovedRatingsForUser(
+      ratings,
+      user.id,
+      "to",
+    );
+    const mentorAvgRating =
+      mentorApprovedRatings.length > 0
+        ? computeAverageFromRatings(mentorApprovedRatings).toFixed(1)
+        : null;
+
     return (
       <div className="space-y-8 animate-in fade-in duration-500">
         {renderRatingModal()}
@@ -2857,28 +2921,10 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10">
                 <div className="text-2xl font-bold flex items-center">
-                  {(() => {
-                    const mentorRatings = getApprovedRatingsForUser(
-                      ratings,
-                      user.id,
-                      "to",
-                    );
-                    if (mentorRatings.length === 0) return "N/A";
-                    return computeAverageFromRatings(mentorRatings).toFixed(1);
-                  })()}
-                  {(() => {
-                    const mentorRatings = getApprovedRatingsForUser(
-                      ratings,
-                      user.id,
-                      "to",
-                    );
-                    if (mentorRatings.length > 0) {
-                      return (
-                        <Star className="w-4 h-4 text-amber-400 fill-amber-400 ml-1" />
-                      );
-                    }
-                    return null;
-                  })()}
+                  {mentorAvgRating ?? "N/A"}
+                  {mentorApprovedRatings.length > 0 && (
+                    <Star className="w-4 h-4 text-amber-400 fill-amber-400 ml-1" />
+                  )}
                 </div>
                 <div className="text-xs text-indigo-200 uppercase tracking-wider font-semibold">
                   Avg. Rating
