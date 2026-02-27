@@ -658,12 +658,49 @@ const Chat: React.FC<ChatProps> = ({
         merged.push(fb);
       }
     });
+
+    // Deduplicate Mentors Circle and Mentees Hub - only one of each per organization
+    // This handles legacy groups (g-mentors, g-mentees) coexisting with org-scoped groups (g-mentors-{orgId}, g-mentees-{orgId})
+    const mentorsCircleGroups = merged.filter(
+      (g) => g.name === "Mentors Circle" || isMentorsCircleId(g.id, organizationId)
+    );
+    const menteesHubGroups = merged.filter(
+      (g) => g.name === "Mentees Hub" || isMenteesHubId(g.id, organizationId)
+    );
+    const otherGroups = merged.filter(
+      (g) =>
+        !mentorsCircleGroups.includes(g) && !menteesHubGroups.includes(g)
+    );
+
+    const bestMentorsCircle =
+      mentorsCircleGroups.find((g) => g.id === mentorsCircleId) ||
+      mentorsCircleGroups.find((g) => g.id === "g-mentors") ||
+      mentorsCircleGroups[0];
+    const bestMenteesHub =
+      menteesHubGroups.find((g) => g.id === menteesHubId) ||
+      menteesHubGroups.find((g) => g.id === "g-mentees") ||
+      menteesHubGroups[0];
+
+    const deduped = [
+      ...otherGroups,
+      ...(bestMentorsCircle ? [bestMentorsCircle] : []),
+      ...(bestMenteesHub ? [bestMenteesHub] : []),
+    ];
+
+    if (mentorsCircleGroups.length > 1 || menteesHubGroups.length > 1) {
+      logger.info("Deduplicated default groups", {
+        mentorsCircleDeduped: mentorsCircleGroups.length > 1,
+        menteesHubDeduped: menteesHubGroups.length > 1,
+        keptMentorsCircleId: bestMentorsCircle?.id,
+        keptMenteesHubId: bestMenteesHub?.id,
+      });
+    }
     
     logger.debug("After merge", {
-      mergedGroups: merged.map(g => ({ id: g.id, name: g.name, members: g.members?.length || 0 })),
+      mergedGroups: deduped.map(g => ({ id: g.id, name: g.name, members: g.members?.length || 0 })),
     });
     
-    return merged;
+    return deduped;
   })();
 
   const MOCK_GROUPS: ChatGroup[] = availableGroupsList;
@@ -2919,12 +2956,34 @@ const Chat: React.FC<ChatProps> = ({
                         >
                           <Users className="w-4 h-4 mr-2" /> Group Info
                         </button>
-                        <button className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center">
-                          <Edit className="w-4 h-4 mr-2" /> Edit Group Name
-                        </button>
-                        <button className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center">
-                          <UserPlus className="w-4 h-4 mr-2" /> Add Participants
-                        </button>
+                        {(() => {
+                          const isPlatformGroup =
+                            isMentorsCircleId(activeChatId, organizationId) ||
+                            isMenteesHubId(activeChatId, organizationId);
+                          const userRoleStrMenu = String(currentUser.role);
+                          const isPlatformOperatorMenu =
+                            currentUser.role === Role.PLATFORM_OPERATOR ||
+                            userRoleStrMenu === "PLATFORM_OPERATOR";
+                          const isOrgAdminMenu =
+                            !isPlatformOperatorMenu &&
+                            (currentUser.role === Role.ADMIN ||
+                              userRoleStrMenu === "ADMIN" ||
+                              userRoleStrMenu === "ORGANIZATION_ADMIN");
+                          const showGroupEditOptions =
+                            !isPlatformGroup ||
+                            isOrgAdminMenu ||
+                            isPlatformOperatorMenu;
+                          return showGroupEditOptions ? (
+                            <>
+                              <button className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center">
+                                <Edit className="w-4 h-4 mr-2" /> Edit Group Name
+                              </button>
+                              <button className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center">
+                                <UserPlus className="w-4 h-4 mr-2" /> Add Participants
+                              </button>
+                            </>
+                          ) : null;
+                        })()}
                         <div className="border-t border-slate-100 dark:border-slate-700 my-1"></div>
                         <button
                           onClick={() => {
@@ -2958,9 +3017,29 @@ const Chat: React.FC<ChatProps> = ({
                           <Trash className="w-4 h-4 mr-2" /> Clear History
                         </button>
                         <div className="border-t border-slate-100 dark:border-slate-700 my-1"></div>
-                        <button className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center">
-                          <LogOut className="w-4 h-4 mr-2" /> Leave Group
-                        </button>
+                        {(() => {
+                          const isPlatformGroup =
+                            isMentorsCircleId(activeChatId, organizationId) ||
+                            isMenteesHubId(activeChatId, organizationId);
+                          const userRoleStrLeave = String(currentUser.role);
+                          const isPlatformOperatorLeave =
+                            currentUser.role === Role.PLATFORM_OPERATOR ||
+                            userRoleStrLeave === "PLATFORM_OPERATOR";
+                          const isOrgAdminLeave =
+                            !isPlatformOperatorLeave &&
+                            (currentUser.role === Role.ADMIN ||
+                              userRoleStrLeave === "ADMIN" ||
+                              userRoleStrLeave === "ORGANIZATION_ADMIN");
+                          const showLeaveGroup =
+                            !isPlatformGroup ||
+                            isOrgAdminLeave ||
+                            isPlatformOperatorLeave;
+                          return showLeaveGroup ? (
+                            <button className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center">
+                              <LogOut className="w-4 h-4 mr-2" /> Leave Group
+                            </button>
+                          ) : null;
+                        })()}
                       </>
                     ) : (
                       <>
