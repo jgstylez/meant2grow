@@ -109,8 +109,7 @@ const Layout: React.FC<LayoutProps> = ({
     // Handle string values
     if (roleString === "ORGANIZATION_ADMIN" || roleString === "ADMIN")
       return "ORG ADMIN";
-    if (roleString === "PLATFORM_OPERATOR")
-      return "Platform Operator";
+    if (roleString === "PLATFORM_OPERATOR") return "Platform Operator";
     if (roleString === "MENTOR") return "Mentor";
     if (roleString === "MENTEE") return "Mentee";
 
@@ -121,8 +120,10 @@ const Layout: React.FC<LayoutProps> = ({
   // When impersonating, use currentUser (impersonated user) for navigation visibility
   // Use originalOperator only for specific access control checks (e.g., platform-operator-management page access)
   // Check localStorage directly to detect impersonation, not just originalOperator (which might be null if getUser failed)
-  const isImpersonating = localStorage.getItem('isImpersonating') === 'true' || originalOperator !== null;
-  
+  const isImpersonating =
+    localStorage.getItem("isImpersonating") === "true" ||
+    originalOperator !== null;
+
   // For navigation visibility, always use the impersonated user's role (currentUser)
   // This ensures the sidebar shows the correct navigation items for the impersonated user
   const userForNavigationChecks = currentUser;
@@ -145,17 +146,20 @@ const Layout: React.FC<LayoutProps> = ({
   const isMentor =
     !isPlatformOperator &&
     !isAdmin &&
-    (userForNavigationChecks.role === Role.MENTOR || userRoleString === "MENTOR");
+    (userForNavigationChecks.role === Role.MENTOR ||
+      userRoleString === "MENTOR");
 
   const isMentee =
     !isPlatformOperator &&
     !isAdmin &&
     !isMentor &&
-    (userForNavigationChecks.role === Role.MENTEE || userRoleString === "MENTEE");
-  
+    (userForNavigationChecks.role === Role.MENTEE ||
+      userRoleString === "MENTEE");
+
   // For access control to platform operator pages, use originalOperator when impersonating
   // This ensures platform operator pages can only be accessed by actual platform operators
-  const userForAccessControl = isImpersonating && originalOperator ? originalOperator : currentUser;
+  const userForAccessControl =
+    isImpersonating && originalOperator ? originalOperator : currentUser;
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const brandColor = programSettings?.accentColor || "#10b981"; // Default Emerald
@@ -163,26 +167,28 @@ const Layout: React.FC<LayoutProps> = ({
   const customLogo = programSettings?.logo;
 
   const handleExitImpersonation = () => {
-    const originalId = localStorage.getItem('originalOperatorId');
-    const originalOrgId = localStorage.getItem('originalOrganizationId');
-    
+    const originalId = localStorage.getItem("originalOperatorId");
+    const originalOrgId = localStorage.getItem("originalOrganizationId");
+
     if (originalId && originalOrgId) {
       // Restore original operator session
-      localStorage.setItem('userId', originalId);
-      localStorage.setItem('organizationId', originalOrgId);
-      
+      localStorage.setItem("userId", originalId);
+      localStorage.setItem("organizationId", originalOrgId);
+
       // CRITICAL: Restore the original operator's Google ID token for Firebase Auth
-      const originalOperatorIdToken = localStorage.getItem('originalOperatorIdToken');
+      const originalOperatorIdToken = localStorage.getItem(
+        "originalOperatorIdToken",
+      );
       if (originalOperatorIdToken) {
-        localStorage.setItem('google_id_token', originalOperatorIdToken);
+        localStorage.setItem("google_id_token", originalOperatorIdToken);
       }
-      
+
       // Clear impersonation state
-      localStorage.removeItem('isImpersonating');
-      localStorage.removeItem('originalOperatorId');
-      localStorage.removeItem('originalOrganizationId');
-      localStorage.removeItem('originalOperatorIdToken');
-      
+      localStorage.removeItem("isImpersonating");
+      localStorage.removeItem("originalOperatorId");
+      localStorage.removeItem("originalOrganizationId");
+      localStorage.removeItem("originalOperatorIdToken");
+
       // Reload app to trigger re-initialization
       window.location.reload();
     }
@@ -191,14 +197,18 @@ const Layout: React.FC<LayoutProps> = ({
   // Handle support navigation - find org admin and navigate to their chat
   const handleSupportClick = () => {
     setIsMobileMenuOpen(false);
-    
+
     // Find the first organization admin in the user's organization
     const orgAdmins = users.filter((u) => {
       const roleStr = String(u.role);
       return (
         u.organizationId === currentUser.organizationId &&
-        (u.role === Role.ADMIN || roleStr === "ADMIN" || roleStr === "ORGANIZATION_ADMIN") &&
-        !(u.role === Role.PLATFORM_OPERATOR || roleStr === "PLATFORM_OPERATOR") &&
+        (u.role === Role.ADMIN ||
+          roleStr === "ADMIN" ||
+          roleStr === "ORGANIZATION_ADMIN") &&
+        !(
+          u.role === Role.PLATFORM_OPERATOR || roleStr === "PLATFORM_OPERATOR"
+        ) &&
         u.id !== currentUser.id // Don't select self if user is an admin
       );
     });
@@ -374,7 +384,8 @@ const Layout: React.FC<LayoutProps> = ({
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <LogIn className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="text-xs font-medium truncate">
-                Viewing as <strong>{currentUser.name}</strong> ({formatRole(currentUser.role)})
+                Viewing as <strong>{currentUser.name}</strong> (
+                {formatRole(currentUser.role)})
               </span>
             </div>
             <button
@@ -387,13 +398,13 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
         </div>
       )}
-      
+
       {/* Environment Banner */}
       <EnvironmentBanner hasImpersonationBanner={isImpersonating} />
-      
+
       {/* PWA Installation Banner - Only shows on authenticated dashboard pages */}
       <PWAInstallBanner currentUser={currentUser} />
-      
+
       {/* Skip to main content link for screen readers */}
       <a
         href="#main-content"
@@ -403,9 +414,11 @@ const Layout: React.FC<LayoutProps> = ({
       </a>
 
       {/* Mobile Header - safe-area for iOS notch when PWA standalone */}
-      <header className={`md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 flex justify-between items-center sticky z-30 pt-[max(0.75rem,env(safe-area-inset-top))] ${
-        isImpersonating ? "top-14" : isSandbox() ? "top-10" : "top-0"
-      }`}>
+      <header
+        className={`md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 flex justify-between items-center sticky z-30 pt-[max(0.75rem,env(safe-area-inset-top))] ${
+          isImpersonating ? "top-14" : isSandbox() ? "top-10" : "top-0"
+        }`}
+      >
         <div className="flex items-center space-x-2 min-w-0 flex-1">
           <Logo className="w-8 h-8 flex-shrink-0" title="Meant2Grow" />
           <span className="font-bold text-sm uppercase text-slate-800 dark:text-white break-words leading-tight">
@@ -690,7 +703,11 @@ const Layout: React.FC<LayoutProps> = ({
             <NavItem page="calendar" icon={CalendarIcon} label="Calendar" />
 
             {/* Community Links - Only show if there are items to display */}
-            {((isMentor || isAdmin) || (isMentee || isAdmin) || !isPlatformOperator) && (
+            {(isMentor ||
+              isAdmin ||
+              isMentee ||
+              isAdmin ||
+              !isPlatformOperator) && (
               <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
                 <p className="px-3 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">
                   Community
@@ -720,7 +737,10 @@ const Layout: React.FC<LayoutProps> = ({
                     aria-label="Contact support"
                     className="flex items-center w-full px-3 py-2.5 mb-0.5 rounded-md transition-colors text-sm min-h-[44px] touch-manipulation text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-700 dark:hover:text-emerald-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
                   >
-                    <HelpCircle className="w-4 h-4 mr-2 flex-shrink-0" aria-hidden="true" />
+                    <HelpCircle
+                      className="w-4 h-4 mr-2 flex-shrink-0"
+                      aria-hidden="true"
+                    />
                     <span className="truncate">Support</span>
                   </button>
                 )}
@@ -742,6 +762,13 @@ const Layout: React.FC<LayoutProps> = ({
               />
               <span className="text-xs font-medium">Log Out</span>
             </button>
+            <p
+              className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 px-3"
+              aria-label="App version"
+            >
+              Version: {import.meta.env.VITE_APP_VERSION || "1.0.0"}
+              {import.meta.env.VITE_APP_ENV === "sandbox" && " • sandbox"}
+            </p>
           </div>
         </div>
       </aside>
@@ -754,7 +781,7 @@ const Layout: React.FC<LayoutProps> = ({
         data-impersonating={isImpersonating ? "true" : undefined}
         style={{
           // Top spacing: PWA banner offset + base padding (banner space is reserved by root layoutTopPadding)
-          paddingTop: `calc(var(--pwa-banner-offset, 0px) + var(--main-base-pt, 0.75rem))`
+          paddingTop: `calc(var(--pwa-banner-offset, 0px) + var(--main-base-pt, 0.75rem))`,
         }}
       >
         {children}
@@ -775,8 +802,8 @@ const Layout: React.FC<LayoutProps> = ({
                 toast.type === "success"
                   ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200"
                   : toast.type === "error"
-                  ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
-                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+                    ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
+                    : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
               }`}
             >
               {toast.type === "success" && (

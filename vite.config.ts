@@ -1,4 +1,5 @@
 import path from "path";
+import { readFileSync } from "fs";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
@@ -11,6 +12,19 @@ export default defineConfig(({ mode }) => {
   const nodeEnv = process.env.NODE_ENV || mode;
   const isSandbox = nodeEnv === "sandbox";
   const isProduction = nodeEnv === "production" && !isSandbox;
+
+  // Read version from version.json (bumped by prebuild script)
+  let appVersion = "1.0.0";
+  const appEnv: "sandbox" | "production" = isSandbox ? "sandbox" : "production";
+  try {
+    const versionData = JSON.parse(
+      readFileSync(path.resolve(__dirname, "version.json"), "utf-8")
+    );
+    const buildNum = versionData[appEnv] ?? 0;
+    appVersion = `1.0.${buildNum}`;
+  } catch {
+    // Use default if version.json missing
+  }
 
   // Load environment variables from .env files (local) or CI/CD environment
   // Priority: process.env (CI/CD) > .env files (local)
@@ -81,6 +95,8 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_FIREBASE_APP_ID": JSON.stringify(
         env.VITE_FIREBASE_APP_ID || "",
       ),
+      "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),
+      "import.meta.env.VITE_APP_ENV": JSON.stringify(appEnv),
     },
     resolve: {
       alias: {
