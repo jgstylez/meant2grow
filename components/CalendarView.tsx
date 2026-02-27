@@ -75,7 +75,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [hoveredEventId, setHoveredEventId] = useState<string | null>(null);
   const [viewingEvent, setViewingEvent] = useState<CalendarEvent | null>(null);
-  const [requestSent, setRequestSent] = useState<"cancel" | "reschedule" | null>(null);
+  const [requestSent, setRequestSent] = useState<
+    "cancel" | "reschedule" | null
+  >(null);
 
   useEffect(() => {
     // Check if any calendar is connected
@@ -139,25 +141,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       // Sync events from all connected calendars
       const syncedEvents = await syncFromAllCalendars(
         currentUser.id,
-        currentUser.organizationId
+        currentUser.organizationId,
       );
 
       // Add synced events to Firestore (avoid duplicates)
       // Track events processed in this sync batch to prevent duplicates within the batch
       const processedEvents = new Set<string>();
-      
+
       for (const syncedEvent of syncedEvents) {
         // Create a unique key for duplicate detection
         const eventKey = `${syncedEvent.title}|${syncedEvent.date}|${syncedEvent.startTime}`;
-        
+
         // Check if event already exists in previously loaded events
         const existsInLoaded = events.some(
           (e) =>
             e.title === syncedEvent.title &&
             e.date === syncedEvent.date &&
-            e.startTime === syncedEvent.startTime
+            e.startTime === syncedEvent.startTime,
         );
-        
+
         // Check if event was already processed in this sync batch
         const existsInBatch = processedEvents.has(eventKey);
 
@@ -189,7 +191,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // Filter events to only show those where current user is creator or participant
   const visibleEvents = events.filter((ev) => {
     // User is the creator (createdBy, mentorId, or menteeId matches)
-    if (ev.createdBy === currentUser.id || ev.mentorId === currentUser.id || ev.menteeId === currentUser.id) {
+    if (
+      ev.createdBy === currentUser.id ||
+      ev.mentorId === currentUser.id ||
+      ev.menteeId === currentUser.id
+    ) {
       return true;
     }
     // User is in participants list
@@ -210,14 +216,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     if (currentUser.role === "MENTEE") {
       // For mentees: show only their matched mentor(s)
       const activeMatches = matches.filter(
-        (m) => m.menteeId === currentUser.id && m.status === MatchStatus.ACTIVE
+        (m) => m.menteeId === currentUser.id && m.status === MatchStatus.ACTIVE,
       );
       const mentorIds = activeMatches.map((m) => m.mentorId);
       return users.filter((u) => mentorIds.includes(u.id));
     } else if (currentUser.role === "MENTOR") {
       // For mentors: show only their matched mentees
       const activeMatches = matches.filter(
-        (m) => m.mentorId === currentUser.id && m.status === MatchStatus.ACTIVE
+        (m) => m.mentorId === currentUser.id && m.status === MatchStatus.ACTIVE,
       );
       const menteeIds = activeMatches.map((m) => m.menteeId);
       return users.filter((u) => menteeIds.includes(u.id));
@@ -253,12 +259,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       startTime: newEvent.time,
       duration: newEvent.duration,
       type: newEvent.type,
-      participants: newEvent.participants.length > 0 ? newEvent.participants : undefined,
+      participants:
+        newEvent.participants.length > 0 ? newEvent.participants : undefined,
     };
 
     try {
       await onUpdateEvent(editingEvent.id, updates);
-      
+
       // Only reset state after successful update
       setIsAddEventOpen(false);
       setEditingEvent(null);
@@ -286,18 +293,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const sendMeetingRequest = async (
     ev: CalendarEvent,
-    type: "cancel" | "reschedule"
+    type: "cancel" | "reschedule",
   ) => {
     const creatorId = ev.createdBy;
     if (!creatorId || !currentUser.organizationId) return;
 
     const label = type === "cancel" ? "cancel" : "reschedule";
     const emoji = type === "cancel" ? "❌" : "📅";
-    const dateStr = new Date(ev.date + "T00:00:00").toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
+    const dateStr = new Date(ev.date + "T00:00:00").toLocaleDateString(
+      "en-US",
+      {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      },
+    );
     const text =
       type === "cancel"
         ? `${emoji} ${currentUser.name} requested to cancel: "${ev.title}" on ${dateStr} at ${ev.startTime}.`
@@ -357,7 +367,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`}
                 aria-hidden="true"
               />
-              <span className="sr-only sm:not-sr-only">{syncing ? "Syncing..." : "Sync Now"}</span>
+              <span className="sr-only sm:not-sr-only">
+                {syncing ? "Syncing..." : "Sync Now"}
+              </span>
               {syncing && <span className="sm:hidden">Syncing...</span>}
             </button>
           ) : (
@@ -366,7 +378,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               aria-label="Connect calendar"
               className="flex items-center justify-center px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
-              <Settings className="w-4 h-4 mr-2" aria-hidden="true" /> 
+              <Settings className="w-4 h-4 mr-2" aria-hidden="true" />
               <span className="hidden sm:inline">Connect Calendar</span>
               <span className="sm:hidden">Connect</span>
             </button>
@@ -376,7 +388,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             aria-label="Add new event"
             className={`${BUTTON_PRIMARY} min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500`}
           >
-            <Plus className="w-4 h-4 mr-2" aria-hidden="true" /> 
+            <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
             <span className="hidden sm:inline">Add Event</span>
             <span className="sm:hidden">Add</span>
           </button>
@@ -423,9 +435,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <span className="sr-only">Next month</span>
           </button>
         </div>
-        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 text-center py-2 bg-slate-50 dark:bg-slate-950" role="row">
+        <div
+          className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 text-center py-2 bg-slate-50 dark:bg-slate-950"
+          role="row"
+        >
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <div key={d} className="text-xs font-bold text-slate-500 uppercase" role="columnheader">
+            <div
+              key={d}
+              className="text-xs font-bold text-slate-500 uppercase"
+              role="columnheader"
+            >
               <span className="sr-only">{d}day</span>
               <span aria-hidden="true">{d}</span>
             </div>
@@ -445,7 +464,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             const daysInPrevMonth = new Date(
               prevYear,
               prevMonth + 1,
-              0
+              0,
             ).getDate();
 
             // Generate 35 days (5 weeks)
@@ -505,7 +524,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     ? new Date(
                         parseInt(dateParts[0]),
                         parseInt(dateParts[1]) - 1,
-                        parseInt(dateParts[2])
+                        parseInt(dateParts[2]),
                       )
                     : new Date(e.date);
                 return (
@@ -533,8 +552,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       isToday
                         ? "bg-emerald-600 text-white w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center"
                         : calendarDay.isCurrentMonth
-                        ? "text-slate-700 dark:text-slate-300"
-                        : "text-slate-400 dark:text-slate-600"
+                          ? "text-slate-700 dark:text-slate-300"
+                          : "text-slate-400 dark:text-slate-600"
                     }`}
                     aria-label={isToday ? "Today" : undefined}
                   >
@@ -560,7 +579,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
                       // Check if current user can edit this event (only creator can edit)
                       // Both mentor and mentee can view, but only the person who scheduled can edit
-                      const canEdit = ev.createdBy === currentUser.id || (!ev.createdBy && (ev.mentorId === currentUser.id || ev.menteeId === currentUser.id));
+                      const canEdit =
+                        ev.createdBy === currentUser.id ||
+                        (!ev.createdBy &&
+                          (ev.mentorId === currentUser.id ||
+                            ev.menteeId === currentUser.id));
                       const isHovered = hoveredEventId === ev.id;
 
                       return (
@@ -591,9 +614,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           )}
 
                           {/* Tooltip on hover with calendar links and edit button */}
-                          <div 
+                          <div
                             role="tooltip"
-                            className={`${isHovered ? 'block' : 'hidden'} absolute left-0 top-full mt-1 bg-slate-900 text-white text-[10px] sm:text-xs rounded px-2 py-1.5 z-20 whitespace-nowrap shadow-lg min-w-[200px] sm:min-w-[250px]`}
+                            className={`${isHovered ? "block" : "hidden"} absolute left-0 top-full mt-1 bg-slate-900 text-white text-[10px] sm:text-xs rounded px-2 py-1.5 z-20 whitespace-nowrap shadow-lg min-w-[200px] sm:min-w-[250px]`}
                             onMouseEnter={() => setHoveredEventId(ev.id)}
                             onMouseLeave={() => setHoveredEventId(null)}
                           >
@@ -616,7 +639,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               <a
                                 href={generateGoogleCalendarLink(
                                   ev,
-                                  ev.googleMeetLink
+                                  ev.googleMeetLink,
                                 )}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -624,7 +647,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 className="block hover:bg-slate-800 px-2 py-1.5 rounded text-[9px] sm:text-[10px] min-h-[32px] flex items-center focus:outline-none focus:ring-2 focus:ring-white"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <span aria-hidden="true">📅</span> Google Calendar
+                                <span aria-hidden="true">📅</span> Google
+                                Calendar
                               </a>
                               <div
                                 role="button"
@@ -633,7 +657,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 className="block px-2 py-1.5 rounded text-[9px] sm:text-[10px] opacity-50 cursor-not-allowed"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <span aria-hidden="true">📅</span> Outlook Calendar <span className="text-[8px] text-slate-500">(Coming Soon)</span>
+                                <span aria-hidden="true">📅</span> Outlook
+                                Calendar{" "}
+                                <span className="text-[8px] text-slate-500">
+                                  (Coming Soon)
+                                </span>
                               </div>
                               <div
                                 role="button"
@@ -642,7 +670,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 className="block w-full text-left px-2 py-1.5 rounded text-[9px] sm:text-[10px] opacity-50 cursor-not-allowed"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <span aria-hidden="true">📅</span> Apple Calendar <span className="text-[8px] text-slate-500">(Coming Soon)</span>
+                                <span aria-hidden="true">📅</span> Apple
+                                Calendar{" "}
+                                <span className="text-[8px] text-slate-500">
+                                  (Coming Soon)
+                                </span>
                               </div>
                               <div className="border-t border-slate-700 my-1"></div>
                               {canEdit && onUpdateEvent ? (
@@ -656,7 +688,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     aria-label={`Edit event ${ev.title}`}
                                     className="block w-full text-left hover:bg-slate-800 px-2 py-1.5 rounded text-[9px] sm:text-[10px] min-h-[32px] focus:outline-none focus:ring-2 focus:ring-white"
                                   >
-                                    <span aria-hidden="true">✏️</span> Edit Event
+                                    <span aria-hidden="true">✏️</span> Edit
+                                    Event
                                   </button>
                                   <div className="text-[8px] sm:text-[9px] text-slate-400 mt-1 pt-1 border-t border-slate-700">
                                     Or click anywhere to edit
@@ -681,7 +714,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       </div>
 
       {isAddEventOpen && (
-        <div 
+        <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="event-modal-title"
@@ -697,7 +730,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl max-w-2xl w-full h-full sm:h-auto border-0 sm:border border-slate-200 dark:border-slate-800 max-h-[100vh] sm:max-h-[90vh] flex flex-col touch-action-pan-y">
             {/* Header - Fixed */}
             <div className="flex justify-between items-center p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800">
-              <h2 id="event-modal-title" className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+              <h2
+                id="event-modal-title"
+                className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white"
+              >
                 {editingEvent ? "Edit Event" : "Add New Event"}
               </h2>
               <button
@@ -725,7 +761,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 touch-action-pan-y">
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="event-title" className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                  <label
+                    htmlFor="event-title"
+                    className="block text-xs font-medium text-slate-500 uppercase mb-1"
+                  >
                     Event Title
                   </label>
                   <input
@@ -741,11 +780,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     placeholder="e.g. Weekly Check-in"
                     aria-describedby="event-title-description"
                   />
-                  <span id="event-title-description" className="sr-only">Enter a descriptive title for your event</span>
+                  <span id="event-title-description" className="sr-only">
+                    Enter a descriptive title for your event
+                  </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="event-date" className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                    <label
+                      htmlFor="event-date"
+                      className="block text-xs font-medium text-slate-500 uppercase mb-1"
+                    >
                       Date
                     </label>
                     <input
@@ -760,10 +804,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       }
                       aria-describedby="event-date-description"
                     />
-                    <span id="event-date-description" className="sr-only">Select the date for your event</span>
+                    <span id="event-date-description" className="sr-only">
+                      Select the date for your event
+                    </span>
                   </div>
                   <div>
-                    <label htmlFor="event-time" className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                    <label
+                      htmlFor="event-time"
+                      className="block text-xs font-medium text-slate-500 uppercase mb-1"
+                    >
                       Time
                     </label>
                     <input
@@ -778,12 +827,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       }
                       aria-describedby="event-time-description"
                     />
-                    <span id="event-time-description" className="sr-only">Select the start time for your event</span>
+                    <span id="event-time-description" className="sr-only">
+                      Select the start time for your event
+                    </span>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="event-duration" className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                    <label
+                      htmlFor="event-duration"
+                      className="block text-xs font-medium text-slate-500 uppercase mb-1"
+                    >
                       Duration
                     </label>
                     <select
@@ -799,10 +853,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       <option value="1h">1h</option>
                       <option value="1.5h">1.5h</option>
                     </select>
-                    <span id="event-duration-description" className="sr-only">Select how long the event will last</span>
+                    <span id="event-duration-description" className="sr-only">
+                      Select how long the event will last
+                    </span>
                   </div>
                   <div>
-                    <label htmlFor="event-type" className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                    <label
+                      htmlFor="event-type"
+                      className="block text-xs font-medium text-slate-500 uppercase mb-1"
+                    >
                       Type
                     </label>
                     <select
@@ -818,13 +877,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       <option value="In-Person">In-Person</option>
                       <option value="Phone">Phone</option>
                     </select>
-                    <span id="event-type-description" className="sr-only">Select the type of meeting</span>
+                    <span id="event-type-description" className="sr-only">
+                      Select the type of meeting
+                    </span>
                   </div>
                 </div>
 
                 {/* Participants Multi-Select */}
                 <div>
-                  <label htmlFor="event-participants" className="block text-xs font-medium text-slate-500 uppercase mb-1">
+                  <label
+                    htmlFor="event-participants"
+                    className="block text-xs font-medium text-slate-500 uppercase mb-1"
+                  >
                     Participants
                   </label>
                   <div className="relative">
@@ -846,18 +910,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               newEvent.participants.length > 1 ? "s" : ""
                             } selected`}
                       </span>
-                      <UserPlus className="w-4 h-4 text-slate-400 flex-shrink-0" aria-hidden="true" />
+                      <UserPlus
+                        className="w-4 h-4 text-slate-400 flex-shrink-0"
+                        aria-hidden="true"
+                      />
                     </button>
 
                     {showParticipantDropdown && (
                       <div className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         {availableParticipants.length === 0 ? (
                           <div className="p-3 text-sm text-slate-500 text-center">
-                            {currentUser.role === "MENTEE" 
+                            {currentUser.role === "MENTEE"
                               ? "No matched mentor available. Please get matched with a mentor first."
                               : currentUser.role === "MENTOR"
-                              ? "No matched mentees available. Please create matches first."
-                              : "No other users available"}
+                                ? "No matched mentees available. Please create matches first."
+                                : "No other users available"}
                           </div>
                         ) : (
                           availableParticipants.map((user) => (
@@ -868,7 +935,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               <input
                                 type="checkbox"
                                 checked={newEvent.participants.includes(
-                                  user.id
+                                  user.id,
                                 )}
                                 onChange={() => toggleParticipant(user.id)}
                                 aria-label={`Select ${user.name} as participant`}
@@ -935,7 +1002,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 {editingEvent && onDeleteEvent && (
                   <button
                     onClick={() => {
-                      if (confirm("Delete this event? This cannot be undone.")) {
+                      if (
+                        confirm("Delete this event? This cannot be undone.")
+                      ) {
                         onDeleteEvent(editingEvent.id);
                         setIsAddEventOpen(false);
                         setEditingEvent(null);
@@ -964,53 +1033,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     }
                   }}
                   disabled={!newEvent.title || !newEvent.date}
-                  className={BUTTON_PRIMARY + " flex-1 min-h-[44px] touch-manipulation"}
+                  className={
+                    BUTTON_PRIMARY + " flex-1 min-h-[44px] touch-manipulation"
+                  }
                 >
                   {editingEvent ? "Update Event" : "Schedule Event"}
                 </button>
-                {newEvent.title && newEvent.date && (
-                  <div className="flex gap-1 justify-center sm:justify-start">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const tempEvent: CalendarEvent = {
-                          id: "",
-                          organizationId: currentUser.organizationId,
-                          title: newEvent.title,
-                          date: newEvent.date,
-                          startTime: newEvent.time,
-                          duration: newEvent.duration,
-                          type: newEvent.type,
-                          createdAt: new Date().toISOString(),
-                        };
-                        window.open(
-                          generateGoogleCalendarLink(tempEvent),
-                          "_blank"
-                        );
-                      }}
-                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-xs min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
-                      title="Add to Google Calendar"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled
-                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs opacity-50 cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center"
-                      title="Outlook Calendar - Coming Soon"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled
-                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-xs opacity-50 cursor-not-allowed min-h-[44px] min-w-[44px] flex items-center justify-center"
-                      title="Apple Calendar - Coming Soon"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -1043,7 +1071,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div className="flex justify-between">
                   <dt className="text-slate-500 dark:text-slate-500">Date</dt>
                   <dd>
-                    {new Date(viewingEvent.date + "T00:00:00").toLocaleDateString("en-US", {
+                    {new Date(
+                      viewingEvent.date + "T00:00:00",
+                    ).toLocaleDateString("en-US", {
                       weekday: "short",
                       month: "short",
                       day: "numeric",
@@ -1060,23 +1090,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   <dt className="text-slate-500 dark:text-slate-500">Type</dt>
                   <dd>{viewingEvent.type}</dd>
                 </div>
-                {viewingEvent.participants && viewingEvent.participants.length > 0 && (
-                  <div>
-                    <dt className="text-slate-500 dark:text-slate-500 mb-1">Participants</dt>
-                    <dd className="text-slate-700 dark:text-slate-300">
-                      {viewingEvent.participants
-                        .map((id) => users.find((u) => u.id === id)?.name)
-                        .filter(Boolean)
-                        .join(", ")}
-                    </dd>
-                  </div>
-                )}
+                {viewingEvent.participants &&
+                  viewingEvent.participants.length > 0 && (
+                    <div>
+                      <dt className="text-slate-500 dark:text-slate-500 mb-1">
+                        Participants
+                      </dt>
+                      <dd className="text-slate-700 dark:text-slate-300">
+                        {viewingEvent.participants
+                          .map((id) => users.find((u) => u.id === id)?.name)
+                          .filter(Boolean)
+                          .join(", ")}
+                      </dd>
+                    </div>
+                  )}
               </dl>
               <div className="flex flex-col gap-2">
                 <a
                   href={generateGoogleCalendarLink(
                     viewingEvent,
-                    viewingEvent.googleMeetLink
+                    viewingEvent.googleMeetLink,
                   )}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -1106,7 +1139,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     {requestSent === "cancel" ? "Sent" : "Request Cancel"}
                   </button>
                   <button
-                    onClick={() => sendMeetingRequest(viewingEvent, "reschedule")}
+                    onClick={() =>
+                      sendMeetingRequest(viewingEvent, "reschedule")
+                    }
                     disabled={!!requestSent}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >

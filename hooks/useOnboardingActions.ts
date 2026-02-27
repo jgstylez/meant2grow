@@ -16,34 +16,6 @@ export const useOnboardingActions = (
         fetch('http://127.0.0.1:7243/ingest/a6853916-ca8d-4c7b-8a80-610201bf60a7',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useOnboardingActions.ts:handleMentorOnboardingComplete',message:'Inner mentor complete entered',data:{userId:currentUser?.id,organizationId},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
         // #endregion
         try {
-            const goalTitles: string[] = [];
-            // Handle both formats: mentoringGoals (array of strings) or goals (array of objects with title and targetDate)
-            let goalsToProcess: Array<{ title: string; targetDate?: string }> = [];
-            
-            if (formData.mentoringGoals && Array.isArray(formData.mentoringGoals)) {
-                // Legacy format: array of strings
-                goalsToProcess = formData.mentoringGoals.map((g: string) => ({ title: g }));
-            } else if (formData.goals && Array.isArray(formData.goals)) {
-                // New format: array of objects with title and targetDate
-                goalsToProcess = formData.goals;
-            }
-            
-            if (goalsToProcess.length > 0) {
-                for (const goal of goalsToProcess) {
-                    const newGoal: Omit<Goal, 'id'> = {
-                        userId: currentUser.id,
-                        organizationId: organizationId,
-                        title: goal.title,
-                        description: `Mentorship goal: ${goal.title}`,
-                        progress: 0,
-                        status: 'Not Started',
-                        dueDate: goal.targetDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                    };
-                    await createGoal(newGoal);
-                    goalTitles.push(goal.title);
-                }
-            }
-
             // Parse maxMentees - handle both string and number, and "4+" case
             let maxMenteesValue: number | undefined = undefined;
             if (formData.maxMentees) {
@@ -66,7 +38,6 @@ export const useOnboardingActions = (
                 company: formData.company,
                 bio: formData.bio,
                 skills: formData.skills,
-                goals: goalTitles,
                 linkedinUrl: formData.linkedinUrl,
                 phoneNumber: formData.phoneNumber,
                 maxMentees: maxMenteesValue,

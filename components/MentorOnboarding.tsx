@@ -1,20 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
-import { Check, ChevronRight, ChevronLeft, User, Briefcase, Target, MessageSquare, Sparkles, ArrowRight, CheckCircle2, Bell, Users, BookOpen, Calendar } from 'lucide-react';
-import { ProgramSettings, Goal, User as UserType } from '../types';
+import { Check, ChevronRight, ChevronLeft, User, Briefcase, MessageSquare, Sparkles, ArrowRight, CheckCircle2, Bell, Users, BookOpen, Calendar } from 'lucide-react';
+import { ProgramSettings, User as UserType } from '../types';
 import DynamicSignupForm from './DynamicSignupForm';
 import SkillsSelector from './SkillsSelector';
-import { DatePicker } from './DatePicker';
 
 interface MentorOnboardingProps {
   onComplete: (formData: any) => void;
   programSettings?: ProgramSettings | null;
   currentUser?: UserType;
-}
-
-interface GoalInput {
-  title: string;
-  targetDate: string;
 }
 
 const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, programSettings, currentUser }) => {
@@ -42,11 +36,8 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
     experience: storedData?.experience || '',
     availability: storedData?.availability || '',
     maxMentees: storedData?.maxMentees || '2',
-    goals: storedData?.goals || [] as GoalInput[],
     phoneNumber: storedData?.phoneNumber || currentUser?.phoneNumber || ''
   });
-  const [currentGoal, setCurrentGoal] = useState('');
-  const [currentTargetDate, setCurrentTargetDate] = useState('');
   const [customFieldData, setCustomFieldData] = useState<Record<string, any>>(storedData?.customFieldData || {});
 
   // Persist form data to localStorage whenever it changes
@@ -77,24 +68,8 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
     setFormData({...formData, skills});
   };
 
-  const addGoal = () => {
-    if (currentGoal.trim() && currentTargetDate) {
-      const newGoal: GoalInput = {
-        title: currentGoal.trim(),
-        targetDate: currentTargetDate
-      };
-      setFormData({...formData, goals: [...formData.goals, newGoal]});
-      setCurrentGoal('');
-      setCurrentTargetDate('');
-    }
-  };
-
-  const removeGoal = (index: number) => {
-    setFormData({...formData, goals: formData.goals.filter((_, idx) => idx !== index)});
-  };
-
   // Determine total steps based on whether we have custom fields
-  const formSteps = programSettings ? 5 : 4;
+  const formSteps = programSettings ? 4 : 3;
   const completionStep = formSteps + 1;
 
   const renderStepIndicator = () => {
@@ -298,105 +273,7 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
                 </div>
               </div>
             </div>
-            
-            <div className="flex justify-between pt-4">
-              <button onClick={() => setStep(2)} className="px-6 py-3 text-slate-500 hover:text-slate-700 font-medium flex items-center">
-                <ChevronLeft className="w-5 h-5 mr-1" /> Back
-              </button>
-              <button 
-                onClick={() => setStep(4)} 
-                disabled={!formData.bio || !formData.availability}
-                className={BUTTON_PRIMARY + " px-8 py-3 text-base shadow-lg disabled:opacity-50"}
-              >
-                Next <ChevronRight className="w-5 h-5 ml-2" />
-              </button>
-            </div>
-          </div>
-        )}
 
-        {step === 4 && (
-          <div className="space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
-            <div className={CARD_CLASS}>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 flex items-center">
-                <Target className="w-6 h-6 mr-2 text-emerald-600" /> Mentorship Goals
-              </h2>
-              <p className="text-slate-500 dark:text-slate-400 mb-4">
-                What do you hope to achieve through mentoring? <span className="font-semibold text-slate-700 dark:text-slate-300">Add one goal at a time with a target date for better tracking.</span>
-              </p>
-
-              <div className="space-y-4">
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-blue-800 dark:text-blue-300">
-                    <strong>Tip:</strong> Adding goals one at a time with specific target dates helps track your progress and measure success more effectively.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Goal Description
-                    </label>
-                    <input 
-                      type="text" 
-                      value={currentGoal}
-                      onChange={(e) => setCurrentGoal(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addGoal())}
-                      className={INPUT_CLASS}
-                      placeholder="e.g., Learn Python"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Target Date
-                    </label>
-                    <DatePicker
-                      value={currentTargetDate}
-                      onChange={setCurrentTargetDate}
-                      minDate={new Date().toISOString().split('T')[0]}
-                      placeholder="Select target date"
-                    />
-                  </div>
-
-                  <button 
-                    type="button"
-                    onClick={addGoal}
-                    disabled={!currentGoal.trim() || !currentTargetDate}
-                    className="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Add Goal
-                  </button>
-                </div>
-
-                {formData.goals.length > 0 && (
-                  <div className="space-y-2 mt-6">
-                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Your Goals ({formData.goals.length})
-                    </h3>
-                    {formData.goals.map((goal, idx) => (
-                      <div 
-                        key={idx}
-                        className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800"
-                      >
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-emerald-900 dark:text-emerald-300 block">{goal.title}</span>
-                          <span className="text-xs text-emerald-700 dark:text-emerald-400">
-                            Target: {new Date(goal.targetDate).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <button 
-                          onClick={() => removeGoal(idx)}
-                          className="text-emerald-600 hover:text-red-500 ml-3 font-bold text-lg"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-            
             {!programSettings && (
               <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-6">
                 <div className="flex items-start">
@@ -412,12 +289,13 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
             )}
             
             <div className="flex justify-between pt-4">
-              <button onClick={() => setStep(3)} className="px-6 py-3 text-slate-500 hover:text-slate-700 font-medium flex items-center">
+              <button onClick={() => setStep(2)} className="px-6 py-3 text-slate-500 hover:text-slate-700 font-medium flex items-center">
                 <ChevronLeft className="w-5 h-5 mr-1" /> Back
               </button>
               <button 
-                onClick={() => programSettings ? setStep(5) : handleComplete()}
-                className={BUTTON_PRIMARY + " px-8 py-3 text-base shadow-lg"}
+                onClick={() => programSettings ? setStep(4) : handleComplete()}
+                disabled={!formData.bio || !formData.availability}
+                className={BUTTON_PRIMARY + " px-8 py-3 text-base shadow-lg disabled:opacity-50"}
               >
                 {programSettings ? (
                   <>Next <ChevronRight className="w-5 h-5 ml-2" /></>
@@ -429,7 +307,7 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
           </div>
         )}
 
-        {step === 5 && programSettings && (
+        {step === 4 && programSettings && (
           <div className="space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
             <div className={CARD_CLASS}>
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 flex items-center">
@@ -460,7 +338,7 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
             </div>
 
             <div className="flex justify-between pt-4">
-              <button onClick={() => setStep(4)} className="px-6 py-3 text-slate-500 hover:text-slate-700 font-medium flex items-center">
+              <button onClick={() => setStep(3)} className="px-6 py-3 text-slate-500 hover:text-slate-700 font-medium flex items-center">
                 <ChevronLeft className="w-5 h-5 mr-1" /> Back
               </button>
             </div>
