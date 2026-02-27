@@ -66,6 +66,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     duration: "1h",
     type: "Virtual",
     participants: [] as string[],
+    notes: "",
   });
   const [showSuccess, setShowSuccess] = useState(false);
   const [showParticipantDropdown, setShowParticipantDropdown] = useState(false);
@@ -109,6 +110,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       ...(currentUser.role === "MENTOR" && { mentorId: currentUser.id }),
       ...(currentUser.role === "MENTEE" && { menteeId: currentUser.id }),
       participants, // Always include participants array with creator
+      ...(newEvent.notes?.trim() && { notes: newEvent.notes.trim() }),
     };
 
     // Create event in Firestore first
@@ -124,6 +126,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       duration: "1h",
       type: "Virtual",
       participants: [],
+      notes: "",
     });
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 3000);
@@ -243,6 +246,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       duration: event.duration,
       type: event.type,
       participants: event.participants || [],
+      notes: event.notes || "",
     });
     setIsAddEventOpen(true);
   };
@@ -261,6 +265,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       type: newEvent.type,
       participants:
         newEvent.participants.length > 0 ? newEvent.participants : undefined,
+      notes: newEvent.notes?.trim() || undefined,
     };
 
     try {
@@ -276,6 +281,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         duration: "1h",
         type: "Virtual",
         participants: [],
+        notes: "",
       });
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
@@ -748,6 +754,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     duration: "1h",
                     type: "Virtual",
                     participants: [],
+                    notes: "",
                   });
                 }}
                 aria-label="Close event modal"
@@ -993,6 +1000,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* Notes */}
+                <div>
+                  <label
+                    htmlFor="event-notes"
+                    className="block text-xs font-medium text-slate-500 uppercase mb-1"
+                  >
+                    Notes
+                  </label>
+                  <textarea
+                    id="event-notes"
+                    rows={3}
+                    className={INPUT_CLASS}
+                    value={newEvent.notes}
+                    onChange={(e) =>
+                      setNewEvent({ ...newEvent, notes: e.target.value })
+                    }
+                    placeholder="Add meeting notes or agenda items..."
+                    aria-describedby="event-notes-description"
+                  />
+                  <span id="event-notes-description" className="sr-only">
+                    Optional notes or agenda for the event
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1015,6 +1046,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           duration: "1h",
                           type: "Virtual",
                           participants: [],
+                          notes: "",
                         });
                       }
                     }}
@@ -1104,6 +1136,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       </dd>
                     </div>
                   )}
+                {viewingEvent.notes && viewingEvent.notes.trim() && (
+                  <div>
+                    <dt className="text-slate-500 dark:text-slate-500 mb-1">
+                      Notes
+                    </dt>
+                    <dd className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                      {viewingEvent.notes}
+                    </dd>
+                  </div>
+                )}
               </dl>
               <div className="flex flex-col gap-2">
                 <a

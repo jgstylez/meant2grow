@@ -189,6 +189,7 @@ export interface CalendarEvent {
   mentorId?: string;
   menteeId?: string;
   participants?: string[]; // Array of user IDs who are invited/participating
+  notes?: string; // Optional notes/description for the event
   createdBy?: string; // User ID who created/scheduled the event
   googleMeetLink?: string; // Generated Meet link
   googleCalendarEventId?: string; // Google Calendar event ID for sync

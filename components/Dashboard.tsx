@@ -209,7 +209,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // Pagination state
   const [usersPage, setUsersPage] = useState(1);
-  const [usersPerPage] = useState(20);
+  const [usersPerPage] = useState(5);
   const [usersLastDoc, setUsersLastDoc] =
     useState<QueryDocumentSnapshot | null>(null);
   const [usersHasMore, setUsersHasMore] = useState(true);
