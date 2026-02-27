@@ -26,19 +26,32 @@ const serviceAccountEmail = defineString("GOOGLE_SERVICE_ACCOUNT_EMAIL", {
 
 const serviceAccountKey = defineSecret("GOOGLE_SERVICE_ACCOUNT_KEY");
 
-// MailerSend email service configuration
+// Email provider: "mailersend" (default) or "mailtrap". Switch here to change provider.
+const emailProvider = defineString("EMAIL_PROVIDER", {
+  description: "Email provider: mailersend or mailtrap",
+  default: "mailersend",
+});
+
+// MailerSend (used when EMAIL_PROVIDER=mailersend)
 const mailerSendApiToken = defineString("MAILERSEND_API_TOKEN", {
-  description: "MailerSend API token for sending emails",
+  description: "MailerSend API token (required when using mailersend)",
   default: "",
 });
 
-const mailerSendFromEmail = defineString("MAILERSEND_FROM_EMAIL", {
-  description: "From email address for MailerSend (must be verified in MailerSend)",
+// Mailtrap (used when EMAIL_PROVIDER=mailtrap)
+const mailtrapApiToken = defineString("MAILTRAP_API_TOKEN", {
+  description: "Mailtrap API token (required when using mailtrap)",
+  default: "",
+});
+
+// Shared email config (used by both providers)
+const emailFrom = defineString("MAILERSEND_FROM_EMAIL", {
+  description: "From email (must be verified in your provider)",
   default: "noreply@meant2grow.com",
 });
 
-const mailerSendReplyToEmail = defineString("MAILERSEND_REPLY_TO_EMAIL", {
-  description: "Reply-to email address for MailerSend",
+const emailReplyTo = defineString("MAILERSEND_REPLY_TO_EMAIL", {
+  description: "Reply-to email",
   default: "support@meant2grow.com",
 });
 
@@ -49,27 +62,29 @@ const appUrl = defineString("VITE_APP_URL", {
 
 // Helper function to get email service instance with current config values
 const getEmailService = () => {
-  const apiToken = mailerSendApiToken.value();
-  const fromEmail = mailerSendFromEmail.value();
-  const replyToEmail = mailerSendReplyToEmail.value();
+  const providerName = (emailProvider.value() || "mailersend") as "mailersend" | "mailtrap";
+  const apiToken =
+    providerName === "mailtrap"
+      ? mailtrapApiToken.value()
+      : mailerSendApiToken.value();
+  const fromEmail = emailFrom.value();
+  const replyToEmail = emailReplyTo.value();
   const appUrlValue = appUrl.value();
 
-  // Validate configuration and log warnings
   if (!apiToken) {
-    console.warn("⚠️ MAILERSEND_API_TOKEN not configured. Email sending will fail.");
+    console.warn(
+      `⚠️ ${providerName.toUpperCase()}_API_TOKEN not configured. Email sending will fail.`
+    );
   }
   if (!fromEmail) {
-    console.warn("⚠️ MAILERSEND_FROM_EMAIL not configured. Email sending will fail.");
-  }
-  if (!replyToEmail) {
-    console.warn("⚠️ MAILERSEND_REPLY_TO_EMAIL not configured. Using default.");
+    console.warn("⚠️ From email not configured. Email sending may fail.");
   }
   if (!appUrlValue) {
     console.warn("⚠️ VITE_APP_URL not configured. Email links may be incorrect.");
   }
 
-  // Log configuration status (without exposing sensitive data)
   console.log("📧 Email service configuration:", {
+    provider: providerName,
     hasApiToken: !!apiToken,
     apiTokenLength: apiToken?.length || 0,
     fromEmail: fromEmail || "NOT SET",
@@ -78,6 +93,7 @@ const getEmailService = () => {
   });
 
   return createEmailService({
+    provider: providerName,
     apiToken: apiToken || "",
     fromEmail: fromEmail || "",
     replyToEmail: replyToEmail || "support@meant2grow.com",
@@ -830,8 +846,8 @@ export const forgotPassword = functions.onRequest(
         // Log email service configuration status
         console.log("📧 Email service configuration check:", {
           hasApiToken: !!mailerSendApiToken.value(),
-          fromEmail: mailerSendFromEmail.value(),
-          replyToEmail: mailerSendReplyToEmail.value(),
+          fromEmail: emailFrom.value(),
+          replyToEmail: emailReplyTo.value(),
           appUrl: appUrl.value(),
         });
         // Don't fail the request - token is still created, user can use the URL

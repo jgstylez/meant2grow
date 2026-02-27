@@ -1,149 +1,14 @@
-import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 import { User, Organization, Role, Match, Goal } from "./types";
+import { createEmailProvider } from "./email/providerFactory";
+import type { EmailProviderConfig, EmailProviderName } from "./email/types";
 
-// Email service configuration interface
-export interface EmailServiceConfig {
-  apiToken: string;
-  fromEmail: string;
-  replyToEmail: string;
-  appUrl: string;
+/** Re-export for consumers */
+export type { EmailProviderConfig } from "./email/types";
+
+/** Email service config - provider-agnostic. Switch via EMAIL_PROVIDER (mailersend | mailtrap). */
+export interface EmailServiceConfig extends EmailProviderConfig {
+  provider?: EmailProviderName;
 }
-
-// Initialize MailerSend client with configuration
-const getMailerSendClient = (config: EmailServiceConfig) => {
-  console.log("Initializing MailerSend client with config:", {
-    hasApiToken: !!config.apiToken,
-    apiTokenLength: config.apiToken?.length || 0,
-    fromEmail: config.fromEmail,
-    replyToEmail: config.replyToEmail,
-    appUrl: config.appUrl,
-  });
-
-  if (!config.apiToken) {
-    console.warn("MAILERSEND_API_TOKEN not set. Email sending will be disabled.");
-    return null;
-  }
-
-  if (!config.fromEmail) {
-    console.warn("MAILERSEND_FROM_EMAIL not set. Email sending may fail.");
-  }
-
-  try {
-    return new MailerSend({
-      apiKey: config.apiToken,
-    });
-  } catch (error: any) {
-    console.error("Failed to initialize MailerSend client:", {
-      error: error.message || error,
-      hasApiToken: !!config.apiToken,
-      fromEmail: config.fromEmail,
-    });
-    throw error;
-  }
-};
-
-// Email configuration factory
-const getEmailConfig = (config: EmailServiceConfig) => ({
-  from: {
-    name: "Meant2Grow",
-    email: config.fromEmail,
-  },
-  replyTo: config.replyToEmail,
-});
-
-// Helper function to send email safely
-const createSendEmail = (config: EmailServiceConfig) => {
-  const client = getMailerSendClient(config);
-  const emailConfig = getEmailConfig(config);
-
-  return async (options: {
-    to: { email: string; name?: string }[];
-    subject: string;
-    html: string;
-    text: string;
-    category?: string;
-  }) => {
-    // Validate configuration before attempting to send
-    if (!config.apiToken) {
-      const errorMsg = `Email service not configured: MAILERSEND_API_TOKEN is missing. Cannot send: ${options.subject}`;
-      console.error(errorMsg);
-      throw new Error(errorMsg);
-    }
-
-    if (!config.fromEmail) {
-      const errorMsg = `Email service not configured: MAILERSEND_FROM_EMAIL is missing. Cannot send: ${options.subject}`;
-      console.error(errorMsg);
-      throw new Error(errorMsg);
-    }
-
-    if (!client) {
-      const errorMsg = `MailerSend client initialization failed. Cannot send: ${options.subject}`;
-      console.error(errorMsg);
-      throw new Error(errorMsg);
-    }
-
-    // Validate recipients
-    if (!options.to || options.to.length === 0) {
-      throw new Error("No recipients specified for email");
-    }
-
-    // Validate email addresses
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    for (const recipient of options.to) {
-      if (!emailRegex.test(recipient.email)) {
-        throw new Error(`Invalid email address: ${recipient.email}`);
-      }
-    }
-
-    try {
-      const sentFrom = new Sender(emailConfig.from.email, emailConfig.from.name);
-      const recipients = options.to.map(recipient => 
-        new Recipient(recipient.email, recipient.name || recipient.email)
-      );
-
-      const emailParams = new EmailParams()
-        .setFrom(sentFrom)
-        .setTo(recipients)
-        .setReplyTo(new Sender(emailConfig.replyTo, emailConfig.from.name))
-        .setSubject(options.subject)
-        .setHtml(options.html)
-        .setText(options.text);
-
-      console.log(`Attempting to send email: ${options.subject} to ${options.to.map(t => t.email).join(", ")}`);
-      
-      const response = await client.email.send(emailParams);
-      
-      console.log(`✅ Email sent successfully: ${options.subject} to ${options.to.map(t => t.email).join(", ")}`, {
-        messageId: response.body?.message_id,
-        status: response.statusCode,
-        category: options.category || "General",
-      });
-      
-      return {
-        success: true,
-        messageId: response.body?.message_id,
-        status: response.statusCode,
-      };
-    } catch (error: any) {
-      // Log detailed error information for debugging
-      const errorDetails = {
-        subject: options.subject,
-        recipients: options.to.map(t => t.email),
-        error: error.message || error,
-        errorCode: error.code,
-        errorResponse: error.response?.body || error.body,
-        stack: error.stack,
-        category: options.category || "General",
-      };
-      
-      console.error("❌ Failed to send email:", errorDetails);
-      
-      // Re-throw error so callers can handle it appropriately
-      // This allows email failures to be logged and handled at the function level
-      throw new Error(`Email sending failed: ${error.message || 'Unknown error'}`);
-    }
-  };
-};
 
 // Email Templates factory - creates templates with appUrl baked in
 const createTemplates = (appUrl: string) => ({
@@ -717,7 +582,17 @@ Questions? Reply to this email and we'll be happy to help.
 
 // Factory function to create email service with configuration
 export const createEmailService = (config: EmailServiceConfig) => {
-  const sendEmail = createSendEmail(config);
+  const providerName = config.provider || "mailersend";
+  const provider = createEmailProvider(providerName, {
+    apiToken: config.apiToken,
+    fromEmail: config.fromEmail,
+    replyToEmail: config.replyToEmail,
+    appUrl: config.appUrl,
+  });
+
+  const sendEmail = (options: { to: { email: string; name?: string }[]; subject: string; html: string; text: string; category?: string }) =>
+    provider.send(options);
+
   const templates = createTemplates(config.appUrl);
 
   return {
