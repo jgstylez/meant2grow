@@ -29,14 +29,14 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
   const storedData = getStoredFormData();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    title: storedData?.title || currentUser?.title || '',
-    company: storedData?.company || currentUser?.company || '',
-    skills: storedData?.skills || currentUser?.skills || [] as string[],
-    bio: storedData?.bio || currentUser?.bio || '',
+    title: storedData?.title || '',
+    company: storedData?.company || '',
+    skills: storedData?.skills || [] as string[],
+    bio: storedData?.bio || '',
     experience: storedData?.experience || '',
     availability: storedData?.availability || '',
     maxMentees: storedData?.maxMentees || '2',
-    phoneNumber: storedData?.phoneNumber || currentUser?.phoneNumber || ''
+    phoneNumber: storedData?.phoneNumber || ''
   });
   const [customFieldData, setCustomFieldData] = useState<Record<string, any>>(storedData?.customFieldData || {});
 
@@ -49,20 +49,6 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
       }));
     }
   }, [formData, customFieldData, currentUser?.id]);
-
-  // Update formData when currentUser changes (in case it loads asynchronously)
-  useEffect(() => {
-    if (currentUser) {
-      setFormData(prev => ({
-        ...prev,
-        title: prev.title || currentUser.title || '',
-        company: prev.company || currentUser.company || '',
-        skills: prev.skills.length > 0 ? prev.skills : (currentUser.skills || []),
-        bio: prev.bio || currentUser.bio || '',
-        phoneNumber: prev.phoneNumber || currentUser.phoneNumber || '',
-      }));
-    }
-  }, [currentUser]);
 
   const handleSkillsChange = (skills: string[]) => {
     setFormData({...formData, skills});

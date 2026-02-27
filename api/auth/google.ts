@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { Role } from '../../types';
 import { getErrorMessage } from '../../utils/errors';
@@ -52,12 +53,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       isNewOrg, 
       orgName, 
       role,
+      idToken, // Google ID token - when provided, used to get Firebase Auth UID for Firestore rules
       // Explicitly reject impersonation-related parameters to prevent confusion with invitation tokens
       isImpersonating,
       originalOperatorId,
       originalOrganizationId,
       impersonateUserId,
     } = req.body;
+
+    // Verify idToken and get Firebase Auth UID when provided
+    // This ensures user document is at users/{firebaseAuthUid} so Firestore rules work
+    let firebaseAuthUid: string | null = null;
+    if (idToken && typeof idToken === 'string' && idToken.trim().length > 0) {
+      try {
+        const decodedToken = await getAuth().verifyIdToken(idToken);
+        firebaseAuthUid = decodedToken.uid;
+      } catch (verifyError) {
+        console.warn('Could not verify idToken, falling back to random user ID:', verifyError);
+      }
+    }
 
     // Security: Explicitly reject any impersonation-related parameters
     // Impersonation is a client-side feature only and should never be sent to backend
@@ -172,8 +186,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       } else {
         // Create new user with role from invitation
+        // Use Firebase Auth UID as doc ID when available so Firestore rules work (request.auth.uid == doc path)
         const userRole = invitationRole === Role.MENTOR ? Role.MENTOR : Role.MENTEE;
-        const userRef = db.collection('users').doc();
+        const userRef = firebaseAuthUid 
+          ? db.collection('users').doc(firebaseAuthUid)
+          : db.collection('users').doc();
         await userRef.set({
           organizationId,
           name,
@@ -249,8 +266,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const organizationId = orgRef.id;
 
-      // Create admin user
-      const userRef = db.collection('users').doc();
+      // Create admin user - use Firebase Auth UID as doc ID when available for Firestore rules
+      const userRef = firebaseAuthUid 
+        ? db.collection('users').doc(firebaseAuthUid)
+        : db.collection('users').doc();
       await userRef.set({
         organizationId,
         name,
@@ -351,8 +370,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       } else {
         // Create new user (use role from request, or default to MENTEE)
+        // Use Firebase Auth UID as doc ID when available for Firestore rules
         const userRole = role === Role.MENTOR ? Role.MENTOR : Role.MENTEE;
-        const userRef = db.collection('users').doc();
+        const userRef = firebaseAuthUid 
+          ? db.collection('users').doc(firebaseAuthUid)
+          : db.collection('users').doc();
         await userRef.set({
           organizationId,
           name,

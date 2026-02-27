@@ -398,6 +398,7 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
           role:
             invitationToUse?.role ||
             (participantRole === "MENTOR" ? Role.MENTOR : Role.MENTEE),
+          ...(idToken && { idToken }), // Enables Firestore rules (user doc at users/{firebaseAuthUid})
         }),
       });
 
@@ -412,8 +413,8 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
         token,
       } = await response.json();
 
-      // Update user's Firebase Auth UID if we have it
-      if (firebaseAuthUid && joinedUser.id) {
+      // Only update firebaseAuthUid on legacy docs (when API returned random ID, not auth UID)
+      if (firebaseAuthUid && joinedUser.id && joinedUser.id !== firebaseAuthUid) {
         try {
           const { updateUser } = await import("../services/database");
           await updateUser(joinedUser.id, { firebaseAuthUid });

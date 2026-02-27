@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from "../styles/common";
 import {
   Check,
@@ -33,33 +33,19 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
 }) => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    title: currentUser?.title || "",
-    company: currentUser?.company || "",
+    title: "",
+    company: "",
     goals: [] as GoalInput[],
-    bio: currentUser?.bio || "",
+    bio: "",
     experience: "",
-    areas: currentUser?.goals || [] as string[],
-    phoneNumber: currentUser?.phoneNumber || "",
+    areas: [] as string[],
+    phoneNumber: "",
   });
   const [currentGoal, setCurrentGoal] = useState("");
   const [currentTargetDate, setCurrentTargetDate] = useState("");
   const [customFieldData, setCustomFieldData] = useState<Record<string, any>>(
     {}
   );
-
-  // Update formData when currentUser changes (in case it loads asynchronously)
-  useEffect(() => {
-    if (currentUser) {
-      setFormData(prev => ({
-        ...prev,
-        title: prev.title || currentUser.title || "",
-        company: prev.company || currentUser.company || "",
-        bio: prev.bio || currentUser.bio || "",
-        areas: prev.areas.length > 0 ? prev.areas : (currentUser.goals || []),
-        phoneNumber: prev.phoneNumber || currentUser.phoneNumber || "",
-      }));
-    }
-  }, [currentUser]);
 
   const addGoal = () => {
     if (currentGoal.trim() && currentTargetDate) {
