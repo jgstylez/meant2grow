@@ -341,10 +341,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
         setTimeout(() => setShowSuccess(false), 3000);
     };
 
-    // Initialize dark mode from localStorage and sync with DOM
+    // Initialize dark mode from localStorage (light mode is default when no preference stored)
     useEffect(() => {
         const stored = localStorage.getItem('darkMode');
-        const isDark = stored === 'true' || (!stored && document.documentElement.classList.contains('dark'));
+        const isDark = stored === 'true'; // only explicit 'true' = dark; null/anything else = light
         setDarkMode(isDark);
         if (isDark) {
             document.documentElement.classList.add('dark');
@@ -800,13 +800,18 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                             )}
                             <div className={CARD_CLASS + " mt-6"}>
                                 <h3 className="font-bold text-slate-800 dark:text-white mb-4">Appearance</h3>
-                                <label className="flex items-center justify-between p-3 sm:p-4 border border-slate-200 dark:border-slate-700 rounded-lg min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <label
+                                    onClick={toggleDarkMode}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDarkMode(); } }}
+                                    aria-label={darkMode ? "Disable dark mode" : "Enable dark mode"}
+                                    className="flex items-center justify-between p-3 sm:p-4 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                >
                                     <span className="text-sm font-medium flex items-center"><Moon className="w-4 h-4 mr-2" aria-hidden="true" /> Dark Mode</span>
-                                    <button onClick={toggleDarkMode} aria-label={darkMode ? "Disable dark mode" : "Enable dark mode"} className="focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded">
-                                        <span aria-hidden="true">
-                                            {darkMode ? <ToggleRight className="w-6 h-6 text-emerald-500 flex-shrink-0" /> : <ToggleLeft className="w-6 h-6 text-slate-400 flex-shrink-0" />}
-                                        </span>
-                                    </button>
+                                    <span aria-hidden="true">
+                                        {darkMode ? <ToggleRight className="w-6 h-6 text-emerald-500 flex-shrink-0" /> : <ToggleLeft className="w-6 h-6 text-slate-400 flex-shrink-0" />}
+                                    </span>
                                 </label>
                             </div>
                         </div>

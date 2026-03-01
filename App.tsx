@@ -210,6 +210,18 @@ const App: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
+
+  // Sync dark mode from localStorage on app mount (backup for index.html inline script)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("darkMode");
+      const isDark = stored === "true";
+      if (isDark) document.documentElement.classList.add("dark");
+      else document.documentElement.classList.remove("dark");
+    } catch {
+      // ignore
+    }
+  }, []);
   const [authInitialMode, setAuthInitialMode] = useState<
     "login" | "org-signup" | "participant-signup" | "choose"
   >("choose");
