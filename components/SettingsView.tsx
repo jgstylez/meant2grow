@@ -694,7 +694,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                 </div>
                                 <div className="col-span-2">
                                     <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Current Mood</label>
-                                    <div className="grid grid-cols-4 sm:grid-cols-8 gap-2" role="group" aria-label="Select your current mood">
+                                    <div className="grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-3" role="group" aria-label="Select your current mood">
                                         {(['Happy', 'Neutral', 'Stressed', 'Excited', 'Tired', 'Motivated', 'Anxious', 'Grateful'] as Mood[]).map((mood) => {
                                             const isSelected = formData.mood === mood;
                                             const moodIcons: Record<Mood, React.ReactNode> = {
