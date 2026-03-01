@@ -28,6 +28,7 @@ import {
 import { Role, User, Invitation, Organization } from "../types";
 import { getErrorMessage } from "../utils/errors";
 import { logger } from "../services/logger";
+import { verifyTotpLogin } from "../services/totpService";
 
 // Helper function to convert hex to RGB
 const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
@@ -86,6 +87,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
   const [invitationOrg, setInvitationOrg] = useState<Organization | null>(null);
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingTotpUser, setPendingTotpUser] = useState<{ user: User } | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+  const [totpVerifying, setTotpVerifying] = useState(false);
 
   // Check for invitation token in URL on mount
   useEffect(() => {
@@ -366,6 +370,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
         );
         
         if (!firebaseAuthUid) {
+          setPendingTotpUser(null);
           // Firebase Auth migration failed or password needed
           const userRoleString = String(user.role);
           const isPlatformOperator = 
@@ -398,6 +403,14 @@ const Authentication: React.FC<AuthenticationProps> = ({
               throw new Error(errorMsg);
             }
           }
+        }
+
+        if (user.totpEnabled) {
+          setPendingTotpUser({ user });
+          setTotpCode("");
+          setError(null);
+          setIsLoading(false);
+          return;
         }
 
         localStorage.setItem("authToken", "simulated-token");
@@ -914,7 +927,9 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-slate-900">
-              {mode === "choose"
+              {pendingTotpUser
+                ? "Two-factor verification"
+                : mode === "choose"
                 ? "Get Started"
                 : mode === "login"
                 ? "Welcome back"
@@ -927,7 +942,12 @@ const Authentication: React.FC<AuthenticationProps> = ({
                   : "Join Your Organization"
                 : "Create Your Account"}
             </h2>
-            {mode !== "choose" && participantSignupStep !== "select-role" && (
+            {pendingTotpUser && (
+              <p className="mt-2 text-sm text-slate-600">
+                Enter the 6-digit code from your authenticator app.
+              </p>
+            )}
+            {!pendingTotpUser && mode !== "choose" && participantSignupStep !== "select-role" && (
               <p className="mt-2 text-sm text-slate-600">
                 {mode === "login" ? (
                   <>
@@ -966,8 +986,80 @@ const Authentication: React.FC<AuthenticationProps> = ({
               )}
           </div>
 
+          {/* 2FA TOTP Verification Step */}
+          {pendingTotpUser && (
+            <div className="space-y-4">
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start">
+                  <AlertCircle className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Verification code
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  placeholder="000000"
+                  className={INPUT_CLASS + " w-full text-center text-lg tracking-widest"}
+                  value={totpCode}
+                  onChange={(e) => {
+                    setTotpCode(e.target.value.replace(/\D/g, ""));
+                    setError(null);
+                  }}
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    if (totpCode.length !== 6) {
+                      setError("Please enter a 6-digit code");
+                      return;
+                    }
+                    setTotpVerifying(true);
+                    setError(null);
+                    try {
+                      const idToken = await auth.currentUser?.getIdToken();
+                      if (!idToken) throw new Error("Session expired. Please sign in again.");
+                      await verifyTotpLogin(totpCode, idToken);
+                      localStorage.setItem("authToken", "simulated-token");
+                      localStorage.setItem("organizationId", pendingTotpUser.user.organizationId);
+                      localStorage.setItem("userId", pendingTotpUser.user.id);
+                      setPendingTotpUser(null);
+                      setTotpCode("");
+                      onLogin(false, false);
+                    } catch (err: unknown) {
+                      setError(getErrorMessage(err) || "Invalid code. Please try again.");
+                    } finally {
+                      setTotpVerifying(false);
+                    }
+                  }}
+                  disabled={totpVerifying || totpCode.length !== 6}
+                  className={BUTTON_PRIMARY + " flex-1 py-2.5 disabled:opacity-50"}
+                >
+                  {totpVerifying ? "Verifying..." : "Verify"}
+                </button>
+                <button
+                  onClick={() => {
+                    setPendingTotpUser(null);
+                    setTotpCode("");
+                    setError(null);
+                    signOut(auth).catch(() => {});
+                  }}
+                  className="px-4 py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Choose Mode - Show signup options prominently */}
-          {mode === "choose" && (
+          {!pendingTotpUser && mode === "choose" && (
             <div className="space-y-4 mb-6">
               <div className="grid grid-cols-1 gap-4">
                 <button
@@ -1186,7 +1278,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
               </div>
             )}
 
-          {(mode === "login" ||
+          {!pendingTotpUser && (mode === "login" ||
             mode === "org-signup" ||
             (mode === "participant-signup" && participantSignupStep !== "select-role")) && (
             <>

@@ -1977,3 +1977,6 @@ export {
   suggestMilestones,
 } from "./gemini";
 
+// Export TOTP 2FA functions
+export { setupTotp, verifyTotpSetup, verifyTotpLogin, disableTotp } from "./totp";
+

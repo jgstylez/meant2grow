@@ -509,6 +509,12 @@ service cloud.firestore {
                        isOrgAdmin(resource.data.organizationId));
     }
     
+    // ==================== TOTP SECRETS (2FA) ====================
+    // Client never reads/writes - only Cloud Functions (Admin SDK) access
+    match /totpSecrets/{userId} {
+      allow read, write: if false;
+    }
+
     // ==================== SYSTEM LOGS ====================
     
     match /system_logs/{logId} {

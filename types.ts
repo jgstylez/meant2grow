@@ -58,6 +58,8 @@ export interface User {
   zip?: string; // ZIP code
   totalHoursCommitted?: number; // Total hours committed by mentor (sum of all scheduled appointment durations)
   profileData?: Record<string, unknown>; // Organization-specific custom profile fields from onboarding
+  notificationPreferences?: Record<string, { email: boolean; push: boolean }>;
+  totpEnabled?: boolean; // Two-factor authentication via Google Authenticator
   createdAt: string;
   /** Set when user completes role-specific onboarding; persisted in Firebase so it never shows again (e.g. after refresh or on another device). */
   onboardingCompleted?: boolean;

@@ -471,6 +471,176 @@ export const deleteUser = async (userId: string): Promise<void> => {
   await deleteDoc(userRef);
 };
 
+/**
+ * Delete all data associated with a user (goals, matches, ratings, notifications,
+ * chat messages, calendar events, etc.) then delete the user document.
+ * Use for account deletion (GDPR). Call deleteFirebaseAuthUser after this.
+ */
+export const deleteAllUserData = async (
+  userId: string,
+  organizationId: string
+): Promise<void> => {
+  const batch: Promise<void>[] = [];
+
+  // 1. Delete milestones for user's goals, then delete goals
+  const userGoalsQ = query(
+    collection(db, "goals"),
+    where("organizationId", "==", organizationId),
+    where("userId", "==", userId)
+  );
+  const goalsSnap = await getDocs(userGoalsQ);
+  for (const g of goalsSnap.docs) {
+    const milestonesQ = query(
+      collection(db, "milestones"),
+      where("goalId", "==", g.id)
+    );
+    const milestonesSnap = await getDocs(milestonesQ);
+    for (const m of milestonesSnap.docs) {
+      batch.push(deleteDoc(doc(db, "milestones", m.id)));
+    }
+    batch.push(deleteDoc(doc(db, "goals", g.id)));
+  }
+  await Promise.all(batch);
+  batch.length = 0;
+
+  // 2. Delete matches where user is mentor or mentee
+  const matchesQ = query(
+    collection(db, "matches"),
+    where("organizationId", "==", organizationId)
+  );
+  const matchesSnap = await getDocs(matchesQ);
+  for (const m of matchesSnap.docs) {
+    const d = m.data();
+    if (d.mentorId === userId || d.menteeId === userId) {
+      batch.push(deleteDoc(doc(db, "matches", m.id)));
+    }
+  }
+  await Promise.all(batch);
+  batch.length = 0;
+
+  // 3. Delete ratings where user is from or to
+  const ratingsQ = query(
+    collection(db, "ratings"),
+    where("organizationId", "==", organizationId)
+  );
+  const ratingsSnap = await getDocs(ratingsQ);
+  for (const r of ratingsSnap.docs) {
+    const d = r.data();
+    if (d.fromUserId === userId || d.toUserId === userId) {
+      batch.push(deleteDoc(doc(db, "ratings", r.id)));
+    }
+  }
+  await Promise.all(batch);
+  batch.length = 0;
+
+  // 4. Delete notifications for user
+  const notifQ = query(
+    collection(db, "notifications"),
+    where("organizationId", "==", organizationId),
+    where("userId", "==", userId)
+  );
+  const notifSnap = await getDocs(notifQ);
+  for (const n of notifSnap.docs) {
+    batch.push(deleteDoc(doc(db, "notifications", n.id)));
+  }
+  await Promise.all(batch);
+  batch.length = 0;
+
+  // 5. Delete chat messages sent by user
+  const messagesQ = query(
+    collection(db, "chatMessages"),
+    where("organizationId", "==", organizationId),
+    where("senderId", "==", userId)
+  );
+  try {
+    const messagesSnap = await getDocs(messagesQ);
+    for (const msg of messagesSnap.docs) {
+      batch.push(deleteDoc(doc(db, "chatMessages", msg.id)));
+    }
+  } catch (e) {
+    if (isFirestoreIndexError(e)) {
+      logger.warn("Chat messages by senderId index missing; skipping chat message cleanup", e);
+    } else {
+      throw e;
+    }
+  }
+  await Promise.all(batch);
+  batch.length = 0;
+
+  // 6. Delete calendar events where user is mentor or mentee
+  const eventsQ = query(
+    collection(db, "calendarEvents"),
+    where("organizationId", "==", organizationId)
+  );
+  const eventsSnap = await getDocs(eventsQ);
+  for (const e of eventsSnap.docs) {
+    const d = e.data();
+    const isParticipant =
+      d.mentorId === userId ||
+      d.menteeId === userId ||
+      (Array.isArray(d.participants) && d.participants.includes(userId));
+    if (isParticipant) {
+      batch.push(deleteDoc(doc(db, "calendarEvents", e.id)));
+    }
+  }
+  await Promise.all(batch);
+  batch.length = 0;
+
+  // 7. Delete private message requests
+  const pmrQ = query(
+    collection(db, "privateMessageRequests"),
+    where("organizationId", "==", organizationId)
+  );
+  const pmrSnap = await getDocs(pmrQ);
+  for (const p of pmrSnap.docs) {
+    const d = p.data();
+    if (d.requesterId === userId || d.recipientId === userId) {
+      batch.push(deleteDoc(doc(db, "privateMessageRequests", p.id)));
+    }
+  }
+  await Promise.all(batch);
+
+  // 8. Delete user document (also users/{firebaseAuthUid} if different)
+  const userRef = doc(db, "users", userId);
+  await deleteDoc(userRef);
+  logger.info("Deleted all user data", { userId, organizationId });
+};
+
+/**
+ * Get chat messages sent by a user (for data export).
+ */
+export const getChatMessagesBySender = async (
+  userId: string,
+  organizationId: string,
+  limit: number = 500
+): Promise<ChatMessage[]> => {
+  try {
+    const q = query(
+      collection(db, "chatMessages"),
+      where("organizationId", "==", organizationId),
+      where("senderId", "==", userId),
+      orderBy("timestamp", "desc"),
+      firestoreLimit(limit)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnap) => {
+      const d = docSnap.data();
+      return {
+        id: docSnap.id,
+        ...d,
+        timestamp: d.timestamp?.toDate?.()?.toISOString?.() ?? d.timestamp ?? new Date().toISOString(),
+        createdAt: convertTimestamp(d.createdAt),
+      } as ChatMessage;
+    });
+  } catch (e) {
+    if (isFirestoreIndexError(e)) {
+      logger.warn("Chat messages by senderId index missing; returning empty", e);
+      return [];
+    }
+    throw e;
+  }
+};
+
 export const getAllUsers = async (): Promise<User[]> => {
   try {
     // Try with orderBy first, but fallback to no orderBy if index missing

@@ -3,6 +3,10 @@ import {
   createUserWithEmailAndPassword,
   fetchSignInMethodsForEmail,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
+  updatePassword as firebaseUpdatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  deleteUser as firebaseDeleteUser,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
@@ -587,4 +591,52 @@ export const createFirebaseAuthAccount = async (
     
     return null;
   }
+};
+
+/**
+ * Updates the current user's password (email/password accounts only).
+ * Requires re-authentication with current password.
+ * @param currentPassword - User's current password for re-authentication
+ * @param newPassword - New password to set
+ * @throws Error if user is not signed in, uses Google/OAuth (no password), or re-auth fails
+ */
+export const updatePassword = async (
+  currentPassword: string,
+  newPassword: string
+): Promise<void> => {
+  const firebaseUser = auth.currentUser;
+  if (!firebaseUser?.email) {
+    throw new Error('You must be signed in to change your password.');
+  }
+
+  // Check if user has email/password provider (password change only applies to email/password users)
+  const hasPasswordProvider = firebaseUser.providerData.some(
+    (p) => p.providerId === 'password'
+  );
+  if (!hasPasswordProvider) {
+    throw new Error(
+      'Password change is not available for Google sign-in accounts. Use your Google account to manage security.'
+    );
+  }
+
+  const credential = EmailAuthProvider.credential(
+    firebaseUser.email,
+    currentPassword
+  );
+  await reauthenticateWithCredential(firebaseUser, credential);
+  await firebaseUpdatePassword(firebaseUser, newPassword);
+  logger.info('Password updated successfully', { uid: firebaseUser.uid });
+};
+
+/**
+ * Deletes the current Firebase Auth user. Requires recent sign-in.
+ * Call after deleting Firestore user data. Then sign out and redirect.
+ */
+export const deleteFirebaseAuthUser = async (): Promise<void> => {
+  const firebaseUser = auth.currentUser;
+  if (!firebaseUser) {
+    return; // Already signed out
+  }
+  await firebaseDeleteUser(firebaseUser);
+  logger.info('Firebase Auth user deleted', { uid: firebaseUser.uid });
 };

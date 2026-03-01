@@ -3,7 +3,7 @@
  * Supports CSV and PDF export formats
  */
 
-import { User, Match, Goal, Rating, Organization } from "../types";
+import { User, Match, Goal, Rating, Organization, CalendarEvent, ChatMessage } from "../types";
 import { logger } from "../services/logger";
 
 // CSV Export Functions
@@ -251,5 +251,104 @@ export const exportToPDF = async (
     // Fallback to CSV if PDF fails
     alert("PDF export failed. Falling back to CSV export.");
     exportToCSV(data, filename);
+  }
+};
+
+export interface ExportUserDataOptions {
+  user: User;
+  matches?: Match[];
+  goals?: Goal[];
+  ratings?: Rating[];
+  calendarEvents?: CalendarEvent[];
+  chatMessages?: ChatMessage[];
+  users?: User[]; // For resolving mentor/mentee names in matches
+}
+
+/** Export user's profile and related data as JSON (GDPR "Download Your Data").
+ * Works for mentees, mentors, and org admins. Includes all provided data. */
+export const exportUserProfileData = (opts: ExportUserDataOptions): void => {
+  try {
+    const { user, matches = [], goals = [], ratings = [], calendarEvents = [], chatMessages = [], users = [] } = opts;
+    const userMatches = matches.filter(
+      (m) => m.mentorId === user.id || m.menteeId === user.id
+    );
+    const userGoals = goals.filter((g) => g.userId === user.id);
+    const userRatings = ratings.filter(
+      (r) => r.fromUserId === user.id || r.toUserId === user.id
+    );
+    const userEvents = calendarEvents.filter(
+      (e) =>
+        e.mentorId === user.id ||
+        e.menteeId === user.id ||
+        (e.participants && e.participants.includes(user.id))
+    );
+    const userMap = new Map(users.map((u) => [u.id, u.name]));
+
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      profile: {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        title: user.title,
+        company: user.company,
+        bio: user.bio,
+        skills: user.skills,
+        city: user.city,
+        state: user.state,
+        zip: user.zip,
+        createdAt: user.createdAt,
+      },
+      matches: userMatches.map((m) => ({
+        id: m.id,
+        status: m.status,
+        startDate: m.startDate,
+        mentorName: userMap.get(m.mentorId) ?? m.mentorId,
+        menteeName: userMap.get(m.menteeId) ?? m.menteeId,
+      })),
+      goals: userGoals.map((g) => ({
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        progress: g.progress,
+        status: g.status,
+        dueDate: g.dueDate,
+      })),
+      ratings: userRatings.map((r) => ({
+        id: r.id,
+        fromUser: userMap.get(r.fromUserId) ?? r.fromUserId,
+        toUser: userMap.get(r.toUserId) ?? r.toUserId,
+        score: r.score,
+        comment: r.comment,
+        date: r.date,
+      })),
+      calendarEvents: userEvents.map((e) => ({
+        id: e.id,
+        title: e.title,
+        date: e.date,
+        startTime: e.startTime,
+        duration: e.duration,
+        type: e.type,
+      })),
+      chatMessages: chatMessages.map((m) => ({
+        id: m.id,
+        chatId: m.chatId,
+        text: m.text,
+        type: m.type,
+        timestamp: m.timestamp,
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `meant2grow_data_${new Date().toISOString().split("T")[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (error) {
+    logger.error("Error exporting user data", error);
+    alert("Failed to export data. Please try again.");
   }
 };

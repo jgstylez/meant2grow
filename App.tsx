@@ -1751,9 +1751,14 @@ const App: React.FC = () => {
                   organizationId={organizationId}
                   programSettings={programSettings}
                   matches={matches}
+                  goals={goals}
+                  ratings={ratings}
+                  calendarEvents={calendarEvents}
+                  users={users}
                   onUpdateOrganization={(orgId, updates) =>
                     updateOrganization(orgId, updates)
                   }
+                  onLogout={handleLogout}
                 />
               </ErrorBoundary>
             </Suspense>

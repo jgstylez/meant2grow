@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Role, Mood, ProgramSettings, Match, MatchStatus } from '../types';
+import { User, Role, Mood, ProgramSettings, Match, MatchStatus, Goal, Rating, CalendarEvent } from '../types';
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
 import {
     Users, Settings, Bell, Shield, Calendar, ToggleRight, ToggleLeft, Moon, CheckCircle, Save,
@@ -7,8 +7,11 @@ import {
     CreditCard, ArrowUp, ArrowDown, X, FileText, Smile, Meh, Frown, Zap, Coffee, Heart, AlertCircle,
     UserPlus, Crown, Edit2, Palette, Upload, Layout
 } from 'lucide-react';
-import { createUser, getUserByEmail, updateUser, getUsersByOrganization, getOrganization } from '../services/database';
+import { createUser, getUserByEmail, updateUser, getUsersByOrganization, getOrganization, deleteAllUserData, getChatMessagesBySender } from '../services/database';
 import { uploadFile, generateUniquePath } from '../services/storage';
+import { updatePassword as firebaseUpdatePassword, deleteFirebaseAuthUser } from '../services/firebaseAuth';
+import { signOut as signOutGoogle } from '../services/googleAuth';
+import { exportUserProfileData } from '../utils/exportUtils';
 import { query, collection, where, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { createCheckoutSession, getBillingData, openBillingPortal, PRICING_TIERS, type BillingData } from '../services/flowglad';
@@ -38,6 +41,16 @@ import { getErrorMessage } from '../utils/errors';
 import { logger } from '../services/logger';
 import { LocationInput } from './LocationInput';
 import { CityStateZip } from './CityStateZipInput';
+import { setupTotp, verifyTotpSetup, disableTotp } from '../services/totpService';
+import { auth } from '../services/firebase';
+import { QRCodeSVG } from 'qrcode.react';
+
+const DEFAULT_NOTIFICATION_PREFS: Record<string, { email: boolean; push: boolean }> = {
+    'New Messages': { email: true, push: true },
+    'Meeting Reminders': { email: true, push: true },
+    'Goal Updates': { email: true, push: false },
+    'System Alerts': { email: false, push: true }
+};
 
 interface SettingsViewProps {
     user: User;
@@ -46,12 +59,18 @@ interface SettingsViewProps {
     organizationId?: string;
     programSettings?: ProgramSettings | null;
     onUpdateOrganization?: (organizationId: string, updates: Partial<any>) => Promise<void>;
-    matches?: Match[]; // Active matches for calculating mentor availability
+    matches?: Match[];
+    goals?: Goal[];
+    ratings?: Rating[];
+    calendarEvents?: CalendarEvent[];
+    users?: User[];
+    onLogout?: () => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initialTab, organizationId, programSettings, onUpdateOrganization, matches = [] }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initialTab, organizationId, programSettings, onUpdateOrganization, matches = [], goals = [], ratings = [], calendarEvents = [], users = [], onLogout }) => {
     const [activeTab, setActiveTab] = useState(initialTab || 'profile');
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     
     // Robust role checks - handle both enum values and raw string values from database
     // Use useMemo to ensure proper initialization order
@@ -137,8 +156,15 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     }, [activeTab]);
 
     // Security State
-    const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+    const twoFactorEnabled = user.totpEnabled ?? false;
     const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
+
+    // 2FA setup flow: idle | scanning | verifying | disabling
+    const [totpFlow, setTotpFlow] = useState<'idle' | 'scanning' | 'verifying' | 'disabling'>('idle');
+    const [totpSetupData, setTotpSetupData] = useState<{ secret: string; otpauthUri: string } | null>(null);
+    const [totpCode, setTotpCode] = useState('');
+    const [totpError, setTotpError] = useState<string | null>(null);
+    const [totpLoading, setTotpLoading] = useState(false);
 
     // Billing State
     // Calculate trial status: organization is on trial if trialEnd exists and hasn't expired
@@ -286,42 +312,85 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     }, [user.id]);
     const [targetPlan, setTargetPlan] = useState<'starter' | 'professional' | 'business' | 'enterprise' | null>(null);
 
-    // Notification Preferences State
-    const [notificationPrefs, setNotificationPrefs] = useState<Record<string, { email: boolean; push: boolean }>>({
-        'New Messages': { email: true, push: true },
-        'Meeting Reminders': { email: true, push: true },
-        'Goal Updates': { email: true, push: false },
-        'System Alerts': { email: false, push: true }
-    });
+    // Notification Preferences State - initialize from user, persist to Firestore
+    const [notificationPrefs, setNotificationPrefs] = useState<Record<string, { email: boolean; push: boolean }>>(
+        () => user.notificationPreferences ?? DEFAULT_NOTIFICATION_PREFS
+    );
+    useEffect(() => {
+        if (user.notificationPreferences) {
+            setNotificationPrefs(user.notificationPreferences);
+        }
+    }, [user.notificationPreferences]);
 
     const togglePref = (category: string, type: 'email' | 'push') => {
-        setNotificationPrefs(prev => ({
-            ...prev,
+        const next = {
+            ...notificationPrefs,
             [category]: {
-                ...prev[category],
-                [type]: !prev[category][type]
+                ...notificationPrefs[category],
+                [type]: !(notificationPrefs[category] as { email: boolean; push: boolean })[type]
             }
-        }));
+        };
+        setNotificationPrefs(next);
+        onUpdateUser({ ...user, notificationPreferences: next });
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
     };
 
+    // Initialize dark mode from localStorage and sync with DOM
     useEffect(() => {
-        if (document.documentElement.classList.contains('dark')) {
-            setDarkMode(true);
+        const stored = localStorage.getItem('darkMode');
+        const isDark = stored === 'true' || (!stored && document.documentElement.classList.contains('dark'));
+        setDarkMode(isDark);
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
         }
     }, []);
 
     const toggleDarkMode = () => {
-        if (darkMode) {
-            document.documentElement.classList.remove('dark');
-            setDarkMode(false);
-        } else {
+        const next = !darkMode;
+        setDarkMode(next);
+        if (next) {
             document.documentElement.classList.add('dark');
-            setDarkMode(true);
+            localStorage.setItem('darkMode', 'true');
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('darkMode', 'false');
         }
     };
 
-    const handleSave = () => {
-        onUpdateUser({ ...formData, goalsPublic, maxMentees });
+    const handleSave = async () => {
+        // Update profile + preferences
+        const updates: User = {
+            ...formData,
+            goalsPublic,
+            maxMentees,
+            notificationPreferences: notificationPrefs,
+        };
+        onUpdateUser(updates);
+
+        // Handle password change if fields are filled (email/password users only)
+        if (passwordForm.current && passwordForm.new && passwordForm.confirm) {
+            if (passwordForm.new !== passwordForm.confirm) {
+                alert('New password and confirmation do not match.');
+                return;
+            }
+            if (passwordForm.new.length < 6) {
+                alert('New password must be at least 6 characters.');
+                return;
+            }
+            try {
+                await firebaseUpdatePassword(passwordForm.current, passwordForm.new);
+                setShowSuccess(true);
+                setTimeout(() => setShowSuccess(false), 3000);
+            } catch (error: unknown) {
+                logger.error('Error updating password', error);
+                alert(getErrorMessage(error) || 'Failed to update password. Please check your current password.');
+                return;
+            }
+        }
+
         setShowSuccess(true);
         setPasswordForm({ current: '', new: '', confirm: '' });
         setTimeout(() => setShowSuccess(false), 3000);
@@ -498,12 +567,40 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
 
                             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 mb-6 sm:mb-8">
                                 <img src={formData.avatar} alt={`${formData.name || 'User'}'s avatar`} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-slate-100 dark:border-slate-800 flex-shrink-0" />
-                                <button 
-                                    aria-label="Change profile photo"
-                                    className="text-sm text-emerald-600 dark:text-emerald-400 font-medium hover:underline min-h-[44px] px-4 py-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                >
-                                    Change Photo
-                                </button>
+                                <label className="cursor-pointer">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="sr-only"
+                                        disabled={isUploadingAvatar}
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            setIsUploadingAvatar(true);
+                                            try {
+                                                const path = generateUniquePath(file.name, `users/${user.id}/avatars`);
+                                                const url = await uploadFile(file, path);
+                                                const updated = { ...formData, avatar: url };
+                                                setFormData(updated);
+                                                onUpdateUser(updated);
+                                                setShowSuccess(true);
+                                                setTimeout(() => setShowSuccess(false), 3000);
+                                            } catch (err) {
+                                                logger.error('Error uploading avatar', err);
+                                                alert(getErrorMessage(err) || 'Failed to upload photo. Please try again.');
+                                            } finally {
+                                                setIsUploadingAvatar(false);
+                                                e.target.value = '';
+                                            }
+                                        }}
+                                    />
+                                    <span
+                                        aria-label="Change profile photo"
+                                        className={`text-sm text-emerald-600 dark:text-emerald-400 font-medium hover:underline min-h-[44px] px-4 py-2 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500 inline-flex items-center ${isUploadingAvatar ? 'opacity-60 pointer-events-none' : ''}`}
+                                    >
+                                        {isUploadingAvatar ? 'Uploading...' : 'Change Photo'}
+                                    </span>
+                                </label>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                 <div className="col-span-2">
@@ -783,30 +880,169 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                 </div>
                             </div>
 
-                            {/* 2FA Section */}
+                            {/* 2FA Section - Google Authenticator (TOTP) */}
                             <div className={CARD_CLASS}>
-                                <div className="flex justify-between items-center mb-4">
+                                <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <h3 className="font-bold text-slate-800 dark:text-white flex items-center">
                                             <Shield className="w-5 h-5 mr-2 text-indigo-500" /> Two-Factor Authentication
                                         </h3>
-                                        <p className="text-xs text-slate-500 mt-1">Add an extra layer of security to your account.</p>
+                                        <p className="text-xs text-slate-500 mt-1">Use Google Authenticator for an extra layer of security.</p>
                                     </div>
-                                    <button 
-                                        onClick={() => setTwoFactorEnabled(!twoFactorEnabled)}
-                                        aria-label={twoFactorEnabled ? "Disable two-factor authentication" : "Enable two-factor authentication"}
-                                        className="min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded touch-manipulation"
-                                    >
-                                        <span aria-hidden="true">
-                                        {twoFactorEnabled ? <ToggleRight className="w-10 h-10 text-emerald-500" /> : <ToggleLeft className="w-10 h-10 text-slate-300" />}
-                                        </span>
-                                    </button>
+                                    {totpFlow === 'idle' && (
+                                        <button
+                                            onClick={async () => {
+                                                if (twoFactorEnabled) {
+                                                    setTotpFlow('disabling');
+                                                    setTotpCode('');
+                                                    setTotpError(null);
+                                                } else {
+                                                    setTotpFlow('scanning');
+                                                    setTotpSetupData(null);
+                                                    setTotpError(null);
+                                                    setTotpLoading(true);
+                                                    try {
+                                                        const token = await auth.currentUser?.getIdToken();
+                                                        if (!token) throw new Error('Please sign in again to set up 2FA.');
+                                                        const data = await setupTotp(token);
+                                                        setTotpSetupData(data);
+                                                    } catch (err) {
+                                                        setTotpError(getErrorMessage(err) || 'Failed to start setup');
+                                                        setTotpFlow('idle');
+                                                    } finally {
+                                                        setTotpLoading(false);
+                                                    }
+                                                }
+                                            }}
+                                            disabled={totpLoading}
+                                            className="min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded touch-manipulation disabled:opacity-50"
+                                            aria-label={twoFactorEnabled ? "Disable two-factor authentication" : "Enable two-factor authentication"}
+                                        >
+                                            {twoFactorEnabled ? <ToggleRight className="w-10 h-10 text-emerald-500" /> : <ToggleLeft className="w-10 h-10 text-slate-300" />}
+                                        </button>
+                                    )}
                                 </div>
-                                {twoFactorEnabled && (
+                                {twoFactorEnabled && totpFlow === 'idle' && (
                                     <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 p-3 rounded-lg flex items-center">
-                                        <Check className="w-5 h-5 text-emerald-600 mr-2" />
-                                        <span className="text-sm text-emerald-800 dark:text-emerald-300">2FA is currently active via SMS to •••-•••-9021</span>
+                                        <Check className="w-5 h-5 text-emerald-600 mr-2 flex-shrink-0" />
+                                        <span className="text-sm text-emerald-800 dark:text-emerald-300">2FA is active via Google Authenticator.</span>
+                                        <button
+                                            onClick={() => { setTotpFlow('disabling'); setTotpCode(''); setTotpError(null); }}
+                                            className="ml-auto text-sm font-medium text-emerald-700 hover:text-emerald-800"
+                                        >
+                                            Disable
+                                        </button>
                                     </div>
+                                )}
+                                {totpFlow === 'scanning' && totpSetupData && (
+                                    <div className="space-y-4">
+                                        <p className="text-sm text-slate-600 dark:text-slate-400">Scan this QR code with Google Authenticator or a compatible app:</p>
+                                        <div className="flex flex-col sm:flex-row gap-4 items-start">
+                                            <div className="bg-white p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                                <QRCodeSVG value={totpSetupData.otpauthUri} size={180} level="M" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs text-slate-500 mb-2">Or enter this secret manually:</p>
+                                                <code className="block text-xs bg-slate-100 dark:bg-slate-800 p-2 rounded break-all font-mono">{totpSetupData.secret}</code>
+                                                <button
+                                                    onClick={() => setTotpFlow('verifying')}
+                                                    className={`${BUTTON_PRIMARY} mt-3 text-sm py-2`}
+                                                >
+                                                    I've added the account
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => { setTotpFlow('idle'); setTotpSetupData(null); setTotpError(null); }} className="text-sm text-slate-500 hover:text-slate-700">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                )}
+                                {totpFlow === 'verifying' && (
+                                    <div className="space-y-4">
+                                        <p className="text-sm text-slate-600 dark:text-slate-400">Enter the 6-digit code from your authenticator app:</p>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            maxLength={6}
+                                            placeholder="000000"
+                                            className={INPUT_CLASS + ' w-32 text-center text-lg tracking-widest'}
+                                            value={totpCode}
+                                            onChange={e => { setTotpCode(e.target.value.replace(/\D/g, '')); setTotpError(null); }}
+                                        />
+                                        {totpError && <p className="text-sm text-red-600">{totpError}</p>}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={async () => {
+                                                    if (totpCode.length !== 6) { setTotpError('Please enter a 6-digit code'); return; }
+                                                    setTotpLoading(true); setTotpError(null);
+                                                    try {
+                                                        const token = await auth.currentUser?.getIdToken();
+                                                        if (!token) throw new Error('Session expired. Please sign in again.');
+                                                        await verifyTotpSetup(token, totpCode);
+                                                        onUpdateUser({ ...user, totpEnabled: true });
+                                                        setTotpFlow('idle'); setTotpCode(''); setTotpSetupData(null);
+                                                    } catch (err) {
+                                                        setTotpError(getErrorMessage(err) || 'Verification failed');
+                                                    } finally {
+                                                        setTotpLoading(false);
+                                                    }
+                                                }}
+                                                disabled={totpLoading || totpCode.length !== 6}
+                                                className={`${BUTTON_PRIMARY} text-sm py-2 disabled:opacity-50`}
+                                            >
+                                                {totpLoading ? 'Verifying...' : 'Verify and enable'}
+                                            </button>
+                                            <button onClick={() => { setTotpFlow('scanning'); setTotpCode(''); setTotpError(null); }} className="text-sm text-slate-500 hover:text-slate-700">
+                                                Back
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                {totpFlow === 'disabling' && (
+                                    <div className="space-y-4">
+                                        <p className="text-sm text-slate-600 dark:text-slate-400">Enter your current 6-digit code to disable 2FA:</p>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
+                                            maxLength={6}
+                                            placeholder="000000"
+                                            className={INPUT_CLASS + ' w-32 text-center text-lg tracking-widest'}
+                                            value={totpCode}
+                                            onChange={e => { setTotpCode(e.target.value.replace(/\D/g, '')); setTotpError(null); }}
+                                        />
+                                        {totpError && <p className="text-sm text-red-600">{totpError}</p>}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={async () => {
+                                                    if (totpCode.length !== 6) { setTotpError('Please enter a 6-digit code'); return; }
+                                                    setTotpLoading(true); setTotpError(null);
+                                                    try {
+                                                        const token = await auth.currentUser?.getIdToken();
+                                                        if (!token) throw new Error('Session expired. Please sign in again.');
+                                                        await disableTotp(token, totpCode);
+                                                        onUpdateUser({ ...user, totpEnabled: false });
+                                                        setTotpFlow('idle'); setTotpCode('');
+                                                    } catch (err) {
+                                                        setTotpError(getErrorMessage(err) || 'Failed to disable');
+                                                    } finally {
+                                                        setTotpLoading(false);
+                                                    }
+                                                }}
+                                                disabled={totpLoading || totpCode.length !== 6}
+                                                className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 rounded-lg disabled:opacity-50"
+                                            >
+                                                {totpLoading ? 'Disabling...' : 'Disable 2FA'}
+                                            </button>
+                                            <button onClick={() => { setTotpFlow('idle'); setTotpCode(''); setTotpError(null); }} className="text-sm text-slate-500 hover:text-slate-700">
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                {totpFlow === 'scanning' && totpLoading && !totpSetupData && (
+                                    <p className="text-sm text-slate-500">Setting up...</p>
                                 )}
                             </div>
 
@@ -903,16 +1139,67 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                             <div>
                                 <h3 className="font-bold text-slate-800 dark:text-white mb-4">Data & Privacy</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer group">
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            try {
+                                                const chatMessages = organizationId
+                                                    ? await getChatMessagesBySender(user.id, organizationId)
+                                                    : [];
+                                                exportUserProfileData({
+                                                    user,
+                                                    matches,
+                                                    goals,
+                                                    ratings,
+                                                    calendarEvents,
+                                                    chatMessages,
+                                                    users,
+                                                });
+                                                setShowSuccess(true);
+                                                setTimeout(() => setShowSuccess(false), 3000);
+                                            } catch (err) {
+                                                logger.error('Error preparing data export', err);
+                                                alert(getErrorMessage(err) || 'Failed to prepare export. Please try again.');
+                                            }
+                                        }}
+                                        className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer group text-left w-full focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    >
                                         <Download className="w-6 h-6 text-slate-600 dark:text-slate-400 mb-2 group-hover:text-emerald-500" />
                                         <h4 className="font-bold text-sm text-slate-800 dark:text-white">Download Your Data</h4>
-                                        <p className="text-xs text-slate-500 mt-1">Get a copy of your messages, goals, and profile data.</p>
-                                    </div>
-                                    <div className="p-4 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors cursor-pointer group">
+                                        <p className="text-xs text-slate-500 mt-1">Get a copy of your profile, goals, matches, messages, and more.</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            if (!window.confirm('Are you sure you want to permanently delete your account and all data? This cannot be undone.')) return;
+                                            const orgId = organizationId && organizationId !== 'platform' ? organizationId : user.organizationId;
+                                            if (!orgId) {
+                                                alert('Unable to delete: organization context missing.');
+                                                return;
+                                            }
+                                            try {
+                                                await deleteAllUserData(user.id, orgId);
+                                                await deleteFirebaseAuthUser();
+                                                if (onLogout) {
+                                                    await onLogout();
+                                                } else {
+                                                    await signOutGoogle();
+                                                    localStorage.removeItem('userId');
+                                                    localStorage.removeItem('organizationId');
+                                                    window.location.href = '/';
+                                                    window.location.reload();
+                                                }
+                                            } catch (error: unknown) {
+                                                logger.error('Error deleting account', error);
+                                                alert(getErrorMessage(error) || 'Failed to delete account. Please try again or contact support.');
+                                            }
+                                        }}
+                                        className="p-4 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors cursor-pointer group text-left w-full focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    >
                                         <Trash2 className="w-6 h-6 text-red-500 mb-2" />
                                         <h4 className="font-bold text-sm text-red-700 dark:text-red-400">Delete Account</h4>
                                         <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">Permanently remove your account and all data.</p>
-                                    </div>
+                                    </button>
                                 </div>
                             </div>
                         </div>

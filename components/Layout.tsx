@@ -97,6 +97,24 @@ const Layout: React.FC<LayoutProps> = ({
     }
   }, [isMobileMenuOpen]);
 
+  const formatNotificationTime = (timestamp: string) => {
+    try {
+      const d = new Date(timestamp);
+      const now = new Date();
+      const diffMs = now.getTime() - d.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      if (diffMins < 1) return "Just now";
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    } catch {
+      return timestamp;
+    }
+  };
+
   const formatRole = (role: Role | string) => {
     const roleString = String(role);
 
@@ -271,7 +289,7 @@ const Layout: React.FC<LayoutProps> = ({
       role="dialog"
       aria-label="Notifications"
       aria-modal="true"
-      className="absolute left-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 touch-action-pan-y"
+      className="hidden md:block absolute left-0 mt-2 min-w-[22rem] w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 touch-action-pan-y"
     >
       <div className="p-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
         <h3 className="font-bold text-sm text-slate-800 dark:text-white">
@@ -288,9 +306,9 @@ const Layout: React.FC<LayoutProps> = ({
           </button>
         )}
       </div>
-      <div className="max-h-64 overflow-y-auto touch-action-pan-y">
+      <div className="max-h-80 overflow-y-auto touch-action-pan-y">
         {notifications.length === 0 ? (
-          <p className="p-4 text-center text-xs text-slate-500" role="status">
+          <p className="p-4 text-center text-sm text-slate-500" role="status">
             No notifications.
           </p>
         ) : (
@@ -301,22 +319,22 @@ const Layout: React.FC<LayoutProps> = ({
             {notifications.map((n) => (
               <li
                 key={n.id}
-                className={`p-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors relative group ${
+                className={`p-4 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors relative group ${
                   !n.isRead ? "bg-slate-50/80 dark:bg-slate-800/50" : ""
                 }`}
               >
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-semibold text-xs text-slate-800 dark:text-white">
+                <div className="flex justify-between items-start gap-2 mb-2">
+                  <span className="font-semibold text-sm text-slate-800 dark:text-white break-words flex-1 min-w-0">
                     {n.title}
                   </span>
                   <time
-                    className="text-[10px] text-slate-400"
+                    className="text-xs text-slate-400 whitespace-nowrap flex-shrink-0"
                     dateTime={n.timestamp}
                   >
-                    {n.timestamp}
+                    {formatNotificationTime(n.timestamp)}
                   </time>
                 </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-2 break-words">
                   {n.body}
                 </p>
                 <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
@@ -508,18 +526,18 @@ const Layout: React.FC<LayoutProps> = ({
                         !n.isRead ? "bg-slate-50 dark:bg-slate-800" : ""
                       }`}
                     >
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="font-semibold text-sm text-slate-800 dark:text-white">
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <span className="font-semibold text-sm text-slate-800 dark:text-white break-words flex-1 min-w-0">
                           {n.title}
                         </span>
                         <time
-                          className="text-xs text-slate-400"
+                          className="text-xs text-slate-400 whitespace-nowrap flex-shrink-0"
                           dateTime={n.timestamp}
                         >
-                          {n.timestamp}
+                          {formatNotificationTime(n.timestamp)}
                         </time>
                       </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-2 break-words">
                         {n.body}
                       </p>
                       <div className="flex gap-3 justify-end">
