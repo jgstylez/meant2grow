@@ -1,5 +1,6 @@
 # Logs
 logs
+firebase-cleanup-failures.log
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -29,8 +30,10 @@ dist-ssr
 .env.production
 .env.sandbox
 .env.*.local
+.env.firebase-cleanup
 
 # Firebase
+
 .firebase/
 firebase-debug.log
 firestore-debug.log

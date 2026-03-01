@@ -78,6 +78,23 @@ Alternatively, you can manually create platform operator users:
 
 **Note:** After manual creation, set a password using: `npm run set-platform-operator-password <email> <password>`
 
+### 3. Firebase Image Cleanup (Cron)
+
+Deletes old Cloud Functions build images to avoid storage costs. On failure, emails greendigitalnet@gmail.com.
+
+**Cron (Sundays at midnight):**
+```bash
+crontab -e
+# Add:
+0 0 * * 0 /Users/jgstylez/dev/meant2grow/scripts/run-firebase-cleanup.sh
+```
+
+**Email on failure:** To use MailerSend, create `.env.firebase-cleanup` with:
+```
+MAILERSEND_API_TOKEN=your_token
+FROM_EMAIL=noreply@meant2grow.com
+```
+
 ## Troubleshooting
 
 ### Script fails with "Cannot find module"
