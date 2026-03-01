@@ -2606,7 +2606,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             {programSettings && (
               <button
                 type="button"
-                onClick={() => onNavigate("setup")}
+                onClick={() => onNavigate("settings:program")}
                 className="flex items-center justify-center text-xs font-medium text-slate-500 hover:text-emerald-600 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors w-full sm:w-auto shrink-0"
               >
                 <Edit className="w-3.5 h-3.5 sm:mr-1.5" />

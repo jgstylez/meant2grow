@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { User, Role, Invitation } from '../types';
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
-import { ArrowLeft, Send, Mail, UserPlus, Upload, FileText, CheckCircle, Clock, X, Eye, Copy, Check, Link as LinkIcon, ExternalLink, Pencil } from 'lucide-react';
+import { ArrowLeft, Send, Mail, UserPlus, Upload, FileText, CheckCircle, Clock, X, Eye, Copy, Check, Link as LinkIcon, ExternalLink, Pencil, Download } from 'lucide-react';
 import { createInvitation, getInvitation, getInvitationByEmail, checkOrganizationCodeAvailable } from '../services/database';
 
 // Organization code constraints (for security/UX) - avoid confusing chars: 0,O,1,I,L
 const ORG_CODE_MIN = 4;
 const ORG_CODE_MAX = 8;
 const ORG_CODE_SAFE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+const CSV_TEMPLATE = 'First Name,Last Name,Email,Role\nJane,Doe,jane@example.com,Mentee';
+const MAX_BULK_CONTACTS = 100;
 
 interface ReferralsProps {
   currentUser: User;
@@ -48,6 +51,9 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
   // Bulk Upload State
   const [dragActive, setDragActive] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [isBulkUploading, setIsBulkUploading] = useState(false);
+  const [bulkUploadResult, setBulkUploadResult] = useState<{ sent: number; failed: number; errors: string[] } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSendInvite = async () => {
     // Validate required data before proceeding
@@ -128,7 +134,112 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setBulkFile(e.dataTransfer.files[0]);
+      const file = e.dataTransfer.files[0];
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        setBulkFile(file);
+        setBulkUploadResult(null);
+      }
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'invitations_template.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBulkFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.name.toLowerCase().endsWith('.csv')) {
+      setBulkFile(file);
+      setBulkUploadResult(null);
+    }
+    e.target.value = '';
+  };
+
+  const parseCSV = (text: string): { firstName: string; lastName: string; email: string; role: string }[] => {
+    const lines = text.trim().split(/\r?\n/).filter(Boolean);
+    if (lines.length < 1) return [];
+    const header = lines[0].toLowerCase();
+    const isHeader = header.includes('first') && (header.includes('last') || header.includes('name')) && header.includes('email') && header.includes('role');
+    const dataLines = isHeader ? lines.slice(1) : lines;
+    const result: { firstName: string; lastName: string; email: string; role: string }[] = [];
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const validRoles = ['mentee', 'mentor'];
+
+    for (let i = 0; i < dataLines.length && result.length < MAX_BULK_CONTACTS; i++) {
+      const line = dataLines[i];
+      const parts = line.split(',').map((p) => p.replace(/^"|"$/g, '').trim());
+      if (parts.length >= 4) {
+        const [firstName, lastName, email, role] = parts;
+        const roleNorm = (role || '').toLowerCase();
+        if (email && emailRegex.test(email) && validRoles.includes(roleNorm)) {
+          result.push({
+            firstName: (firstName || '').trim(),
+            lastName: (lastName || '').trim(),
+            email: email.trim().toLowerCase(),
+            role: roleNorm.charAt(0).toUpperCase() + roleNorm.slice(1),
+          });
+        }
+      }
+    }
+    return result;
+  };
+
+  const handleBulkUpload = async () => {
+    if (!bulkFile || !organizationId) return;
+    setIsBulkUploading(true);
+    setBulkUploadResult(null);
+    const errors: string[] = [];
+    let sent = 0;
+
+    try {
+      const text = await bulkFile.text();
+      const rows = parseCSV(text);
+      if (rows.length === 0) {
+        setBulkUploadResult({ sent: 0, failed: 0, errors: ['No valid rows found. Use format: First Name, Last Name, Email, Role (Mentee or Mentor)'] });
+        setIsBulkUploading(false);
+        return;
+      }
+      if (rows.length > MAX_BULK_CONTACTS) {
+        setBulkUploadResult({ sent: 0, failed: rows.length, errors: [`Only the first ${MAX_BULK_CONTACTS} contacts will be processed.`] });
+      }
+
+      for (let i = 0; i < Math.min(rows.length, MAX_BULK_CONTACTS); i++) {
+        const row = rows[i];
+        try {
+          await onSendInvite({
+            email: row.email,
+            name: `${row.firstName} ${row.lastName}`.trim() || 'Unknown',
+            role: row.role.toUpperCase() as Role,
+            sentDate: new Date().toISOString(),
+          });
+          sent++;
+        } catch (err) {
+          errors.push(`Row ${i + 1} (${row.email}): ${err instanceof Error ? err.message : 'Failed'}`);
+        }
+      }
+
+      setBulkUploadResult({
+        sent,
+        failed: Math.min(rows.length, MAX_BULK_CONTACTS) - sent,
+        errors: errors.slice(0, 10),
+      });
+      if (sent > 0) {
+        setBulkFile(null);
+      }
+    } catch (err) {
+      setBulkUploadResult({
+        sent: 0,
+        failed: 1,
+        errors: [err instanceof Error ? err.message : 'Failed to read CSV file'],
+      });
+    } finally {
+      setIsBulkUploading(false);
     }
   };
 
@@ -619,27 +730,72 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
 
           {activeTab === 'bulk' && (
                <div className={CARD_CLASS + " text-center py-12"}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    className="sr-only"
+                    onChange={handleBulkFileSelect}
+                  />
                   <div 
                     className={`border-2 border-dashed rounded-xl p-10 transition-colors ${dragActive ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-300 dark:border-slate-700'}`}
                     onDragEnter={handleDrag}
                     onDragLeave={handleDrag}
                     onDragOver={handleDrag}
                     onDrop={handleDrop}
+                    onClick={() => !bulkFile && fileInputRef.current?.click()}
                   >
                       <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
                       <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Upload CSV File</h3>
-                      <p className="text-slate-500 mb-6 max-w-sm mx-auto">Drag and drop your CSV file here, or click to browse. Max 100 contacts per upload.</p>
+                      <p className="text-slate-500 mb-6 max-w-sm mx-auto">Drag and drop your CSV file here, or click to browse. Max {MAX_BULK_CONTACTS} contacts per upload.</p>
                       
                       {bulkFile ? (
-                          <div className="flex items-center justify-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 py-2 px-4 rounded-lg inline-block text-emerald-700 dark:text-emerald-300 font-medium mb-6">
-                              <FileText className="w-4 h-4" /> {bulkFile.name}
-                              <button onClick={(e) => {e.stopPropagation(); setBulkFile(null);}} className="ml-2 hover:text-red-500"><X className="w-4 h-4" /></button>
+                          <div className="space-y-4">
+                              <div className="flex items-center justify-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 py-2 px-4 rounded-lg inline-block text-emerald-700 dark:text-emerald-300 font-medium">
+                                  <FileText className="w-4 h-4" /> {bulkFile.name}
+                                  <button onClick={(e) => { e.stopPropagation(); setBulkFile(null); setBulkUploadResult(null); }} className="ml-2 hover:text-red-500"><X className="w-4 h-4" /></button>
+                              </div>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleBulkUpload(); }}
+                                disabled={isBulkUploading || !organizationId}
+                                className={BUTTON_PRIMARY}
+                              >
+                                {isBulkUploading ? 'Sending...' : <><Send className="w-4 h-4 mr-2" /> Send Invitations</>}
+                              </button>
                           </div>
                       ) : (
-                          <button className="bg-slate-900 dark:bg-slate-700 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-slate-800 transition-colors">Browse Files</button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                            className="bg-slate-900 dark:bg-slate-700 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-slate-800 transition-colors"
+                          >
+                            Browse Files
+                          </button>
                       )}
                       
-                      <p className="text-xs text-slate-400 mt-6">Template format: Name, Email, Role (Mentee/Mentor)</p>
+                      <div className="flex flex-col items-center gap-2 mt-6">
+                          <p className="text-xs text-slate-400">Template format: First Name, Last Name, Email, Role (Mentee/Mentor)</p>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleDownloadTemplate(); }}
+                            className="text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-1"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Download CSV template
+                          </button>
+                      </div>
+                      
+                      {bulkUploadResult && (
+                          <div className={`mt-6 p-4 rounded-lg text-left text-sm ${bulkUploadResult.failed > 0 ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'}`}>
+                              <p className="font-medium text-slate-800 dark:text-white">
+                                  {bulkUploadResult.sent} sent{bulkUploadResult.failed > 0 && `, ${bulkUploadResult.failed} failed`}
+                              </p>
+                              {bulkUploadResult.errors.length > 0 && (
+                                  <ul className="mt-2 text-amber-700 dark:text-amber-300 space-y-0.5">
+                                      {bulkUploadResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                                  </ul>
+                              )}
+                          </div>
+                      )}
                   </div>
                </div>
           )}
