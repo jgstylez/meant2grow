@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import { ProgramSettings } from '../types';
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
 import { Check, ChevronRight, ChevronLeft, Upload, Layout, Type, ToggleLeft, ToggleRight, Info, Plus, Trash2, X, Palette } from 'lucide-react';
+import { LogoCropperModal } from './LogoCropperModal';
+import { uploadFile, generateUniquePath } from '../services/storage';
 
 interface OrganizationSetupProps {
   onComplete: (settings: ProgramSettings) => void;
   initialSettings?: ProgramSettings | null;
+  organizationId?: string | null;
 }
 
-const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete, initialSettings }) => {
+const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete, initialSettings, organizationId }) => {
   const [step, setStep] = useState(1);
   
   const defaultSettings: ProgramSettings = {
@@ -46,6 +49,10 @@ const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete, initi
     initialSettings || defaultSettings
   );
 
+  // Logo cropper
+  const [logoCropSrc, setLogoCropSrc] = useState<string | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
   // Modal State for Adding Question
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [newQuestion, setNewQuestion] = useState({
@@ -72,11 +79,13 @@ const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete, initi
     }));
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const url = URL.createObjectURL(e.target.files[0]);
-      setSettings(prev => ({ ...prev, logo: url }));
-    }
+  const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setLogoCropSrc(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleDeleteField = (id: string) => {
@@ -187,14 +196,37 @@ const OrganizationSetup: React.FC<OrganizationSetupProps> = ({ onComplete, initi
                             <div className="flex text-sm text-slate-600 dark:text-slate-400 justify-center">
                               <label htmlFor="file-upload" className="relative cursor-pointer rounded-md font-medium text-emerald-600 hover:text-emerald-500">
                                 <span>Upload a file</span>
-                                <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleLogoUpload} accept="image/*" />
+                                <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleLogoFileSelect} accept="image/*" disabled={isUploadingLogo} />
                               </label>
                               <p className="pl-1">or drag and drop</p>
                             </div>
                             <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+                            {isUploadingLogo && <p className="text-xs text-emerald-600">Uploading...</p>}
                           </div>
                         </div>
                       </div>
+                      {logoCropSrc && (
+                        <LogoCropperModal
+                          imageSrc={logoCropSrc}
+                          onCrop={async (blob) => {
+                            if (organizationId) {
+                              setIsUploadingLogo(true);
+                              try {
+                                const storagePath = generateUniquePath('logo.jpg', `organizations/${organizationId}/logos`);
+                                const downloadUrl = await uploadFile(blob, storagePath);
+                                setSettings(prev => ({ ...prev, logo: downloadUrl }));
+                                setLogoCropSrc(null);
+                              } finally {
+                                setIsUploadingLogo(false);
+                              }
+                            } else {
+                              setSettings(prev => ({ ...prev, logo: URL.createObjectURL(blob) }));
+                              setLogoCropSrc(null);
+                            }
+                          }}
+                          onCancel={() => setLogoCropSrc(null)}
+                        />
+                      )}
                     </div>
                   </div>
 

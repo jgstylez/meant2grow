@@ -1379,7 +1379,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (currentPage) {
       case "setup":
-        return <OrganizationSetup onComplete={handleSetupComplete} initialSettings={programSettings} />;
+        return <OrganizationSetup onComplete={handleSetupComplete} initialSettings={programSettings} organizationId={organizationId ?? null} />;
       case "mentor-onboarding":
         return (
           <MentorOnboarding

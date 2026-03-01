@@ -41,6 +41,8 @@ import { getErrorMessage } from '../utils/errors';
 import { logger } from '../services/logger';
 import { LocationInput } from './LocationInput';
 import { CityStateZip } from './CityStateZipInput';
+import { AvatarCropperModal } from './AvatarCropperModal';
+import { LogoCropperModal } from './LogoCropperModal';
 import { setupTotp, verifyTotpSetup, disableTotp } from '../services/totpService';
 import { auth } from '../services/firebase';
 import { QRCodeSVG } from 'qrcode.react';
@@ -71,6 +73,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     const [activeTab, setActiveTab] = useState(initialTab || 'profile');
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [avatarCropSrc, setAvatarCropSrc] = useState<string | null>(null);
+    const [logoCropSrc, setLogoCropSrc] = useState<string | null>(null);
     
     // Robust role checks - handle both enum values and raw string values from database
     // Use useMemo to ensure proper initialization order
@@ -573,25 +577,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                         accept="image/*"
                                         className="sr-only"
                                         disabled={isUploadingAvatar}
-                                        onChange={async (e) => {
+                                        onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (!file) return;
-                                            setIsUploadingAvatar(true);
-                                            try {
-                                                const path = generateUniquePath(file.name, `users/${user.id}/avatars`);
-                                                const url = await uploadFile(file, path);
-                                                const updated = { ...formData, avatar: url };
-                                                setFormData(updated);
-                                                onUpdateUser(updated);
-                                                setShowSuccess(true);
-                                                setTimeout(() => setShowSuccess(false), 3000);
-                                            } catch (err) {
-                                                logger.error('Error uploading avatar', err);
-                                                alert(getErrorMessage(err) || 'Failed to upload photo. Please try again.');
-                                            } finally {
-                                                setIsUploadingAvatar(false);
-                                                e.target.value = '';
-                                            }
+                                            const reader = new FileReader();
+                                            reader.onload = () => setAvatarCropSrc(reader.result as string);
+                                            reader.readAsDataURL(file);
+                                            e.target.value = '';
                                         }}
                                     />
                                     <span
@@ -602,6 +594,30 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                     </span>
                                 </label>
                             </div>
+                            {avatarCropSrc && (
+                                <AvatarCropperModal
+                                    imageSrc={avatarCropSrc}
+                                    onCrop={async (blob) => {
+                                        setIsUploadingAvatar(true);
+                                        try {
+                                            const path = generateUniquePath('avatar.jpg', `users/${user.id}/avatars`);
+                                            const url = await uploadFile(blob, path);
+                                            const updated = { ...formData, avatar: url };
+                                            setFormData(updated);
+                                            onUpdateUser(updated);
+                                            setShowSuccess(true);
+                                            setTimeout(() => setShowSuccess(false), 3000);
+                                            setAvatarCropSrc(null);
+                                        } catch (err) {
+                                            logger.error('Error uploading avatar', err);
+                                            alert(getErrorMessage(err) || 'Failed to upload photo. Please try again.');
+                                        } finally {
+                                            setIsUploadingAvatar(false);
+                                        }
+                                    }}
+                                    onCancel={() => setAvatarCropSrc(null)}
+                                />
+                            )}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                 <div className="col-span-2">
                                     <label htmlFor="profile-name" className="block text-xs font-semibold text-slate-500 uppercase mb-1">Full Name</label>
@@ -1423,31 +1439,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                             name="program-logo-upload" 
                                                             type="file" 
                                                             className="sr-only" 
-                                                            onChange={async (e) => {
-                                                                if (e.target.files && e.target.files[0] && organizationId && onUpdateOrganization) {
-                                                                    setIsUploadingLogo(true);
-                                                                    try {
-                                                                        const file = e.target.files[0];
-                                                                        // Upload to Firebase Storage
-                                                                        const storagePath = generateUniquePath(file.name, `organizations/${organizationId}/logos`);
-                                                                        const downloadUrl = await uploadFile(file, storagePath);
-                                                                        
-                                                                        // Update organization with the new logo URL
-                                                                        await onUpdateOrganization(organizationId, {
-                                                                            programSettings: {
-                                                                                ...programSettings,
-                                                                                logo: downloadUrl
-                                                                            }
-                                                                        });
-                                                                        setShowSuccess(true);
-                                                                        setTimeout(() => setShowSuccess(false), 3000);
-                                                                    } catch (error) {
-                                                                        logger.error('Error uploading logo', error);
-                                                                        alert('Failed to upload logo. Please try again.');
-                                                                    } finally {
-                                                                        setIsUploadingLogo(false);
-                                                                    }
-                                                                }
+                                                            onChange={(e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (!file) return;
+                                                                const reader = new FileReader();
+                                                                reader.onload = () => setLogoCropSrc(reader.result as string);
+                                                                reader.readAsDataURL(file);
+                                                                e.target.value = '';
                                                             }} 
                                                             accept="image/*" 
                                                             disabled={isUploadingLogo}
@@ -1490,6 +1488,33 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                     </p>
                                 </div>
                             </div>
+                            {logoCropSrc && organizationId && onUpdateOrganization && (
+                                <LogoCropperModal
+                                    imageSrc={logoCropSrc}
+                                    onCrop={async (blob) => {
+                                        setIsUploadingLogo(true);
+                                        try {
+                                            const storagePath = generateUniquePath('logo.jpg', `organizations/${organizationId}/logos`);
+                                            const downloadUrl = await uploadFile(blob, storagePath);
+                                            await onUpdateOrganization(organizationId, {
+                                                programSettings: {
+                                                    ...programSettings,
+                                                    logo: downloadUrl
+                                                }
+                                            });
+                                            setShowSuccess(true);
+                                            setTimeout(() => setShowSuccess(false), 3000);
+                                            setLogoCropSrc(null);
+                                        } catch (error) {
+                                            logger.error('Error uploading logo', error);
+                                            alert('Failed to upload logo. Please try again.');
+                                        } finally {
+                                            setIsUploadingLogo(false);
+                                        }
+                                    }}
+                                    onCancel={() => setLogoCropSrc(null)}
+                                />
+                            )}
 
                             {/* Intro Text */}
                             <div className={CARD_CLASS}>
