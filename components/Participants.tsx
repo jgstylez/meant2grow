@@ -46,6 +46,7 @@ const Participants: React.FC<ParticipantsProps> = ({
   const [emailingUser, setEmailingUser] = useState<string | null>(null);
   const [emailingUsers, setEmailingUsers] = useState<string[]>([]); // For bulk email
   const [isBulkEmail, setIsBulkEmail] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [roleChangingUser, setRoleChangingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [roleFilter, setRoleFilter] = useState<Role | "ALL">("ALL");
@@ -205,14 +206,7 @@ const Participants: React.FC<ParticipantsProps> = ({
     }
 
     try {
-      // Show loading state
-      const sendButton = document.querySelector(
-        "[data-email-send-button]"
-      ) as HTMLButtonElement;
-      if (sendButton) {
-        sendButton.disabled = true;
-        sendButton.textContent = "Sending...";
-      }
+      setIsSendingEmail(true);
 
       let recipients: { email: string; name?: string; userId?: string }[];
 
@@ -258,14 +252,7 @@ const Participants: React.FC<ParticipantsProps> = ({
       logger.error("Error sending email", error);
       alert(`Failed to send email: ${getErrorMessage(error) || "Unknown error"}`);
     } finally {
-      const sendButton = document.querySelector(
-        "[data-email-send-button]"
-      ) as HTMLButtonElement;
-      if (sendButton) {
-        sendButton.disabled = false;
-        sendButton.innerHTML =
-          '<Mail className="w-4 h-4 mr-2 inline" /> Send Email';
-      }
+      setIsSendingEmail(false);
     }
   };
 
@@ -517,9 +504,11 @@ const Participants: React.FC<ParticipantsProps> = ({
                       ) : (
                         <>
                           <XCircle className="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
-                          <span className="text-xs text-slate-500 dark:text-slate-400">
-                            Not matched
-                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              Not matched
+                            </span>
+                          </div>
                         </>
                       )}
                       <div className="relative">
@@ -1150,9 +1139,18 @@ const Participants: React.FC<ParticipantsProps> = ({
                     if (user) handleSendEmail(user);
                   }
                 }}
-                className={`${BUTTON_PRIMARY} flex-1 min-h-[44px] touch-manipulation`}
+                disabled={isSendingEmail}
+                className={`${BUTTON_PRIMARY} flex-1 min-h-[44px] touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                <Mail className="w-4 h-4 mr-2 inline" /> Send Email
+                {isSendingEmail ? (
+                  <>
+                    <Repeat className="w-4 h-4 mr-2 inline animate-spin" /> Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4 mr-2 inline" /> Send Email
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   User,
   Role,
@@ -13,8 +14,7 @@ import {
 import { INPUT_CLASS, BUTTON_PRIMARY } from "../styles/common";
 import {
   SmilePlus,
-  Video,
-  Phone,
+  PhoneCall,
   MoreVertical,
   Users,
   Edit,
@@ -78,6 +78,7 @@ import {
   isMentorsCircleId,
   isMenteesHubId,
 } from "../utils/chatGroups";
+import { JitsiMeeting } from "@jitsi/react-sdk";
 
 // Using ChatMessage and ChatGroup from types.ts
 
@@ -959,10 +960,20 @@ const Chat: React.FC<ChatProps> = ({
   const previousMessagesHashRef = useRef<string>("");
   const previousSentimentHashRef = useRef<string>("");
   const [showMenu, setShowMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  const closeChatMenu = () => {
+    setShowMenu(false);
+    setMenuPosition(null);
+  };
+
+  useEffect(() => {
+    if (!showMenu) setMenuPosition(null);
+  }, [showMenu]);
   const [activeModal, setActiveModal] = useState<
     | null
-    | "video"
-    | "phone"
+    | "liveCall"
     | "groupInfo"
     | "mute"
     | "schedule"
@@ -975,6 +986,7 @@ const Chat: React.FC<ChatProps> = ({
     | "deleteMessage"
   >(null);
   const [messageIdToDelete, setMessageIdToDelete] = useState<string | null>(null);
+  const [jitsiRoom, setJitsiRoom] = useState<{ roomName: string; roomUrl: string } | null>(null);
 
   // New States for Actions
   const [pinnedChats, setPinnedChats] = useState<string[]>([]);
@@ -1637,6 +1649,15 @@ const Chat: React.FC<ChatProps> = ({
   const chatPartner =
     !isGroup && activeChat && !('type' in activeChat) ? users.find((u) => u.id === activeChat.id) : null;
   const isBlocked = chatPartner && blockedUsers.includes(chatPartner.id);
+  const isPlatformGroup =
+    isMentorsCircleId(activeChatId || "", organizationId) ||
+    isMenteesHubId(activeChatId || "", organizationId);
+  const roleStrForLiveCall = String(currentUser.role);
+  const isOrgAdmin =
+    currentUser.role === Role.ADMIN ||
+    roleStrForLiveCall === "ADMIN" ||
+    roleStrForLiveCall === "ORGANIZATION_ADMIN";
+  const canStartLiveCall = isPlatformGroup ? isOrgAdmin : !isBlocked;
 
   const handleManualSentimentChange = (
     newSentiment: "Positive" | "Neutral" | "Negative"
@@ -2055,7 +2076,7 @@ const Chat: React.FC<ChatProps> = ({
         ? prev.filter((id) => id !== activeChatId)
         : [...prev, activeChatId]
     );
-    setShowMenu(false);
+    closeChatMenu();
   };
 
   const toggleMute = () => {
@@ -2802,13 +2823,13 @@ const Chat: React.FC<ChatProps> = ({
       >
         {activeChat ? (
           <>
-            {/* Header - compact on mobile when Video/Phone icons are hidden (below lg) */}
+            {/* Header - compact on mobile when Live Call icon is hidden (below lg) */}
             <div className="px-2 py-2 sm:px-3 sm:py-3 lg:p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center gap-1.5 sm:gap-2 lg:gap-4 bg-white dark:bg-slate-900 shadow-sm z-20 sticky top-0 min-h-[48px] sm:min-h-[56px] lg:min-h-[60px]">
               <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-4 flex-1 min-w-0 overflow-hidden">
                 <button
                   onClick={() => {
                     setActiveChatId("");
-                    setShowMenu(false);
+                    closeChatMenu();
                     setShowEmojiPicker(false);
                     setShowGifPicker(false);
                   }}
@@ -2927,27 +2948,30 @@ const Chat: React.FC<ChatProps> = ({
               </div>
 
               <div className="flex items-center gap-1 sm:gap-2 lg:gap-4 relative flex-shrink-0">
-                {/* Video & Phone: desktop only (lg 1024px+); mobile/tablet use More menu */}
+                {/* Live Call: desktop only (lg 1024px+); mobile/tablet use More menu */}
                 <button
-                  onClick={() => setActiveModal("video")}
-                  disabled={isBlocked}
+                  onClick={() => setActiveModal("liveCall")}
+                  disabled={!canStartLiveCall}
                   className="hidden lg:flex min-h-[44px] min-w-[44px] items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-30 touch-manipulation"
-                  title="Video Call"
-                  aria-label="Start video call"
+                  title={isPlatformGroup && !isOrgAdmin ? "Only org admins can start calls in Mentees Hub and Mentors Circle" : "Live Call"}
+                  aria-label="Start live call"
                 >
-                  <Video className="w-5 h-5" />
+                  <PhoneCall className="w-5 h-5" />
                 </button>
                 <button
-                  onClick={() => setActiveModal("phone")}
-                  disabled={isBlocked}
-                  className="hidden lg:flex min-h-[44px] min-w-[44px] items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:opacity-30 touch-manipulation"
-                  title="Phone Call"
-                  aria-label="Start phone call"
-                >
-                  <Phone className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setShowMenu(!showMenu)}
+                  ref={menuButtonRef}
+                  onClick={() => {
+                    if (!showMenu && menuButtonRef.current) {
+                      const rect = menuButtonRef.current.getBoundingClientRect();
+                      setMenuPosition({
+                        top: rect.bottom + 4,
+                        right: window.innerWidth - rect.right,
+                      });
+                    } else {
+                      setMenuPosition(null);
+                    }
+                    setShowMenu(!showMenu);
+                  }}
                   className={`min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500 dark:text-slate-400 touch-manipulation ${
                     showMenu ? "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-white" : ""
                   }`}
@@ -2958,50 +2982,53 @@ const Chat: React.FC<ChatProps> = ({
                   <MoreVertical className="w-5 h-5" />
                 </button>
 
-                {showMenu && (
-                  <div className="absolute top-12 right-0 w-56 sm:w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-50 animate-in fade-in zoom-in-95 origin-top-right max-h-[80vh] overflow-y-auto">
-                    {/* Video & Phone: mobile and tablet only; desktop (lg+) shows header icons */}
+                {showMenu && menuPosition && createPortal(
+                  <>
+                    <div
+                      className="fixed inset-0 z-[99]"
+                      onClick={closeChatMenu}
+                      aria-hidden="true"
+                    />
+                    <div
+                      className="fixed w-56 sm:w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-3 z-[100] max-h-[80vh] overflow-y-auto text-slate-900 dark:text-slate-100"
+                      style={{
+                        top: `${menuPosition.top}px`,
+                        right: `${menuPosition.right}px`,
+                        left: "auto",
+                      }}
+                    >
+                    {/* Live Call: mobile and tablet only; desktop (lg+) shows header icon */}
                     <div className="lg:hidden border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
                       <button
                         onClick={() => {
-                          setActiveModal("video");
-                          setShowMenu(false);
+                          setActiveModal("liveCall");
+                          closeChatMenu();
                         }}
-                        disabled={isBlocked}
-                        className="w-full text-left px-4 py-3 flex items-center gap-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 min-h-[44px] touch-manipulation"
+                        disabled={!canStartLiveCall}
+                        className="w-full text-left px-4 py-3 flex items-center gap-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 min-h-[44px] touch-manipulation"
+                        title={isPlatformGroup && !isOrgAdmin ? "Only org admins can start calls in Mentees Hub and Mentors Circle" : undefined}
                       >
-                        <Video className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-                        Video Call
-                      </button>
-                      <button
-                        onClick={() => {
-                          setActiveModal("phone");
-                          setShowMenu(false);
-                        }}
-                        disabled={isBlocked}
-                        className="w-full text-left px-4 py-3 flex items-center gap-3 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 min-h-[44px] touch-manipulation"
-                      >
-                        <Phone className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-                        Phone Call
+                        <PhoneCall className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                        Live Call
                       </button>
                     </div>
                     {isGroup ? (
                       <>
                         {/* Group vibe picker: mobile/tablet only (header shows it on lg+) */}
                         <div className="lg:hidden border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
-                          <div className="px-4 py-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">Group Vibe</div>
+                          <div className="px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Group Vibe</div>
                           {["Positive", "Neutral", "Negative"].map((opt) => (
                             <button
                               key={opt}
                               onClick={() => {
                                 handleManualSentimentChange(opt as any);
-                                setShowMenu(false);
+                                closeChatMenu();
                               }}
-                              className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm ${
-                                sentiment === opt
-                                  ? "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white font-medium"
-                                  : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
-                              }`}
+className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm font-medium ${
+                                  sentiment === opt
+                                    ? "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white"
+                                    : "text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                }`}
                             >
                               {opt === "Positive" && <Smile className="w-4 h-4 text-emerald-500" />}
                               {opt === "Neutral" && <Meh className="w-4 h-4 text-slate-500" />}
@@ -3013,9 +3040,9 @@ const Chat: React.FC<ChatProps> = ({
                         <button
                           onClick={() => {
                             setActiveModal("groupInfo");
-                            setShowMenu(false);
+                            closeChatMenu();
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                         >
                           <Users className="w-4 h-4 mr-2" /> Group Info
                         </button>
@@ -3038,10 +3065,10 @@ const Chat: React.FC<ChatProps> = ({
                             isPlatformOperatorMenu;
                           return showGroupEditOptions ? (
                             <>
-                              <button className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center">
+                              <button className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2">
                                 <Edit className="w-4 h-4 mr-2" /> Edit Group Name
                               </button>
-                              <button className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center">
+                              <button className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2">
                                 <UserPlus className="w-4 h-4 mr-2" /> Add Participants
                               </button>
                             </>
@@ -3051,18 +3078,18 @@ const Chat: React.FC<ChatProps> = ({
                         <button
                           onClick={() => {
                             setActiveModal("schedule");
-                            setShowMenu(false);
+                            closeChatMenu();
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                         >
                           <Calendar className="w-4 h-4 mr-2" /> Schedule Meeting
                         </button>
                         <button
                           onClick={() => {
                             setActiveModal("mute");
-                            setShowMenu(false);
+                            closeChatMenu();
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                         >
                           <BellOff className="w-4 h-4 mr-2" />{" "}
                           {mutedChats.includes(activeChatId)
@@ -3073,9 +3100,9 @@ const Chat: React.FC<ChatProps> = ({
                         <button
                           onClick={() => {
                             clearHistory();
-                            setShowMenu(false);
+                            closeChatMenu();
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                         >
                           <Trash className="w-4 h-4 mr-2" /> Clear History
                         </button>
@@ -3109,15 +3136,15 @@ const Chat: React.FC<ChatProps> = ({
                         <button
                           onClick={() => {
                             setActiveModal("userProfile");
-                            setShowMenu(false);
+                            closeChatMenu();
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                         >
                           <Users className="w-4 h-4 mr-2" /> View Profile
                         </button>
                         <button
                           onClick={togglePin}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                         >
                           <Pin className="w-4 h-4 mr-2" />{" "}
                           {pinnedChats.includes(activeChatId) ? "Unpin" : "Pin"}{" "}
@@ -3126,25 +3153,25 @@ const Chat: React.FC<ChatProps> = ({
                         <button
                           onClick={() => {
                             setActiveModal("schedule");
-                            setShowMenu(false);
+                            closeChatMenu();
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                         >
                           <Calendar className="w-4 h-4 mr-2" /> Schedule Meeting
                         </button>
                         <button
                           onClick={() => {
                             setActiveModal("shareContact");
-                            setShowMenu(false);
+                            closeChatMenu();
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                         >
                           <Share2 className="w-4 h-4 mr-2" /> Share Contact
                         </button>
                         <div className="border-t border-slate-100 dark:border-slate-700 my-1"></div>
                         <button
                           onClick={toggleMute}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                         >
                           <BellOff className="w-4 h-4 mr-2" />{" "}
                           {mutedChats.includes(activeChatId)
@@ -3155,9 +3182,9 @@ const Chat: React.FC<ChatProps> = ({
                         <button
                           onClick={() => {
                             setActiveModal("clearHistory");
-                            setShowMenu(false);
+                            closeChatMenu();
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                         >
                           <Trash className="w-4 h-4 mr-2" /> Clear History
                         </button>
@@ -3165,7 +3192,7 @@ const Chat: React.FC<ChatProps> = ({
                         <button
                           onClick={() => {
                             setActiveModal("block");
-                            setShowMenu(false);
+                            closeChatMenu();
                           }}
                           className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
                         >
@@ -3174,7 +3201,7 @@ const Chat: React.FC<ChatProps> = ({
                         <button
                           onClick={() => {
                             setActiveModal("report");
-                            setShowMenu(false);
+                            closeChatMenu();
                           }}
                           className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center"
                         >
@@ -3185,15 +3212,17 @@ const Chat: React.FC<ChatProps> = ({
                             handleSend(
                               `👋 ${currentUser.name.split(" ")[0]} nudged you!`
                             );
-                            setShowMenu(false);
+                            closeChatMenu();
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
                         >
-                          <Activity className="w-4 h-4 mr-2" /> Send Nudge
+                          <Activity className="w-4 h-4" /> Send Nudge
                         </button>
                       </>
                     )}
-                  </div>
+                    </div>
+                  </>,
+                  document.body
                 )}
               </div>
             </div>
@@ -3201,7 +3230,7 @@ const Chat: React.FC<ChatProps> = ({
             {/* Messages */}
             <div
               className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3 sm:space-y-4 bg-slate-50/50 dark:bg-slate-950/50 min-h-0"
-              onClick={() => setShowMenu(false)}
+              onClick={closeChatMenu}
             >
               {isBlocked && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-lg text-center mb-4">
@@ -3742,37 +3771,52 @@ const Chat: React.FC<ChatProps> = ({
       </div>
 
       {/* --- MODALS --- */}
-      {activeModal === "video" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200 dark:border-slate-800">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-              Start Video Call?
-            </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-              Start an instant meeting or schedule one for later.
-            </p>
-            <div className="space-y-3">
+      {activeModal === "liveCall" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200 dark:border-slate-700">
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-4">
+                <PhoneCall className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">
+                Meant2Grow Call
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Call {activeChat?.name} now or schedule for later
+              </p>
+            </div>
+            <div className="space-y-2">
               <button
                 onClick={() => {
-                  handleSend(
-                    "🎥 Video call started: https://meet.google.com/abc-defg-hij"
-                  );
-                  setActiveModal(null);
-                  window.open("https://meet.google.com/new", "_blank");
+                  const useGoogleMeet =
+                    import.meta.env.VITE_USE_GOOGLE_MEET_FALLBACK === "true";
+                  if (useGoogleMeet) {
+                    handleSend(
+                      "🎥 Live call started: https://meet.google.com/abc-defg-hij"
+                    );
+                    setActiveModal(null);
+                    window.open("https://meet.google.com/new", "_blank");
+                  } else {
+                    const roomName = `meant2grow-${(activeChatId || "chat").replace(/[/.:]/g, "-")}-${Date.now().toString(36)}`;
+                    const roomUrl = `https://meet.jit.si/${roomName}`;
+                    handleSend(`📞 Meant2Grow call started – join here: ${roomUrl}`);
+                    setJitsiRoom({ roomName, roomUrl });
+                    setActiveModal(null);
+                  }
                 }}
-                className="w-full bg-emerald-600 text-white py-2 rounded-lg font-medium hover:bg-emerald-700 flex items-center justify-center"
+                className="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center gap-2 transition-colors"
               >
-                <Video className="w-4 h-4 mr-2" /> Start Now
+                <PhoneCall className="w-5 h-5" /> Start call now
               </button>
               <button
                 onClick={() => setActiveModal("schedule")}
-                className="w-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-2 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center"
+                className="w-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-2.5 rounded-xl font-medium hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center gap-2"
               >
-                <Calendar className="w-4 h-4 mr-2" /> Schedule for Later
+                <Calendar className="w-4 h-4" /> Schedule for later
               </button>
               <button
                 onClick={() => setActiveModal(null)}
-                className="w-full text-sm text-slate-500 mt-2 hover:underline"
+                className="w-full py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
               >
                 Cancel
               </button>
@@ -3781,31 +3825,86 @@ const Chat: React.FC<ChatProps> = ({
         </div>
       )}
 
-      {activeModal === "phone" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 border border-slate-200 dark:border-slate-800">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                <Phone className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+      {jitsiRoom && (
+        <div className="fixed inset-0 z-[60] flex flex-col bg-slate-900 animate-in fade-in">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-900/95 backdrop-blur-sm flex-shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
+                <PhoneCall className="w-4 h-4 text-white" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                Calling...
-              </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {activeChat?.name}
-              </p>
+              <div className="min-w-0">
+                <span className="font-semibold text-white text-sm block truncate">
+                  Meant2Grow
+                </span>
+                <span className="text-slate-400 text-xs block truncate">
+                  {activeChat?.name}
+                </span>
+              </div>
             </div>
-            <div className="flex gap-4">
-              <button
-                onClick={() => setActiveModal(null)}
-                className="flex-1 bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600"
-              >
-                End Call
-              </button>
-              <button className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-2 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center">
-                <Mic className="w-4 h-4 mr-2" /> Mute
-              </button>
-            </div>
+            <button
+              onClick={() => setJitsiRoom(null)}
+              className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors"
+              aria-label="End call and return"
+            >
+              <X className="w-4 h-4" />
+              End call
+            </button>
+          </div>
+          <div className="flex-1 min-h-0 bg-slate-900">
+            <JitsiMeeting
+              domain="meet.jit.si"
+              roomName={jitsiRoom.roomName}
+              configOverwrite={{
+                startWithAudioMuted: false,
+                startWithVideoMuted: false,
+                enableLobby: false,
+                prejoinConfig: { enabled: false },
+                disableModeratorIndicator: true,
+                requireDisplayName: false,
+                enableWelcomePage: false,
+                disableThirdPartyRequests: true,
+                enableClosePage: false,
+              }}
+              interfaceConfigOverwrite={{
+                APP_NAME: "Meant2Grow",
+                PROVIDER_NAME: "Meant2Grow",
+                SHOW_JITSI_WATERMARK: false,
+                SHOW_BRAND_WATERMARK: false,
+                SHOW_POWERED_BY: false,
+                SHOW_PROMOTIONAL_CLOSE_PAGE: false,
+                MOBILE_APP_PROMO: false,
+                DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
+                HIDE_INVITE_MORE_HEADER: true,
+                DISPLAY_WELCOME_FOOTER: false,
+                BRAND_WATERMARK_LINK: "",
+                JITSI_WATERMARK_LINK: "",
+                ...(typeof window !== "undefined" && {
+                  DEFAULT_LOGO_URL: `${window.location.origin}/logo-temp.svg`,
+                  DEFAULT_WELCOME_PAGE_LOGO_URL: `${window.location.origin}/logo-temp.svg`,
+                }),
+                TOOLBAR_BUTTONS: [
+                  "microphone",
+                  "camera",
+                  "desktop",
+                  "fullscreen",
+                  "hangup",
+                  "chat",
+                  "settings",
+                  "raisehand",
+                  "tileview",
+                ],
+              }}
+              userInfo={{
+                displayName: currentUser?.name || "Participant",
+              }}
+              getIFrameRef={(ref) => {
+                if (ref) {
+                  ref.style.height = "100%";
+                  ref.style.width = "100%";
+                }
+              }}
+              onReadyToClose={() => setJitsiRoom(null)}
+            />
           </div>
         </div>
       )}

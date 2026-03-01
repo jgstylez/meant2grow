@@ -275,7 +275,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                   {
                     icon: MessageSquare,
                     title: "3. Connect",
-                    text: "Start chatting, schedule video calls, and share resources securely.",
+                    text: "Start chatting, schedule live calls, and share resources securely.",
                   },
                   {
                     icon: TrendingUp,
@@ -955,7 +955,7 @@ const PublicPages: React.FC<PublicPagesProps> = ({
                     icon: MessageSquare,
                     title: "Built-in Communication",
                     description:
-                      "Secure messaging, video calls, and group chats keep mentors and mentees connected without leaving the platform.",
+                      "Secure messaging, live calls, and group chats keep mentors and mentees connected without leaving the platform.",
                     bgClass: "bg-indigo-100 dark:bg-indigo-900/30",
                     iconClass: "text-indigo-600 dark:text-indigo-400",
                   },
