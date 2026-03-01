@@ -67,9 +67,10 @@ interface SettingsViewProps {
     calendarEvents?: CalendarEvent[];
     users?: User[];
     onLogout?: () => void;
+    onNavigate?: (page: string) => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initialTab, organizationId, programSettings, onUpdateOrganization, matches = [], goals = [], ratings = [], calendarEvents = [], users = [], onLogout }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initialTab, organizationId, programSettings, onUpdateOrganization, matches = [], goals = [], ratings = [], calendarEvents = [], users = [], onLogout, onNavigate }) => {
     const [activeTab, setActiveTab] = useState(initialTab || 'profile');
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -425,9 +426,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     const tabs = [
         { id: 'profile', label: 'Profile', icon: Users },
         { id: 'preferences', label: 'Preferences', icon: Settings },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
+        { id: 'notifications', label: 'Alerts', icon: Bell },
         { id: 'security', label: 'Security', icon: Shield },
-        { id: 'calendar', label: 'Sync Calendar', icon: Calendar },
+        { id: 'calendar', label: 'Calendars', icon: Calendar },
         ...(isOrgAdmin ? [{ id: 'program', label: 'Program', icon: Layout }] : []),
         { id: 'billing', label: 'Billing', icon: CreditCard }
     ];
@@ -813,7 +814,21 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
 
                     {activeTab === 'notifications' && (
                         <div className="space-y-4 sm:space-y-6 animate-in fade-in">
-                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Notification Preferences</h2>
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Alerts</h2>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                Control how you receive alerts (email vs in-app). To see your notification history, use the bell icon in the header or{' '}
+                                {onNavigate ? (
+                                    <button
+                                        onClick={() => onNavigate('notifications')}
+                                        className="text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
+                                    >
+                                        View notification history
+                                    </button>
+                                ) : (
+                                    <span>the bell icon in the header</span>
+                                )}
+                                .
+                            </p>
                             <div className="space-y-3 sm:space-y-4">
                                 {Object.entries(notificationPrefs).map(([category, prefs]) => {
                                     const typedPrefs = prefs as { email: boolean; push: boolean };
@@ -1223,7 +1238,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
 
                     {activeTab === 'calendar' && (
                         <div className="space-y-4 sm:space-y-6 animate-in fade-in">
-                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Sync Calendar</h2>
+                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Sync Calendars</h2>
                             <p className="text-sm text-slate-500 dark:text-slate-400">
                                 Connect your calendars to automatically sync meetings and receive reminders. You can connect multiple calendars.
                             </p>

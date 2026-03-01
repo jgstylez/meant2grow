@@ -976,6 +976,11 @@ export const updateGoal = async (
 };
 
 export const deleteGoal = async (goalId: string): Promise<void> => {
+  // Cascade delete milestones first to avoid orphaned documents
+  const goalMilestones = await getMilestonesByGoal(goalId);
+  for (const m of goalMilestones) {
+    await deleteMilestone(m.id);
+  }
   const goalRef = doc(db, "goals", goalId);
   await deleteDoc(goalRef);
 };

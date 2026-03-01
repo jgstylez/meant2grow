@@ -30,13 +30,13 @@ export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
                 onClick={() => onFilterChange('platform')}
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${currentFilter === 'platform' ? activeColorClass : inactiveClass}`}
             >
-                Platform Focused
+                Platform Picks
             </button>
             <button
                 onClick={() => onFilterChange('organization')}
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${currentFilter === 'organization' ? activeColorClass : inactiveClass}`}
             >
-                Our Organization
+                Curated For You
             </button>
         </div>
     );

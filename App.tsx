@@ -35,7 +35,6 @@ import {
   updateMatch,
   createGoal,
   updateGoal,
-  deleteGoal,
   createRating,
   updateRating,
   deleteRating,
@@ -667,7 +666,7 @@ const App: React.FC = () => {
     setOnboardingComplete,
     setCurrentPage
   );
-  const { handleAddGoal, handleUpdateGoal } = useGoalActions(
+  const { handleAddGoal, handleUpdateGoal, handleDeleteGoal } = useGoalActions(
     addToast,
     organizationId,
     currentUser,
@@ -1498,6 +1497,7 @@ const App: React.FC = () => {
                 matches={matches}
                 onAddGoal={handleAddGoal}
                 onUpdateGoal={handleUpdateGoal}
+                onDeleteGoal={handleDeleteGoal}
               />
             </ErrorBoundary>
           </Suspense>
@@ -1759,6 +1759,7 @@ const App: React.FC = () => {
                     updateOrganization(orgId, updates)
                   }
                   onLogout={handleLogout}
+                  onNavigate={(page) => setCurrentPage(page)}
                 />
               </ErrorBoundary>
             </Suspense>

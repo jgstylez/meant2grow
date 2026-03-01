@@ -292,19 +292,37 @@ const Layout: React.FC<LayoutProps> = ({
       className="hidden md:block absolute left-0 mt-2 min-w-[22rem] w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 touch-action-pan-y"
     >
       <div className="p-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
-        <h3 className="font-bold text-sm text-slate-800 dark:text-white">
-          Notifications
-        </h3>
-        {unreadCount > 0 && (
+        <div>
+          <h3 className="font-bold text-sm text-slate-800 dark:text-white">
+            Notification History
+          </h3>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+            Recent activity • Settings for email/push
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && (
+            <button
+              onClick={onMarkAllAsRead}
+              aria-label={`Mark all ${unreadCount} notifications as read`}
+              className="text-xs font-medium hover:underline min-h-[32px] min-w-[32px] px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              style={{ color: brandColor }}
+            >
+              Mark all read
+            </button>
+          )}
           <button
-            onClick={onMarkAllAsRead}
-            aria-label={`Mark all ${unreadCount} notifications as read`}
-            className="text-xs font-medium hover:underline min-h-[32px] min-w-[32px] px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            onClick={() => {
+              onNavigate("notifications");
+              setShowNotifications(false);
+            }}
+            aria-label="View all notifications"
+            className="text-xs font-medium hover:underline min-h-[32px] px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500"
             style={{ color: brandColor }}
           >
-            Mark all read
+            View all
           </button>
-        )}
+        </div>
       </div>
       <div className="max-h-80 overflow-y-auto touch-action-pan-y">
         {notifications.length === 0 ? (
@@ -492,19 +510,38 @@ const Layout: React.FC<LayoutProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4 flex-shrink-0">
-              <h2 className="font-bold text-lg text-slate-900 dark:text-white">
-                Notifications
-              </h2>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowNotifications(false);
-                }}
-                aria-label="Close notifications"
-                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 touch-manipulation z-10"
-              >
-                <X className="w-5 h-5 text-slate-500" aria-hidden="true" />
-              </button>
+              <div>
+                <h2 className="font-bold text-lg text-slate-900 dark:text-white">
+                  Notification History
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Recent activity • Use Settings for email/push preferences
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigate("notifications");
+                    setShowNotifications(false);
+                  }}
+                  aria-label="View all notifications"
+                  className="text-sm font-medium px-3 py-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 touch-manipulation"
+                  style={{ color: brandColor }}
+                >
+                  View all
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowNotifications(false);
+                  }}
+                  aria-label="Close notifications"
+                  className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 touch-manipulation z-10"
+                >
+                  <X className="w-5 h-5 text-slate-500" aria-hidden="true" />
+                </button>
+              </div>
             </div>
             <div className="overflow-y-auto flex-1 touch-action-pan-y">
               {notifications.length === 0 ? (
@@ -721,11 +758,7 @@ const Layout: React.FC<LayoutProps> = ({
             <NavItem page="calendar" icon={CalendarIcon} label="Calendar" />
 
             {/* Community Links - Only show if there are items to display */}
-            {(isMentor ||
-              isAdmin ||
-              isMentee ||
-              isAdmin ||
-              !isPlatformOperator) && (
+            {(isMentor || isAdmin || isMentee || !isPlatformOperator) && (
               <div className="pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
                 <p className="px-3 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">
                   Community

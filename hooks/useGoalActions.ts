@@ -2,7 +2,7 @@
 import { useCallback } from 'react';
 import { User, Goal, Notification } from '../types';
 import { getErrorMessage } from '../utils/errors';
-import { createGoal, updateGoal, createNotification } from '../services/database';
+import { createGoal, updateGoal, deleteGoal, createNotification } from '../services/database';
 
 export const useGoalActions = (
     addToast: (msg: string, type?: 'success' | 'error' | 'info') => void,
@@ -46,5 +46,15 @@ export const useGoalActions = (
         }
     }, [addToast, goals, organizationId, currentUser]);
 
-    return { handleAddGoal, handleUpdateGoal };
+    const handleDeleteGoal = useCallback(async (goalId: string) => {
+        try {
+            await deleteGoal(goalId);
+            addToast('Goal deleted', 'success');
+        } catch (error: unknown) {
+            console.error('Error deleting goal:', error);
+            addToast(getErrorMessage(error) || 'Failed to delete goal', 'error');
+        }
+    }, [addToast]);
+
+    return { handleAddGoal, handleUpdateGoal, handleDeleteGoal };
 };

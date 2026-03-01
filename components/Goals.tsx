@@ -10,6 +10,7 @@ import {
   Flag,
   CheckCircle2,
   Calendar,
+  Trash2,
 } from "lucide-react";
 import { breakdownGoal, suggestMilestones, SuggestedMilestone } from "../services/geminiService";
 import {
@@ -27,6 +28,7 @@ interface GoalsProps {
   matches: Match[];
   onAddGoal: (g: Omit<Goal, "id">) => void;
   onUpdateGoal: (id: string, progress: number, status: string) => void;
+  onDeleteGoal?: (id: string) => void;
 }
 
 const Goals: React.FC<GoalsProps> = ({
@@ -35,6 +37,7 @@ const Goals: React.FC<GoalsProps> = ({
   matches,
   onAddGoal,
   onUpdateGoal,
+  onDeleteGoal,
 }) => {
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [targetDate, setTargetDate] = useState(
@@ -42,6 +45,8 @@ const Goals: React.FC<GoalsProps> = ({
   );
   const [loadingAI, setLoadingAI] = useState(false);
   const [goalToConfirm, setGoalToConfirm] = useState<string | null>(null);
+  const [goalToDelete, setGoalToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Milestone state
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
@@ -118,6 +123,17 @@ const Goals: React.FC<GoalsProps> = ({
     if (goalToConfirm) {
       onUpdateGoal(goalToConfirm, 100, "Completed");
       setGoalToConfirm(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!goalToDelete || !onDeleteGoal) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteGoal(goalToDelete);
+      setGoalToDelete(null);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -343,19 +359,30 @@ const Goals: React.FC<GoalsProps> = ({
 
           return (
           <div key={goal.id} className={`${CARD_CLASS} flex flex-col`}>
-            <div className="flex justify-between items-start mb-4">
-              <h3 className="font-bold text-lg text-slate-800 dark:text-white">
+            <div className="flex justify-between items-start mb-4 gap-2">
+              <h3 className="font-bold text-lg text-slate-800 dark:text-white flex-1 min-w-0">
                 {goal.title}
               </h3>
-              <span
-                className={`px-2 py-1 rounded text-xs font-medium ${
-                  goal.status === "Completed"
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                    : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                }`}
-              >
-                {goal.status}
-              </span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    goal.status === "Completed"
+                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                  }`}
+                >
+                  {goal.status}
+                </span>
+                {onDeleteGoal && (
+                  <button
+                    onClick={() => setGoalToDelete(goal.id)}
+                    aria-label={`Delete goal "${goal.title}"`}
+                    className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 flex-1">
               {goal.description}
@@ -669,6 +696,44 @@ const Goals: React.FC<GoalsProps> = ({
           );
         })}
       </div>
+
+      {goalToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-none sm:rounded-xl shadow-2xl p-4 sm:p-6 max-w-sm w-full h-full sm:h-auto mx-0 sm:mx-4 border-0 sm:border border-slate-200 dark:border-slate-800 flex flex-col">
+            <div className="flex-1 flex flex-col justify-center">
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
+                <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="text-lg font-bold text-center mb-2 text-slate-900 dark:text-white">
+                Delete Goal?
+              </h3>
+              <p className="text-center text-slate-500 dark:text-slate-400 text-sm mb-6">
+                Are you sure you want to delete "
+                <strong>
+                  {goals.find((g) => g.id === goalToDelete)?.title}
+                </strong>
+                "? This will also remove all milestones. This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 mt-auto">
+              <button
+                onClick={() => setGoalToDelete(null)}
+                disabled={isDeleting}
+                className="flex-1 py-3 sm:py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex-1 py-3 sm:py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg text-sm font-medium min-h-[44px] touch-manipulation disabled:opacity-50"
+              >
+                {isDeleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {goalToConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">

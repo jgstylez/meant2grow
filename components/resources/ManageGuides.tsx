@@ -5,6 +5,14 @@ import { DiscussionGuide } from '../../types';
 import { CARD_CLASS, INPUT_CLASS, BUTTON_PRIMARY } from '../../styles/common';
 import RichTextEditor from '../RichTextEditor';
 
+function getReadTimeFromContent(html: string): string {
+    if (!html?.trim()) return '1 min read';
+    const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const wordCount = text ? text.split(/\s+/).filter(Boolean).length : 0;
+    const minutes = Math.max(1, Math.ceil(wordCount / 200));
+    return `${minutes} min read`;
+}
+
 interface ManageGuidesProps {
     discussionGuides: DiscussionGuide[];
     onAdd: (guide: Omit<DiscussionGuide, 'id' | 'createdAt'>) => void;
@@ -36,11 +44,11 @@ export const ManageGuides: React.FC<ManageGuidesProps> = ({
     const [editingGuide, setEditingGuide] = useState<DiscussionGuide | null>(null);
 
     const handleSaveGuide = async () => {
-        if (!newGuide.title || !newGuide.readTime || !newGuide.description) return;
+        if (!newGuide.title || !newGuide.description) return;
 
         const guideData: Omit<DiscussionGuide, 'id' | 'createdAt'> = {
             title: newGuide.title!,
-            readTime: newGuide.readTime!,
+            readTime: getReadTimeFromContent(newGuide.content || ''),
             description: newGuide.description!,
             content: newGuide.content || '',
             author: newGuide.author || userName,
@@ -88,15 +96,6 @@ export const ManageGuides: React.FC<ManageGuidesProps> = ({
                             onChange={e => setNewGuide({ ...newGuide, title: e.target.value })}
                         />
                     </div>
-                    <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Read Time</label>
-                        <input
-                            className={INPUT_CLASS}
-                            placeholder="e.g. 5 min read"
-                            value={newGuide.readTime}
-                            onChange={e => setNewGuide({ ...newGuide, readTime: e.target.value })}
-                        />
-                    </div>
                     {canManagePlatform && (
                         <div>
                             <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Scope</label>
@@ -140,7 +139,7 @@ export const ManageGuides: React.FC<ManageGuidesProps> = ({
                     )}
                     <button
                         onClick={handleSaveGuide}
-                        disabled={!newGuide.title || !newGuide.readTime || !newGuide.description}
+                        disabled={!newGuide.title || !newGuide.description}
                         className={BUTTON_PRIMARY}
                     >
                         <Save className="w-4 h-4 mr-2" /> {editingGuide ? 'Update Guide' : 'Create Guide'}
