@@ -316,6 +316,7 @@ interface ChatProps {
   initialChatId?: string;
   matches?: Match[];
   onErrorToast?: (message: string) => void;
+  onNavigate?: (page: string) => void;
 }
 
 const Chat: React.FC<ChatProps> = ({
@@ -325,10 +326,12 @@ const Chat: React.FC<ChatProps> = ({
   initialChatId,
   matches = [],
   onErrorToast,
+  onNavigate,
 }) => {
   const [chatGroups, setChatGroups] = useState<ChatGroup[]>([]);
   const unsubscribeMessagesRef = useRef<Record<string, Unsubscribe>>({});
   const unsubscribeGroupsRef = useRef<Unsubscribe | null>(null);
+  const userRequestedListRef = useRef(false);
   
   // State declarations that are used in computed values below
   const [approvedPrivateMessagePartners, setApprovedPrivateMessagePartners] = useState<Set<string>>(new Set());
@@ -858,12 +861,12 @@ const Chat: React.FC<ChatProps> = ({
     return "";
   });
 
-  // Update activeChatId when initialChatId changes
+  // Update activeChatId when initialChatId changes (skip when user explicitly clicked Back to list)
   useEffect(() => {
+    if (userRequestedListRef.current) return;
     if (initialChatId) {
       setActiveChatId(initialChatId);
     } else if (initialChatId === undefined) {
-      // Clear selection when navigating back to general chat page
       setActiveChatId("");
     }
   }, [initialChatId]);
@@ -881,6 +884,7 @@ const Chat: React.FC<ChatProps> = ({
 
   // Auto-select the chat once it's loaded (for group chats and user chats)
   useEffect(() => {
+    if (userRequestedListRef.current) return;
     if (initialChatId) {
       // Check if chat is in allChats (groups or available DMs)
       const foundChat = allChats.find((c) => c.id === initialChatId);
@@ -2696,16 +2700,16 @@ const Chat: React.FC<ChatProps> = ({
   };
 
   return (
-    <div className="flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 relative min-h-[calc(100vh-4rem)] sm:min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-8rem)]">
-      {/* Sidebar List - Mobile: only show when no chat selected */}
+    <div className="flex flex-col md:flex-row bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 relative min-h-[calc(100vh-4rem)] sm:min-h-[calc(100vh-6rem)] md:min-h-0 md:h-[calc(100vh-8rem)]">
+      {/* Sidebar List - Mobile: only show when no chat selected; full height, scrollable list */}
       <div
-        className={`w-full md:w-80 border-r border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col ${
+        className={`w-full md:w-80 border-r border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col min-h-0 ${
           activeChatId ? "hidden md:flex" : "flex"
         } ${
           activeChatId ? "" : "absolute md:relative"
-        } inset-0 md:inset-auto z-10 md:z-auto h-full`}
+        } inset-0 md:inset-auto ${activeChatId ? "z-10 md:z-auto" : "z-30 md:z-auto"} h-full md:min-h-0`}
       >
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div className="flex-shrink-0 p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-bold text-slate-800 dark:text-white text-lg">
               Messages
@@ -2727,7 +2731,7 @@ const Chat: React.FC<ChatProps> = ({
             className="w-full text-sm bg-slate-100 dark:bg-slate-800 border-none rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white"
           />
         </div>
-        <div className="overflow-y-auto flex-1">
+        <div className="flex-1 min-h-0 overflow-y-auto touch-action-pan-y overscroll-contain">
           {sortedChats.map((item) => {
             const lastMsg = messages[item.id]?.[messages[item.id]?.length - 1];
             // @ts-ignore
@@ -2738,7 +2742,11 @@ const Chat: React.FC<ChatProps> = ({
             return (
               <div
                 key={item.id}
-                onClick={() => setActiveChatId(item.id)}
+                onClick={() => {
+                  userRequestedListRef.current = false;
+                  setActiveChatId(item.id);
+                  onNavigate?.(`chat:${item.id}`);
+                }}
                 className={`p-4 flex items-center cursor-pointer hover:bg-white dark:hover:bg-slate-800 transition-colors border-b border-slate-50 dark:border-slate-900 ${
                   activeChatId === item.id
                     ? "bg-white dark:bg-slate-800 border-l-4 border-l-emerald-500 shadow-sm"
@@ -2813,25 +2821,34 @@ const Chat: React.FC<ChatProps> = ({
         </div>
       </div>
 
-      {/* Chat Area - Mobile: only show when chat is selected */}
+      {/* Chat Area - Mobile: only show when chat is selected; fixed layout: header top, input bottom, messages scroll */}
       <div
-        className={`flex-1 flex flex-col bg-white dark:bg-slate-900 relative ${
+        className={`flex-1 flex flex-col bg-white dark:bg-slate-900 relative overflow-hidden ${
           !activeChatId ? "hidden md:flex" : "flex"
         } ${
           !activeChatId ? "" : "absolute md:relative"
-        } inset-0 md:inset-auto z-20 md:z-auto h-full w-full`}
+        } inset-0 md:inset-auto z-20 md:z-auto h-full w-full min-h-0`}
       >
         {activeChat ? (
-          <>
-            {/* Header - compact on mobile when Live Call icon is hidden (below lg) */}
-            <div className="px-2 py-2 sm:px-3 sm:py-3 lg:p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center gap-1.5 sm:gap-2 lg:gap-4 bg-white dark:bg-slate-900 shadow-sm z-20 sticky top-0 min-h-[48px] sm:min-h-[56px] lg:min-h-[60px]">
+          <div className="flex flex-col h-full min-h-0 overflow-hidden">
+            {/* Header - fixed at top */}
+            <div className="flex-shrink-0 px-2 py-2 sm:px-3 sm:py-3 lg:p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center gap-1.5 sm:gap-2 lg:gap-4 bg-white dark:bg-slate-900 shadow-sm z-10 min-h-[48px] sm:min-h-[56px] lg:min-h-[60px]">
               <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-4 flex-1 min-w-0 overflow-hidden">
                 <button
                   onClick={() => {
+                    userRequestedListRef.current = true;
                     setActiveChatId("");
                     closeChatMenu();
                     setShowEmojiPicker(false);
                     setShowGifPicker(false);
+                    if (organizationId) {
+                      try {
+                        localStorage.removeItem(`lastActiveChatId_${organizationId}`);
+                      } catch {
+                        /* ignore */
+                      }
+                    }
+                    // Don't call onNavigate - avoids remount that caused list to flash
                   }}
                   className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0 -ml-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors touch-manipulation"
                   aria-label="Back to messages"
@@ -3227,9 +3244,9 @@ className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm font-medi
               </div>
             </div>
 
-            {/* Messages */}
+            {/* Messages - scrollable, input stays at bottom via flex-shrink-0 */}
             <div
-              className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3 sm:space-y-4 bg-slate-50/50 dark:bg-slate-950/50 min-h-0"
+              className="flex-1 min-h-0 flex flex-col p-3 sm:p-4 overflow-y-auto space-y-3 sm:space-y-4 bg-slate-50/50 dark:bg-slate-950/50"
               onClick={closeChatMenu}
             >
               {isBlocked && (
@@ -3247,6 +3264,13 @@ className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm font-medi
                   >
                     Unblock
                   </button>
+                </div>
+              )}
+              {currentChatMessages.length === 0 && !isBlocked && (
+                <div className="flex-1 flex flex-col items-center justify-center min-h-[180px] text-slate-400 dark:text-slate-500">
+                  <MessageSquare className="w-12 h-12 mb-3 opacity-30" />
+                  <p className="text-sm font-medium">No messages yet</p>
+                  <p className="text-xs mt-1">Start the conversation — say hi below</p>
                 </div>
               )}
               {currentChatMessages.map((msg) => {
@@ -3491,9 +3515,9 @@ className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm font-medi
               )}
             </div>
 
-            {/* Input Area */}
+            {/* Input Area - fixed at bottom */}
             {!isBlocked ? (
-              <div className="p-3 sm:p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 relative">
+              <div className="flex-shrink-0 p-3 sm:p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 relative">
                 {showEmojiPicker && (
                   <div className="absolute bottom-full left-0 sm:left-4 mb-2 bg-white dark:bg-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 rounded-lg p-2 w-full sm:w-[360px] h-48 sm:h-64 overflow-y-auto grid grid-cols-10 gap-1 z-20">
                     {EMOJIS.map((e) => (
@@ -3759,7 +3783,7 @@ className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm font-medi
                 Messaging unavailable.
               </div>
             )}
-          </>
+          </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8">
             <MessageSquare className="w-16 h-16 mb-4 opacity-20" />

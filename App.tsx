@@ -1583,6 +1583,7 @@ const App: React.FC = () => {
                 initialChatId={chatId}
                 matches={matches}
                 onErrorToast={(message) => addToast(message, "error")}
+                onNavigate={setCurrentPage}
               />
             </ErrorBoundary>
           </Suspense>
@@ -1696,6 +1697,7 @@ const App: React.FC = () => {
                   initialChatId={chatId}
                   matches={matches}
                   onErrorToast={(message) => addToast(message, "error")}
+                  onNavigate={setCurrentPage}
                 />
               </ErrorBoundary>
             </Suspense>

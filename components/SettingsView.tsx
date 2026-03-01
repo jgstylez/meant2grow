@@ -1679,6 +1679,23 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                     {currentPlan === 'trial' ? 'Select a Plan' : 'Change Plan'}
                                 </h3>
                                 <div className="space-y-3">
+                                    {currentPlan === 'trial' && (
+                                        <div className="flex items-center justify-between p-4 border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+                                            <div>
+                                                <p className="font-bold text-slate-800 dark:text-white">Starter</p>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">$99/month • 1-99 participants</p>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setTargetPlan('starter');
+                                                    setShowUpgradeModal(true);
+                                                }}
+                                                className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
+                                            >
+                                                <ArrowUp className="w-4 h-4 mr-1" /> Select Plan
+                                            </button>
+                                        </div>
+                                    )}
                                     {currentPlan !== 'starter' && currentPlan !== 'trial' && (
                                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-xl gap-3 sm:gap-0">
                                             <div>
@@ -1792,23 +1809,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
                                                 className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
                                             >
                                                 <ArrowUp className="w-4 h-4 mr-1" /> {currentPlan === 'trial' ? 'Contact Sales' : 'Contact Sales'}
-                                            </button>
-                                        </div>
-                                    )}
-                                    {currentPlan === 'trial' && (
-                                        <div className="flex items-center justify-between p-4 border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
-                                            <div>
-                                                <p className="font-bold text-slate-800 dark:text-white">Starter</p>
-                                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">$99/month • 1-99 participants</p>
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    setTargetPlan('starter');
-                                                    setShowUpgradeModal(true);
-                                                }}
-                                                className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
-                                            >
-                                                <ArrowUp className="w-4 h-4 mr-1" /> Select Plan
                                             </button>
                                         </div>
                                     )}
