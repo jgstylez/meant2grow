@@ -13,7 +13,6 @@ import { signInWithGoogle, initializeGoogleAuth } from "../services/googleAuth";
 import {
   createUser,
   getOrganizationByCode,
-  findUserByEmail,
   getInvitationByToken,
   getInvitationByEmail,
   updateInvitation,
@@ -21,6 +20,7 @@ import {
   subscribeToOrganization,
 } from "../services/database";
 import { Role, User, Invitation, Organization } from "../types";
+import { resolveCanonicalFirestoreUserId } from "../utils/resolveCanonicalUserId";
 import { getErrorMessage } from "../utils/errors";
 import { logger } from "../services/logger";
 
@@ -235,8 +235,7 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
         }
       }
 
-      // Create User
-      const userId = await createUser({
+      const participantProfile = {
         name: formData.name,
         email: formData.email,
         role:
@@ -244,13 +243,35 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
           (participantRole === "MENTOR" ? Role.MENTOR : Role.MENTEE),
         organizationId: org.id,
         bio: "",
-        skills: [],
+        skills: [] as string[],
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
           formData.name
         )}&background=random`,
         title: "",
         company: org.name,
-      });
+      };
+      const userId = await createUser(participantProfile);
+
+      let sessionUserId = userId;
+      if (formData.password) {
+        try {
+          const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
+          const authUid = await createFirebaseAuthAccount(
+            formData.email,
+            formData.password,
+            userId,
+            participantProfile
+          );
+          if (authUid) {
+            sessionUserId = authUid;
+          }
+        } catch (authError) {
+          logger.warn(
+            "Failed to create Firebase Auth during org-signup page signup (user can use Forgot Password or login migration)",
+            authError
+          );
+        }
+      }
 
       // Mark invitation as accepted (only if using invitation)
       if (invitationToUse) {
@@ -259,7 +280,7 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
 
       localStorage.setItem("authToken", "simulated-token");
       localStorage.setItem("organizationId", org.id);
-      localStorage.setItem("userId", userId);
+      localStorage.setItem("userId", sessionUserId);
 
       onLogin(false, true, participantRole);
     } catch (err: unknown) {
@@ -402,10 +423,16 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
         await updateInvitation(invitationToUse.id, { status: "Accepted" });
       }
 
+      const userForSession = {
+        ...joinedUser,
+        firebaseAuthUid: firebaseAuthUid ?? joinedUser.firebaseAuthUid,
+      } as User;
+      const sessionUserId = await resolveCanonicalFirestoreUserId(userForSession);
+
       // Store auth data
       localStorage.setItem("authToken", token);
       localStorage.setItem("organizationId", organizationId);
-      localStorage.setItem("userId", joinedUser.id);
+      localStorage.setItem("userId", sessionUserId);
 
       onLogin(false, true, participantRole);
     } catch (err: unknown) {

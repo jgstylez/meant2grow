@@ -132,8 +132,10 @@ service cloud.firestore {
       
       // Users can update their own profile, org admins can update users in their org, platform operators can update any
       // Allow adding firebaseAuthUid to legacy docs (created with random ID) - only when doc doesn't have it yet
+      // Owner updates when doc id is legacy random id but firebaseAuthUid matches signed-in user (mirrors read rule)
       allow update: if request.auth.uid == userId ||
                      (!exists(resource.data.firebaseAuthUid) && request.resource.data.firebaseAuthUid == request.auth.uid) ||
+                     (resource.data.firebaseAuthUid != null && resource.data.firebaseAuthUid == request.auth.uid) ||
                      (belongsToOrg(resource.data.organizationId) && isOrgAdmin(resource.data.organizationId)) ||
                      isPlatformOperator();
       

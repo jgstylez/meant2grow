@@ -381,7 +381,16 @@ export const getUserByEmail = async (
   } as User;
 };
 
-export const findUserByEmail = async (email: string): Promise<User | null> => {
+/**
+ * Look up a user by email. When organizationId is provided, scopes to that org (avoids wrong match if the same email exists in multiple orgs).
+ */
+export const findUserByEmail = async (
+  email: string,
+  organizationId?: string
+): Promise<User | null> => {
+  if (organizationId) {
+    return getUserByEmail(email, organizationId);
+  }
   const q = query(
     collection(db, "users"),
     where("email", "==", email),

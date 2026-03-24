@@ -25,6 +25,7 @@ import {
   updateInvitation,
   getOrganization,
 } from "../services/database";
+import { resolveCanonicalFirestoreUserId } from "../utils/resolveCanonicalUserId";
 import { Role, User, Invitation, Organization } from "../types";
 import { getErrorMessage } from "../utils/errors";
 import { logger } from "../services/logger";
@@ -216,25 +217,35 @@ const Authentication: React.FC<AuthenticationProps> = ({
         });
 
         // Create Admin User
-        const userId = await createUser({
+        const adminProfile = {
           name: formData.name || "Organization Admin",
           email: formData.email,
           role: Role.ADMIN,
           organizationId: orgId,
           bio: "Program Administrator",
-          skills: [],
+          skills: [] as string[],
           avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
             formData.orgName
           )}&background=random`,
           title: "Organization Admin",
           company: formData.orgName,
-        });
+        };
+        const userId = await createUser(adminProfile);
 
         // Optionally create Firebase Auth account if password is provided
+        let sessionUserId = userId;
         if (formData.password) {
           try {
             const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
-            await createFirebaseAuthAccount(formData.email, formData.password, userId);
+            const authUid = await createFirebaseAuthAccount(
+              formData.email,
+              formData.password,
+              userId,
+              adminProfile
+            );
+            if (authUid) {
+              sessionUserId = authUid;
+            }
           } catch (authError) {
             logger.warn("Failed to create Firebase Auth account during signup (will be created on first login)", authError);
             // Continue with signup even if Firebase Auth creation fails
@@ -244,7 +255,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
         localStorage.setItem("authToken", "simulated-token");
         localStorage.setItem("organizationId", orgId);
-        localStorage.setItem("userId", userId);
+        localStorage.setItem("userId", sessionUserId);
 
         onLogin(true, false);
       } else if (mode === "participant-signup") {
@@ -331,10 +342,19 @@ const Authentication: React.FC<AuthenticationProps> = ({
         const userId = await createUser(userData);
 
         // Optionally create Firebase Auth account if password is provided
+        let sessionUserId = userId;
         if (formData.password) {
           try {
             const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
-            await createFirebaseAuthAccount(formData.email, formData.password, userId, userData);
+            const authUid = await createFirebaseAuthAccount(
+              formData.email,
+              formData.password,
+              userId,
+              userData
+            );
+            if (authUid) {
+              sessionUserId = authUid;
+            }
           } catch (authError) {
             logger.warn("Failed to create Firebase Auth account during signup (will be created on first login)", authError);
             // Continue with signup even if Firebase Auth creation fails
@@ -349,12 +369,21 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
         localStorage.setItem("authToken", "simulated-token");
         localStorage.setItem("organizationId", org.id);
-        localStorage.setItem("userId", userId);
+        localStorage.setItem("userId", sessionUserId);
 
         onLogin(false, true, participantRole);
       } else {
-        // Login
-        const user = await findUserByEmail(formData.email);
+        // Login — scope by org code when provided to avoid matching the wrong org for duplicate emails
+        let user: User | null = null;
+        if (formData.orgCode?.trim()) {
+          const org = await getOrganizationByCode(formData.orgCode.toUpperCase());
+          if (org) {
+            user = await findUserByEmail(formData.email, org.id);
+          }
+        }
+        if (!user) {
+          user = await findUserByEmail(formData.email);
+        }
         if (!user) {
           throw new Error("User not found. Please check your email.");
         }
@@ -415,7 +444,8 @@ const Authentication: React.FC<AuthenticationProps> = ({
 
         localStorage.setItem("authToken", "simulated-token");
         localStorage.setItem("organizationId", user.organizationId);
-        localStorage.setItem("userId", user.id);
+        const sessionUserId = await resolveCanonicalFirestoreUserId(user);
+        localStorage.setItem("userId", sessionUserId);
 
         onLogin(false, false);
       }
@@ -485,6 +515,7 @@ const Authentication: React.FC<AuthenticationProps> = ({
               name: user.name,
               picture: user.picture,
               orgName: formData.orgName || `${user.name}'s Organization`,
+              idToken: idToken || undefined,
             },
           });
           setShowEmailWarning(true);
@@ -533,10 +564,16 @@ const Authentication: React.FC<AuthenticationProps> = ({
           }
         }
 
+        const userForSession = {
+          ...createdUser,
+          firebaseAuthUid: firebaseAuthUid ?? createdUser.firebaseAuthUid,
+        } as User;
+        const sessionUserId = await resolveCanonicalFirestoreUserId(userForSession);
+
         // Store auth data
         localStorage.setItem("authToken", token);
         localStorage.setItem("organizationId", organizationId);
-        localStorage.setItem("userId", createdUser.id);
+        localStorage.setItem("userId", sessionUserId);
 
         onLogin(true, false);
       } else if (mode === "participant-signup") {
@@ -662,10 +699,16 @@ const Authentication: React.FC<AuthenticationProps> = ({
           await updateInvitation(invitationToUse.id, { status: "Accepted" });
         }
 
+        const userForSession = {
+          ...joinedUser,
+          firebaseAuthUid: firebaseAuthUid ?? joinedUser.firebaseAuthUid,
+        } as User;
+        const sessionUserId = await resolveCanonicalFirestoreUserId(userForSession);
+
         // Store auth data
         localStorage.setItem("authToken", token);
         localStorage.setItem("organizationId", organizationId);
-        localStorage.setItem("userId", joinedUser.id);
+        localStorage.setItem("userId", sessionUserId);
 
         onLogin(false, true, participantRole);
       } else {
@@ -697,10 +740,18 @@ const Authentication: React.FC<AuthenticationProps> = ({
           }
         }
 
+        const mergedForSession = {
+          ...existingUser,
+          ...updates,
+          firebaseAuthUid:
+            updates.firebaseAuthUid ?? firebaseAuthUid ?? existingUser.firebaseAuthUid,
+        } as User;
+        const sessionUserId = await resolveCanonicalFirestoreUserId(mergedForSession);
+
         // Store auth data
         localStorage.setItem("authToken", idToken || "simulated-token");
         localStorage.setItem("organizationId", existingUser.organizationId);
-        localStorage.setItem("userId", existingUser.id);
+        localStorage.setItem("userId", sessionUserId);
         if (idToken) {
           localStorage.setItem("google_id_token", idToken);
         }
@@ -751,29 +802,52 @@ const Authentication: React.FC<AuthenticationProps> = ({
           // Don't fail organization creation if trial setup fails
         });
 
-        const userId = await createUser({
+        const proceedAdminProfile = {
           name: formData.name || "Admin",
           email: formData.email,
           role: Role.ADMIN,
           organizationId: orgId,
           bio: "Program Administrator",
-          skills: [],
+          skills: [] as string[],
           avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
             formData.orgName
           )}&background=random`,
           title: "Administrator",
           company: formData.orgName,
-        });
+        };
+        const userId = await createUser(proceedAdminProfile);
+
+        let sessionUserId = userId;
+        if (formData.password) {
+          try {
+            const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
+            const authUid = await createFirebaseAuthAccount(
+              formData.email,
+              formData.password,
+              userId,
+              proceedAdminProfile
+            );
+            if (authUid) {
+              sessionUserId = authUid;
+            }
+          } catch (authError) {
+            logger.warn(
+              "Failed to create Firebase Auth after proceed-with-signup (user can set password on first login)",
+              authError
+            );
+          }
+        }
 
         localStorage.setItem("authToken", "simulated-token");
         localStorage.setItem("organizationId", orgId);
-        localStorage.setItem("userId", userId);
+        localStorage.setItem("userId", sessionUserId);
 
         onLogin(true, false);
       } else if (pendingSignup?.type === "google" && pendingSignup.data) {
         setIsGoogleLoading(true);
         // Proceed with Google signup
         const apiUrl = "/api/auth/google";
+        const { idToken: pendingIdToken } = pendingSignup.data;
 
         const response = await fetch(apiUrl, {
           method: "POST",
@@ -785,6 +859,8 @@ const Authentication: React.FC<AuthenticationProps> = ({
             picture: pendingSignup.data.picture,
             isNewOrg: true,
             orgName: pendingSignup.data.orgName,
+            role: Role.ADMIN,
+            ...(pendingIdToken && { idToken: pendingIdToken }),
           }),
         });
 
@@ -799,9 +875,26 @@ const Authentication: React.FC<AuthenticationProps> = ({
           token,
         } = await response.json();
 
+        const { auth } = await import("../services/firebase");
+        const firebaseAuthUid = auth.currentUser?.uid ?? null;
+        if (firebaseAuthUid && createdUser.id) {
+          try {
+            const { updateUser } = await import("../services/database");
+            await updateUser(createdUser.id, { firebaseAuthUid });
+          } catch (updateError) {
+            logger.error("Failed to update Firebase Auth UID", updateError);
+          }
+        }
+
+        const userForSession = {
+          ...createdUser,
+          firebaseAuthUid: firebaseAuthUid ?? createdUser.firebaseAuthUid,
+        } as User;
+        const sessionUserId = await resolveCanonicalFirestoreUserId(userForSession);
+
         localStorage.setItem("authToken", token);
         localStorage.setItem("organizationId", organizationId);
-        localStorage.setItem("userId", createdUser.id);
+        localStorage.setItem("userId", sessionUserId);
 
         onLogin(true, false);
       }
@@ -1026,9 +1119,12 @@ const Authentication: React.FC<AuthenticationProps> = ({
                       const idToken = await auth.currentUser?.getIdToken();
                       if (!idToken) throw new Error("Session expired. Please sign in again.");
                       await verifyTotpLogin(totpCode, idToken);
+                      const totpSessionId = await resolveCanonicalFirestoreUserId(
+                        pendingTotpUser.user
+                      );
                       localStorage.setItem("authToken", "simulated-token");
                       localStorage.setItem("organizationId", pendingTotpUser.user.organizationId);
-                      localStorage.setItem("userId", pendingTotpUser.user.id);
+                      localStorage.setItem("userId", totpSessionId);
                       setPendingTotpUser(null);
                       setTotpCode("");
                       onLogin(false, false);
