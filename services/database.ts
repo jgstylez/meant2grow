@@ -459,6 +459,37 @@ export const updateUser = async (
   await updateDoc(userRef, updates);
 };
 
+/** Omit undefined so Firestore update payloads are valid. */
+function userPatchWithoutUndefined(updates: Partial<User>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(updates).filter(([, value]) => value !== undefined)
+  ) as Record<string, unknown>;
+}
+
+/**
+ * Updates users/{sessionUser.id} and mirrors the same fields to users/{firebaseAuthUid} when that doc exists.
+ * Use after onboarding or profile edits so legacy-ID and UID-keyed profiles stay aligned.
+ */
+export const updateUserProfileForSession = async (
+  sessionUser: { id: string; firebaseAuthUid?: string | null },
+  updates: Partial<User>
+): Promise<void> => {
+  const clean = userPatchWithoutUndefined(updates);
+  if (Object.keys(clean).length === 0) {
+    return;
+  }
+  await updateDoc(doc(db, "users", sessionUser.id), clean);
+  const link = sessionUser.firebaseAuthUid;
+  if (!link || link === sessionUser.id) {
+    return;
+  }
+  const mirrorRef = doc(db, "users", link);
+  const mirrorSnap = await getDoc(mirrorRef);
+  if (mirrorSnap.exists()) {
+    await updateDoc(mirrorRef, clean);
+  }
+};
+
 /**
  * Atomically increment or decrement a mentor's totalHoursCommitted.
  * Uses Firestore's increment() operation to prevent race conditions.

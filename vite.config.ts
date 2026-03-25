@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { config } from "dotenv";
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   // Determine environment from NODE_ENV or mode
   // NODE_ENV can be: development, sandbox, production
   // mode is typically: development, production
@@ -51,10 +51,29 @@ export default defineConfig(({ mode }) => {
     };
   }
 
+  const functionsProjectId = env.VITE_FIREBASE_PROJECT_ID || "meant2grow-dev";
+  const functionsProxyTarget = (
+    env.VITE_FUNCTIONS_URL || `https://us-central1-${functionsProjectId}.cloudfunctions.net`
+  ).replace(/\/$/, "");
+
   return {
     server: {
       port: 3000,
       host: "0.0.0.0",
+      // Proxy Cloud Functions whenever the dev/preview server runs (not only mode=development),
+      // so /api/functions/* is never a 404 from Vite when using custom modes or NODE_ENV.
+      ...(command === "serve"
+        ? {
+            proxy: {
+              "/api/functions": {
+                target: functionsProxyTarget,
+                changeOrigin: true,
+                secure: true,
+                rewrite: (p: string) => p.replace(/^\/api\/functions/, ""),
+              },
+            },
+          }
+        : {}),
     },
     plugins: [
       react(),

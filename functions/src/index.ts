@@ -8,6 +8,7 @@ import { Role, User, Organization, Match, Goal } from "./types";
 import { createEmailService } from "./emailService";
 import { setTrialPeriod } from "./organizationUtils";
 import { getErrorMessage, getErrorCode, formatError } from "./utils/errors";
+import { mintParticipantToken, videosdkCreateRoom } from "./videoSdk";
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -25,6 +26,13 @@ const serviceAccountEmail = defineString("GOOGLE_SERVICE_ACCOUNT_EMAIL", {
 });
 
 const serviceAccountKey = defineSecret("GOOGLE_SERVICE_ACCOUNT_KEY");
+
+const videoSdkApiKey = defineString("VIDEO_SDK_API_KEY", {
+  description: "VideoSDK API key (dashboard)",
+  default: "",
+});
+
+const videoSdkSecret = defineSecret("VIDEO_SDK_SECRET");
 
 // Email provider: "mailersend" (default) or "mailtrap". Switch here to change provider.
 const emailProvider = defineString("EMAIL_PROVIDER", {
@@ -59,6 +67,18 @@ const appUrl = defineString("VITE_APP_URL", {
   description: "Application URL for email links",
   default: isProduction ? "https://meant2grow.com" : "https://sandbox.meant2grow.com",
 });
+
+/**
+ * Gen-2 HTTPS defaults use 1 vCPU each; many functions in one region can hit
+ * "Quota exceeded for total allowable CPU per project per region" on smaller GCP projects.
+ * Fractional CPU requires concurrency 1 (see firebase-functions GlobalOptions).
+ */
+const LIGHT_HTTP_RUNTIME = {
+  memory: "256MiB" as const,
+  cpu: 0.08333333333333333,
+  concurrency: 1,
+  maxInstances: 10,
+};
 
 // Helper function to get email service instance with current config values
 const getEmailService = () => {
@@ -621,11 +641,96 @@ export const createMeetLink = functions.onRequest(
   }
 );
 
+const ROOM_ID_PATTERN = /^[a-zA-Z0-9_-]{4,128}$/;
+const PARTICIPANT_TOKEN_TTL = 7200;
+
+// In-app video (VideoSDK): mint room + participant token; requires Firebase ID token.
+// invoker must be public so browser CORS preflight (OPTIONS) reaches the function; auth is enforced via ID token below.
+export const videoCallSession = functions.onRequest(
+  {
+    cors: true,
+    region: "us-central1",
+    invoker: "public",
+    secrets: [videoSdkSecret],
+  },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "Method not allowed" });
+      return;
+    }
+
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        res.status(401).json({ error: "Unauthorized", message: "Sign in required for video calls." });
+        return;
+      }
+      const idToken = authHeader.slice(7);
+      if (!idToken || idToken === "simulated-token") {
+        res.status(401).json({ error: "Unauthorized", message: "Sign in required for video calls." });
+        return;
+      }
+
+      let uid: string;
+      try {
+        const decoded = await admin.auth().verifyIdToken(idToken);
+        uid = decoded.uid;
+      } catch {
+        res.status(401).json({ error: "Unauthorized", message: "Invalid session. Please sign in again." });
+        return;
+      }
+
+      const apiKey = videoSdkApiKey.value();
+      const secret = videoSdkSecret.value();
+      if (!apiKey || !secret) {
+        console.error("VideoSDK credentials missing");
+        res.status(500).json({ error: "Video service not configured" });
+        return;
+      }
+
+      const body = (req.body || {}) as { meetingId?: string };
+      let roomId: string;
+
+      if (body.meetingId && typeof body.meetingId === "string") {
+        const trimmed = body.meetingId.trim();
+        if (!ROOM_ID_PATTERN.test(trimmed)) {
+          res.status(400).json({ error: "Invalid meeting id" });
+          return;
+        }
+        roomId = trimmed;
+      } else {
+        roomId = await videosdkCreateRoom(apiKey, secret);
+      }
+
+      const token = mintParticipantToken(
+        apiKey,
+        secret,
+        roomId,
+        uid,
+        PARTICIPANT_TOKEN_TTL
+      );
+
+      res.json({
+        meetingId: roomId,
+        token,
+        participantId: uid,
+      });
+    } catch (error: unknown) {
+      console.error("videoCallSession error:", formatError(error));
+      res.status(500).json({
+        error: "Video call failed",
+        message: getErrorMessage(error),
+      });
+    }
+  }
+);
+
 // Admin email endpoint - allows admins to send emails to mentors/mentees
 export const sendAdminEmail = functions.onRequest(
   {
     cors: true,
     region: "us-central1",
+    ...LIGHT_HTTP_RUNTIME,
   },
   async (req, res) => {
     if (req.method !== "POST") {
@@ -768,6 +873,7 @@ export const forgotPassword = functions.onRequest(
   {
     cors: true,
     region: "us-central1",
+    ...LIGHT_HTTP_RUNTIME,
   },
   async (req, res) => {
     if (req.method !== "POST") {
@@ -1816,6 +1922,7 @@ export const sendInvitationEmail = functions.onRequest(
   {
     cors: true,
     region: "us-central1",
+    ...LIGHT_HTTP_RUNTIME,
   },
   async (req, res) => {
     if (req.method !== "POST") {

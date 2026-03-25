@@ -1,6 +1,9 @@
 // Google Meet API service for creating video call links
 // This will be called from the backend API, not directly from the frontend
 
+import { getCloudFunctionUrl } from "./cloudFunctionsUrl";
+import { getFirebaseIdTokenForCloudFunctions } from "./googleAuth";
+
 export interface MeetLinkResponse {
   meetLink: string;
   meetingCode?: string;
@@ -17,20 +20,14 @@ export const createMeetLink = async (
   endTime?: string
 ): Promise<MeetLinkResponse> => {
   try {
-    // Use Firebase Cloud Functions URL
-    // In production: https://us-central1-meant2grow-dev.cloudfunctions.net/createMeetLink
-    // For local development with emulator: http://localhost:5001/meant2grow-dev/us-central1/createMeetLink
-    const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-      ? `${import.meta.env.VITE_FUNCTIONS_URL}/createMeetLink`
-      : (import.meta.env.DEV 
-        ? 'http://localhost:5001/meant2grow-dev/us-central1/createMeetLink'
-        : 'https://us-central1-meant2grow-dev.cloudfunctions.net/createMeetLink');
-    
+    const functionsUrl = getCloudFunctionUrl("createMeetLink");
+    const idToken = await getFirebaseIdTokenForCloudFunctions();
+
     const response = await fetch(functionsUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`,
+        Authorization: `Bearer ${idToken}`,
       },
       body: JSON.stringify({
         title: eventTitle,

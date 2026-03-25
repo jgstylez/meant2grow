@@ -3,7 +3,7 @@ import { safeIngest } from '../utils/analyticsIngest';
 import { User, Goal, Role } from '../types';
 import { MentorOnboardingData, MenteeOnboardingData } from '../types/onboarding';
 import { getErrorMessage } from '../utils/errors';
-import { createGoal, updateUser } from '../services/database';
+import { createGoal, updateUserProfileForSession } from '../services/database';
 
 export const useOnboardingActions = (
     addToast: (msg: string, type?: 'success' | 'error' | 'info') => void,
@@ -52,7 +52,7 @@ export const useOnboardingActions = (
                 Object.entries(userUpdates).filter(([_, value]) => value !== undefined)
             ) as Partial<User>;
 
-            await updateUser(currentUser.id, cleanUpdates);
+            await updateUserProfileForSession(currentUser, cleanUpdates);
 
             const onboardingComplete = getOnboardingComplete();
             setOnboardingComplete({ ...onboardingComplete, [currentUser.id]: true });
@@ -126,7 +126,7 @@ export const useOnboardingActions = (
                 Object.entries(userUpdates).filter(([_, value]) => value !== undefined)
             ) as Partial<User>;
 
-            await updateUser(currentUser.id, cleanUpdates);
+            await updateUserProfileForSession(currentUser, cleanUpdates);
 
             const onboardingComplete = getOnboardingComplete();
             setOnboardingComplete({ ...onboardingComplete, [currentUser.id]: true });

@@ -4,6 +4,8 @@ import { db } from './firebase';
 import { getAuth } from 'firebase/auth';
 import { saveDeviceInfo, createDeviceInfo, generateDeviceId, getUserDevices, removeDevice } from './deviceTracking';
 import { getErrorMessage, getErrorCode } from '../utils/errors';
+import { isLocalDevelopment } from '../utils/environment';
+import { logger } from './logger';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
 
@@ -39,6 +41,12 @@ async function ensureServiceWorkerRegistered(): Promise<boolean> {
 export async function requestNotificationPermission(): Promise<string | null> {
   if (!messaging) {
     console.warn('Firebase Cloud Messaging is not available');
+    return null;
+  }
+
+  // Vite dev disables the PWA service worker; localhost often has no push service — skip quietly
+  if (isLocalDevelopment()) {
+    logger.debug('Skipping FCM token on local development (push/service worker not used)');
     return null;
   }
 
@@ -81,14 +89,27 @@ export async function requestNotificationPermission(): Promise<string | null> {
 
     return token;
   } catch (error: unknown) {
-    console.error('Error getting FCM token:', error);
-    
-    // iOS-specific error handling
     const errorCode = getErrorCode(error);
-    if (errorCode === 'messaging/unsupported-browser') {
-      console.warn('Browser does not support FCM. iOS requires Safari 16.4+ and app must be installed as PWA.');
+    const name = error instanceof Error ? error.name : '';
+    const isAbortOrPush =
+      name === 'AbortError' ||
+      (error instanceof Error && /push|not available|registration failed/i.test(error.message));
+
+    if (isAbortOrPush) {
+      logger.debug('FCM token unavailable (push service or registration)', {
+        code: errorCode,
+        message: getErrorMessage(error),
+      });
+    } else {
+      logger.warn('Error getting FCM token', { code: errorCode, message: getErrorMessage(error) });
     }
-    
+
+    if (errorCode === 'messaging/unsupported-browser') {
+      logger.debug(
+        'Browser may not support full FCM (e.g. iOS Safari PWA requirements)'
+      );
+    }
+
     return null;
   }
 }
@@ -245,8 +266,8 @@ export async function initializeFCM(userId: string): Promise<{ token: string; de
     }
     
     return null;
-  } catch (error) {
-    console.error('Error initializing FCM:', error);
+  } catch (error: unknown) {
+    logger.debug('Error initializing FCM', { message: getErrorMessage(error) });
     return null;
   }
 }
@@ -274,6 +295,9 @@ export function setupForegroundMessageHandler(
  * Check if notifications are supported
  */
 export function isNotificationSupported(): boolean {
+  if (isLocalDevelopment()) {
+    return false;
+  }
   return (
     typeof window !== 'undefined' &&
     'Notification' in window &&

@@ -4,8 +4,11 @@ import './index.css';
 import App from './App';
 import { getErrorMessage } from './utils/errors';
 
-// Register service worker for PWA and push notifications (required for iOS)
-if ('serviceWorker' in navigator) {
+// Register service worker for PWA and push notifications (required for iOS).
+// In `vite` dev, `/firebase-messaging-sw.js` is not emitted at the root (SPA fallback serves
+// index.html as text/html), which causes SecurityError / MIME type failures. Production and
+// `vite preview` serve the file built by vite-plugin-pwa.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   let swRegistration: ServiceWorkerRegistration | null = null;
 
   const registerSW = async () => {

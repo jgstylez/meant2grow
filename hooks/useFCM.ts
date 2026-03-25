@@ -19,9 +19,10 @@ interface FCMState {
 }
 
 /**
- * Hook to manage Firebase Cloud Messaging
+ * Hook to manage Firebase Cloud Messaging.
+ * @param fcmStorageUserId Firestore user id used to save tokens (session user, or operator id while impersonating)
  */
-export function useFCM(userId: string | null) {
+export function useFCM(fcmStorageUserId: string | null) {
   const [state, setState] = useState<FCMState>({
     isSupported: isNotificationSupported(),
     permission: getNotificationPermission(),
@@ -32,7 +33,7 @@ export function useFCM(userId: string | null) {
 
   // Initialize FCM when user is logged in
   useEffect(() => {
-    if (!userId || !state.isSupported) {
+    if (!fcmStorageUserId || !state.isSupported) {
       return;
     }
 
@@ -51,7 +52,7 @@ export function useFCM(userId: string | null) {
       setState(prev => ({ ...prev, isInitializing: true, error: null }));
       
       try {
-        const result = await initializeFCM(userId);
+        const result = await initializeFCM(fcmStorageUserId);
         // Update permission after initialization (it may have changed)
         const updatedPermission = getNotificationPermission();
         setState(prev => ({
@@ -74,17 +75,17 @@ export function useFCM(userId: string | null) {
     };
 
     init();
-  }, [userId, state.isSupported]); // Removed state.permission - it's updated during init, not a trigger
+  }, [fcmStorageUserId, state.isSupported]); // Removed state.permission - it's updated during init, not a trigger
 
   // Set up token refresh handler
   useEffect(() => {
-    if (!userId || !state.isSupported || !state.token) {
+    if (!fcmStorageUserId || !state.isSupported || !state.token) {
       return;
     }
 
-    const cleanup = setupTokenRefreshHandler(userId);
+    const cleanup = setupTokenRefreshHandler(fcmStorageUserId);
     return cleanup;
-  }, [userId, state.isSupported, state.token]);
+  }, [fcmStorageUserId, state.isSupported, state.token]);
 
   // Set up foreground message handler
   useEffect(() => {
@@ -126,11 +127,11 @@ export function useFCM(userId: string | null) {
   // Cleanup: remove token on logout
   useEffect(() => {
     return () => {
-      if (userId) {
-        removeFCMToken(userId).catch(console.error);
+      if (fcmStorageUserId) {
+        removeFCMToken(fcmStorageUserId).catch(console.error);
       }
     };
-  }, [userId]);
+  }, [fcmStorageUserId]);
 
   // Request permission manually (for cases where user initially denied)
   const requestPermission = useCallback(async () => {
@@ -139,7 +140,7 @@ export function useFCM(userId: string | null) {
     }
 
     try {
-      const result = await initializeFCM(userId || '');
+      const result = await initializeFCM(fcmStorageUserId || '');
       setState(prev => ({
         ...prev,
         token: result?.token || null,
@@ -155,7 +156,7 @@ export function useFCM(userId: string | null) {
       }));
       return false;
     }
-  }, [userId, state.isSupported]);
+  }, [fcmStorageUserId, state.isSupported]);
 
   return {
     ...state,

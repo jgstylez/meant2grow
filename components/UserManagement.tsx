@@ -455,10 +455,16 @@ const UserManagement: React.FC<UserManagementProps> = ({
         originalOperatorId: currentUser.id,
         targetUserId: user.id,
       });
+    } else if (import.meta.env.PROD) {
+      logger.warn(
+        'No Google ID token found for original operator. Firestore operations may fail during impersonation.',
+        { originalOperatorId: currentUser.id }
+      );
     } else {
-      logger.warn('No Google ID token found for original operator. Firestore operations may fail during impersonation.', {
-        originalOperatorId: currentUser.id,
-      });
+      logger.debug(
+        'Impersonation: no Google ID token in storage (common on localhost with email/password); UI-only session.',
+        { originalOperatorId: currentUser.id }
+      );
     }
     
     // Switch to target user (for UI display only)
@@ -1407,7 +1413,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
                       setSelectedUser(null);
                       setImpersonateUser(selectedUser);
                     }}
-                    className="flex-1 px-4 py-2.5 sm:py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex items-center justify-center gap-2 min-h-[44px] touch-manipulation text-sm sm:text-base"
+                    className="flex-1 px-4 py-2.5 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 active:bg-indigo-800 font-medium flex items-center justify-center gap-2 min-h-[44px] touch-manipulation text-sm sm:text-base shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
                   >
                     <LogIn className="w-4 h-4" />
                     Login as User

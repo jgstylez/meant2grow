@@ -56,6 +56,8 @@ const DEFAULT_NOTIFICATION_PREFS: Record<string, { email: boolean; push: boolean
 
 interface SettingsViewProps {
     user: User;
+    /** Firestore user id for FCM / device list; operator id when impersonating */
+    fcmStorageUserId?: string | null;
     onUpdateUser: (u: User) => void;
     initialTab?: string;
     organizationId?: string;
@@ -70,7 +72,7 @@ interface SettingsViewProps {
     onNavigate?: (page: string) => void;
 }
 
-const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initialTab, organizationId, programSettings, onUpdateOrganization, matches = [], goals = [], ratings = [], calendarEvents = [], users = [], onLogout, onNavigate }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ user, fcmStorageUserId, onUpdateUser, initialTab, organizationId, programSettings, onUpdateOrganization, matches = [], goals = [], ratings = [], calendarEvents = [], users = [], onLogout, onNavigate }) => {
     const [activeTab, setActiveTab] = useState(initialTab || 'profile');
     const [isUploadingLogo, setIsUploadingLogo] = useState(false);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -181,7 +183,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, initial
     }, [organization?.trialEnd]);
 
     // Device tracking
-    const { devices, isLoading: devicesLoading, revokeDevice, currentDeviceId } = useDevices(user.id);
+    const { devices, isLoading: devicesLoading, revokeDevice, currentDeviceId } = useDevices(
+        fcmStorageUserId ?? user.id
+    );
     const [revokingDeviceId, setRevokingDeviceId] = useState<string | null>(null);
 
     // Calculate days remaining in trial

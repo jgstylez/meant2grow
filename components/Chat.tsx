@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   User,
@@ -78,7 +78,10 @@ import {
   isMentorsCircleId,
   isMenteesHubId,
 } from "../utils/chatGroups";
-import { JitsiMeeting } from "@jitsi/react-sdk";
+import { parseVideoCallMessage, formatVideoCallChatMessage } from "../utils/videoCallMarkers";
+import { isVerboseChatLogging } from "../utils/environment";
+import { requestVideoCallSession } from "../services/videoCallApi";
+import { setVideoCallReturnPage } from "../utils/videoCallNavigation";
 
 // Using ChatMessage and ChatGroup from types.ts
 
@@ -332,7 +335,9 @@ const Chat: React.FC<ChatProps> = ({
   const unsubscribeMessagesRef = useRef<Record<string, Unsubscribe>>({});
   const unsubscribeGroupsRef = useRef<Unsubscribe | null>(null);
   const userRequestedListRef = useRef(false);
-  
+  /** Avoid spamming debug when auto-select can't open initialChatId (log once per key per mount). */
+  const autoSelectDebugOnceRef = useRef<Set<string>>(new Set());
+
   // State declarations that are used in computed values below
   const [approvedPrivateMessagePartners, setApprovedPrivateMessagePartners] = useState<Set<string>>(new Set());
 
@@ -632,12 +637,14 @@ const Chat: React.FC<ChatProps> = ({
     // But ensure default groups always have current user in members if they should have access
     const merged = [...groups];
     
-    logger.debug("Before merge", {
-      firestoreGroups: groups.map(g => ({ id: g.id, name: g.name, members: g.members?.length || 0 })),
-      fallbackGroups: fallback.map(g => ({ id: g.id, name: g.name })),
-      currentUserRole: currentUser.role,
-      currentUserId: currentUser.id,
-    });
+    if (isVerboseChatLogging()) {
+      logger.debug("Before merge", {
+        firestoreGroups: groups.map(g => ({ id: g.id, name: g.name, members: g.members?.length || 0 })),
+        fallbackGroups: fallback.map(g => ({ id: g.id, name: g.name })),
+        currentUserRole: currentUser.role,
+        currentUserId: currentUser.id,
+      });
+    }
     
     // Ensure default groups have current user in members if they should have access
     // Platform operators are NOT automatically added - they must be explicitly invited
@@ -658,7 +665,9 @@ const Chat: React.FC<ChatProps> = ({
         if (shouldHaveAccess && (!g.members || !g.members.includes(currentUser.id))) {
           // Ensure user is in members array (only for mentors/mentees/org admins, not platform operators)
           g.members = [...(g.members || []), currentUser.id];
-          logger.debug("Added current user to default group members", { groupId: g.id });
+          if (isVerboseChatLogging()) {
+            logger.debug("Added current user to default group members", { groupId: g.id });
+          }
         }
       }
     });
@@ -705,10 +714,12 @@ const Chat: React.FC<ChatProps> = ({
         keptMenteesHubId: bestMenteesHub?.id,
       });
     }
-    
-    logger.debug("After merge", {
-      mergedGroups: deduped.map(g => ({ id: g.id, name: g.name, members: g.members?.length || 0 })),
-    });
+
+    if (isVerboseChatLogging()) {
+      logger.debug("After merge", {
+        mergedGroups: deduped.map(g => ({ id: g.id, name: g.name, members: g.members?.length || 0 })),
+      });
+    }
     
     return deduped;
   })();
@@ -724,11 +735,13 @@ const Chat: React.FC<ChatProps> = ({
     // Platform admins can see groups from all organizations
     // Other users can only see groups from their organization
     if (!isPlatformOperator && g.organizationId !== organizationId) {
-      logger.debug("Filtered out group - wrong organization", {
-        groupId: g.id,
-        groupOrgId: g.organizationId,
-        userOrgId: organizationId,
-      });
+      if (isVerboseChatLogging()) {
+        logger.debug("Filtered out group - wrong organization", {
+          groupId: g.id,
+          groupOrgId: g.organizationId,
+          userOrgId: organizationId,
+        });
+      }
       return false;
     }
 
@@ -742,17 +755,21 @@ const Chat: React.FC<ChatProps> = ({
       // For platform operators, only show if they're explicit members
       if (isPlatformOperator) {
         if (isMember) {
-          logger.debug("Including default group for platform operator (explicit member)", {
-            groupId: g.id,
-            groupName: g.name,
-            currentUserRole: currentUser.role,
-          });
+          if (isVerboseChatLogging()) {
+            logger.debug("Including default group for platform operator (explicit member)", {
+              groupId: g.id,
+              groupName: g.name,
+              currentUserRole: currentUser.role,
+            });
+          }
           return true;
         }
-        logger.debug("Filtered out default group - platform operator not a member", {
-          groupId: g.id,
-          currentUserRole: currentUser.role,
-        });
+        if (isVerboseChatLogging()) {
+          logger.debug("Filtered out default group - platform operator not a member", {
+            groupId: g.id,
+            currentUserRole: currentUser.role,
+          });
+        }
         return false;
       }
       
@@ -768,36 +785,44 @@ const Chat: React.FC<ChatProps> = ({
       
       // Show group if user is a member OR should have access (handles race conditions)
       if (shouldHaveAccess) {
-        logger.debug("Including default group", {
-          groupId: g.id,
-          groupName: g.name,
-          isMember,
-          shouldHaveAccess,
-          currentUserRole: currentUser.role,
-          membersCount: g.members?.length || 0,
-        });
+        if (isVerboseChatLogging()) {
+          logger.debug("Including default group", {
+            groupId: g.id,
+            groupName: g.name,
+            isMember,
+            shouldHaveAccess,
+            currentUserRole: currentUser.role,
+            membersCount: g.members?.length || 0,
+          });
+        }
         return true;
       }
-      logger.debug("Filtered out default group - no access", {
-        groupId: g.id,
-        currentUserRole: currentUser.role,
-      });
+      if (isVerboseChatLogging()) {
+        logger.debug("Filtered out default group - no access", {
+          groupId: g.id,
+          currentUserRole: currentUser.role,
+        });
+      }
       return false;
     }
 
     // For other groups, check membership normally
     const isMember = g.members && g.members.includes(currentUser.id);
     if (!isMember) {
-      logger.debug("Filtered out group - not a member", { groupId: g.id });
+      if (isVerboseChatLogging()) {
+        logger.debug("Filtered out group - not a member", { groupId: g.id });
+      }
     }
     return isMember;
   });
-  
-  logger.debug("Available groups after filtering", {
-    count: availableGroups.length,
-    groupIds: availableGroups.map(g => g.id),
-    groupNames: availableGroups.map(g => g.name),
-  });
+
+  if (isVerboseChatLogging()) {
+    logger.debug("Available groups after filtering", {
+      count: availableGroups.length,
+      groupIds: availableGroups.map(g => g.id),
+      groupNames: availableGroups.map(g => g.name),
+    });
+  }
 
   // Get active matches for current user
   const activeMatches = matches.filter(m => m.status === MatchStatus.ACTIVE);
@@ -860,6 +885,154 @@ const Chat: React.FC<ChatProps> = ({
     // Don't auto-select a chat on initial render to show the list
     return "";
   });
+
+  const activeChat = useMemo((): ChatGroup | User | undefined => {
+    let chat: ChatGroup | User | undefined = allChats.find((c) => c.id === activeChatId) as
+      | ChatGroup
+      | User
+      | undefined;
+    if (!chat && activeChatId && !activeChatId.startsWith("g-")) {
+      const targetUser = users.find((u) => u.id === activeChatId);
+      if (targetUser && targetUser.organizationId === currentUser.organizationId) {
+        const targetUserRoleStr = String(targetUser.role);
+        const isTargetUserAdmin =
+          targetUser.role === Role.ADMIN ||
+          targetUserRoleStr === "ADMIN" ||
+          targetUserRoleStr === "ORGANIZATION_ADMIN";
+        const isTargetUserPlatformAdmin =
+          targetUser.role === Role.PLATFORM_OPERATOR ||
+          targetUserRoleStr === "PLATFORM_OPERATOR";
+        const currentUserRoleStr = String(currentUser.role);
+        const isCurrentUserAdmin =
+          currentUser.role === Role.ADMIN ||
+          currentUserRoleStr === "ADMIN" ||
+          currentUserRoleStr === "ORGANIZATION_ADMIN";
+        const isMatchedPartner = activeMatches.some(
+          (m) =>
+            m.status === MatchStatus.ACTIVE &&
+            ((m.mentorId === currentUser.id && m.menteeId === activeChatId) ||
+              (m.menteeId === currentUser.id && m.mentorId === activeChatId))
+        );
+        const isApprovedPartner = approvedPrivateMessagePartners.has(activeChatId);
+        if (
+          isTargetUserAdmin ||
+          isTargetUserPlatformAdmin ||
+          isCurrentUserAdmin ||
+          isMatchedPartner ||
+          isApprovedPartner
+        ) {
+          chat = targetUser;
+        }
+      }
+    }
+    return chat;
+  }, [allChats, activeChatId, users, currentUser, activeMatches, approvedPrivateMessagePartners]);
+
+  const chatIdsKey = allChats
+    .map((c) => c.id)
+    .sort()
+    .join("|");
+  const userIdsKey = users
+    .map((u) => u.id)
+    .sort()
+    .join("|");
+  const approvedKey = Array.from(approvedPrivateMessagePartners).sort().join("|");
+  const matchesKey = activeMatches
+    .map((m) => `${m.mentorId}:${m.menteeId}:${m.status}`)
+    .sort()
+    .join("|");
+
+  useEffect(() => {
+    if (!activeChatId) return;
+    if (activeChat) return;
+    if (allChats.length === 0) return;
+
+    const inAllChats = allChats.some((c) => c.id === activeChatId);
+    if (inAllChats) return;
+
+    const clearSelection = () => {
+      setActiveChatId("");
+      if (organizationId) {
+        try {
+          localStorage.removeItem(`lastActiveChatId_${organizationId}`);
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+
+    if (activeChatId.startsWith("g-")) {
+      if (
+        isMentorsCircleId(activeChatId, organizationId) ||
+        isMenteesHubId(activeChatId, organizationId)
+      ) {
+        logger.debug("Clearing default group: not available for this role", { activeChatId });
+        clearSelection();
+      }
+      return;
+    }
+
+    const targetUser = users.find((u) => u.id === activeChatId);
+    if (!targetUser) {
+      if (users.length === 0) return;
+      logger.debug("Clearing chat: user not in directory", { activeChatId });
+      clearSelection();
+      return;
+    }
+
+    if (targetUser.organizationId !== currentUser.organizationId) {
+      clearSelection();
+      return;
+    }
+
+    const targetUserRoleStr = String(targetUser.role);
+    const isTargetUserAdmin =
+      targetUser.role === Role.ADMIN ||
+      targetUserRoleStr === "ADMIN" ||
+      targetUserRoleStr === "ORGANIZATION_ADMIN";
+    const isTargetUserPlatformAdmin =
+      targetUser.role === Role.PLATFORM_OPERATOR ||
+      targetUserRoleStr === "PLATFORM_OPERATOR";
+    const currentUserRoleStr = String(currentUser.role);
+    const isCurrentUserAdmin =
+      currentUser.role === Role.ADMIN ||
+      currentUserRoleStr === "ADMIN" ||
+      currentUserRoleStr === "ORGANIZATION_ADMIN";
+    const isMatchedPartner = activeMatches.some(
+      (m) =>
+        m.status === MatchStatus.ACTIVE &&
+        ((m.mentorId === currentUser.id && m.menteeId === activeChatId) ||
+          (m.menteeId === currentUser.id && m.mentorId === activeChatId))
+    );
+    const isApprovedPartner = approvedPrivateMessagePartners.has(activeChatId);
+
+    const canMessage =
+      isTargetUserAdmin ||
+      isTargetUserPlatformAdmin ||
+      isCurrentUserAdmin ||
+      isMatchedPartner ||
+      isApprovedPartner;
+
+    if (!canMessage) {
+      logger.debug("Clearing chat: no permission to message user", { activeChatId });
+      clearSelection();
+    }
+  }, [
+    activeChatId,
+    activeChat,
+    allChats.length,
+    chatIdsKey,
+    userIdsKey,
+    matchesKey,
+    approvedKey,
+    organizationId,
+    currentUser.id,
+    currentUser.organizationId,
+    currentUser.role,
+    users,
+    activeMatches,
+    approvedPrivateMessagePartners,
+  ]);
 
   // Update activeChatId when initialChatId changes (skip when user explicitly clicked Back to list)
   useEffect(() => {
@@ -939,20 +1112,27 @@ const Chat: React.FC<ChatProps> = ({
                 setActiveChatId(initialChatId);
               }
             } else {
-              logger.debug("Chat not found and user not available for messaging", {
-                initialChatId,
-                allChatIds: allChats.map(c => c.id),
-                chatGroupsCount: chatGroups.length,
-              });
+              const logKey = `unavailable:${initialChatId}`;
+              if (!autoSelectDebugOnceRef.current.has(logKey)) {
+                autoSelectDebugOnceRef.current.add(logKey);
+                logger.debug("Chat not found and user not available for messaging", {
+                  initialChatId,
+                  allChatIds: allChats.map(c => c.id),
+                  chatGroupsCount: chatGroups.length,
+                });
+              }
             }
           }
         } else {
-          // Not a valid user or wrong organization
-          logger.debug("Chat not found - invalid user ID or wrong organization", {
-            initialChatId,
-            allChatIds: allChats.map(c => c.id),
-            chatGroupsCount: chatGroups.length,
-          });
+          const logKey = `invalid:${initialChatId}`;
+          if (!autoSelectDebugOnceRef.current.has(logKey)) {
+            autoSelectDebugOnceRef.current.add(logKey);
+            logger.debug("Chat not found - invalid user ID or wrong organization", {
+              initialChatId,
+              allChatIds: allChats.map(c => c.id),
+              chatGroupsCount: chatGroups.length,
+            });
+          }
         }
       }
     }
@@ -972,6 +1152,22 @@ const Chat: React.FC<ChatProps> = ({
     setMenuPosition(null);
   };
 
+  const backToConversationList = useCallback(() => {
+    userRequestedListRef.current = true;
+    setActiveChatId("");
+    setShowMenu(false);
+    setMenuPosition(null);
+    setShowEmojiPicker(false);
+    setShowGifPicker(false);
+    if (organizationId) {
+      try {
+        localStorage.removeItem(`lastActiveChatId_${organizationId}`);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [organizationId]);
+
   useEffect(() => {
     if (!showMenu) setMenuPosition(null);
   }, [showMenu]);
@@ -990,7 +1186,7 @@ const Chat: React.FC<ChatProps> = ({
     | "deleteMessage"
   >(null);
   const [messageIdToDelete, setMessageIdToDelete] = useState<string | null>(null);
-  const [jitsiRoom, setJitsiRoom] = useState<{ roomName: string; roomUrl: string } | null>(null);
+  const [videoCallStarting, setVideoCallStarting] = useState(false);
 
   // New States for Actions
   const [pinnedChats, setPinnedChats] = useState<string[]>([]);
@@ -1481,43 +1677,6 @@ const Chat: React.FC<ChatProps> = ({
 
   // Messages are now loaded via Firestore subscriptions
 
-  // Find active chat - check allChats first, then check users array for user chats
-  let activeChat = allChats.find((c) => c.id === activeChatId);
-  
-  // If not found in allChats but activeChatId is a user ID, check if it's a valid user
-  // This handles cases where we want to open a chat with a user (e.g., admin) 
-  // before they're filtered into availableDMs
-  if (!activeChat && activeChatId && !activeChatId.startsWith("g-")) {
-    const targetUser = users.find((u) => u.id === activeChatId);
-    if (targetUser && targetUser.organizationId === currentUser.organizationId) {
-      // Check if user has permission to message this user
-      const targetUserRoleStr = String(targetUser.role);
-      const isTargetUserAdmin = targetUser.role === Role.ADMIN || 
-                                targetUserRoleStr === "ADMIN" || 
-                                targetUserRoleStr === "ORGANIZATION_ADMIN";
-      const isTargetUserPlatformAdmin = targetUser.role === Role.PLATFORM_OPERATOR || 
-                                       targetUserRoleStr === "PLATFORM_OPERATOR";
-      
-      const currentUserRoleStr = String(currentUser.role);
-      const isCurrentUserAdmin = currentUser.role === Role.ADMIN || 
-                                currentUserRoleStr === "ADMIN" || 
-                                currentUserRoleStr === "ORGANIZATION_ADMIN";
-      
-      const isMatchedPartner = activeMatches.some(m => 
-        m.status === MatchStatus.ACTIVE &&
-        ((m.mentorId === currentUser.id && m.menteeId === activeChatId) ||
-         (m.menteeId === currentUser.id && m.mentorId === activeChatId))
-      );
-      const isApprovedPartner = approvedPrivateMessagePartners.has(activeChatId);
-      
-      // Allow if: target is admin, current user is admin, or they're matched/approved
-      if (isTargetUserAdmin || isTargetUserPlatformAdmin || isCurrentUserAdmin || isMatchedPartner || isApprovedPartner) {
-        // Use the user object as the activeChat (for DMs, the chat ID is the user ID)
-        activeChat = targetUser as any;
-      }
-    }
-  }
-
   // Sentiment Analysis Logic - respects manual overrides
   useEffect(() => {
     // Don't auto-update if user has manually set sentiment
@@ -1623,25 +1782,6 @@ const Chat: React.FC<ChatProps> = ({
       </div>
     );
   }
-
-  // If we have an activeChatId but no activeChat and we have chats loaded,
-  // it means the requested chat doesn't exist or user doesn't have access
-  // Clear the selection to show the chat list instead
-  useEffect(() => {
-    if (activeChatId && !activeChat && allChats.length > 0) {
-      const requestedChat = allChats.find(c => c.id === activeChatId);
-      if (!requestedChat) {
-        logger.warn("Requested chat not found or user doesn't have access", {
-          activeChatId,
-          availableChatIds: allChats.map(c => c.id),
-        });
-        // Don't clear if it's a DM (might be loading)
-        if (isMentorsCircleId(activeChatId, organizationId) || isMenteesHubId(activeChatId, organizationId)) {
-          setActiveChatId("");
-        }
-      }
-    }
-  }, [activeChatId, activeChat, allChats]);
 
   const currentChatMessages = messages[activeChatId] || [];
   const isGroup = activeChat && 'type' in activeChat && activeChat.type === "group";
@@ -1830,6 +1970,16 @@ const Chat: React.FC<ChatProps> = ({
         }. Please check the console for details.`
       );
     }
+  };
+
+  const navigateToVideoCall = (meetingId: string) => {
+    const returnPage = activeChatId ? `chat:${activeChatId}` : "chat";
+    setVideoCallReturnPage(returnPage);
+    onNavigate?.(`video-call:${meetingId}`);
+  };
+
+  const handleJoinVideoCallFromMessage = (meetingId: string) => {
+    navigateToVideoCall(meetingId);
   };
 
   // Fetch GIFs from GIPHY API
@@ -2835,21 +2985,7 @@ const Chat: React.FC<ChatProps> = ({
             <div className="flex-shrink-0 px-2 py-2 sm:px-3 sm:py-3 lg:p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center gap-1.5 sm:gap-2 lg:gap-4 bg-white dark:bg-slate-900 shadow-sm z-10 min-h-[48px] sm:min-h-[56px] lg:min-h-[60px]">
               <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-4 flex-1 min-w-0 overflow-hidden">
                 <button
-                  onClick={() => {
-                    userRequestedListRef.current = true;
-                    setActiveChatId("");
-                    closeChatMenu();
-                    setShowEmojiPicker(false);
-                    setShowGifPicker(false);
-                    if (organizationId) {
-                      try {
-                        localStorage.removeItem(`lastActiveChatId_${organizationId}`);
-                      } catch {
-                        /* ignore */
-                      }
-                    }
-                    // Don't call onNavigate - avoids remount that caused list to flash
-                  }}
+                  onClick={backToConversationList}
                   className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0 -ml-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors touch-manipulation"
                   aria-label="Back to messages"
                 >
@@ -3283,6 +3419,8 @@ className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm font-medi
                       minute: "2-digit",
                     })
                   : "Now";
+                const videoCallParsed =
+                  msg.type === "text" ? parseVideoCallMessage(msg.text) : null;
                 return (
                   <div
                     key={msg.id}
@@ -3375,7 +3513,30 @@ className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm font-medi
                             : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-none"
                         }`}
                       >
-                        {msg.type === "text" && <p>{msg.text}</p>}
+                        {msg.type === "text" && (
+                          <>
+                            <p className="whitespace-pre-wrap break-words">
+                              {videoCallParsed?.displayText ?? msg.text}
+                            </p>
+                            {videoCallParsed?.meetingId && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleJoinVideoCallFromMessage(
+                                    videoCallParsed.meetingId!
+                                  )
+                                }
+                                className={`mt-2 text-xs font-semibold px-3 py-2 rounded-lg transition-colors ${
+                                  isMe
+                                    ? "bg-white/25 hover:bg-white/35 text-white"
+                                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                } disabled:opacity-60`}
+                              >
+                                Join call
+                              </button>
+                            )}
+                          </>
+                        )}
                         {msg.type === "image" && (
                           <div className="rounded-lg overflow-hidden mt-1 mb-1">
                             <img
@@ -3785,11 +3946,39 @@ className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm font-medi
             )}
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8">
-            <MessageSquare className="w-16 h-16 mb-4 opacity-20" />
-            <p className="text-sm sm:text-base">
-              Select a conversation to start chatting
-            </p>
+          <div className="flex-1 flex flex-col min-h-0">
+            {activeChatId && (
+              <div className="md:hidden flex-shrink-0 flex items-center gap-2 px-2 py-2 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm z-10 min-h-[48px]">
+                <button
+                  type="button"
+                  onClick={backToConversationList}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0 -ml-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors touch-manipulation"
+                  aria-label="Back to conversations"
+                >
+                  <ArrowLeft className="w-5 h-5 text-slate-700 dark:text-slate-200" />
+                </button>
+                <h2 className="font-semibold text-slate-900 dark:text-white text-sm truncate">
+                  Conversations
+                </h2>
+              </div>
+            )}
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-6 sm:p-8 min-h-0">
+              <MessageSquare className="w-16 h-16 mb-4 opacity-20 shrink-0" />
+              <p className="text-sm sm:text-base text-center text-slate-500 dark:text-slate-400 max-w-sm">
+                {activeChatId
+                  ? "We couldn't open this chat. Use the back button to choose someone to message."
+                  : "Select a conversation to start chatting"}
+              </p>
+              {activeChatId && (
+                <button
+                  type="button"
+                  onClick={backToConversationList}
+                  className="md:hidden mt-6 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 active:bg-emerald-800 touch-manipulation min-h-[44px] shadow-sm"
+                >
+                  Browse conversations
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -3811,26 +4000,29 @@ className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm font-medi
             </div>
             <div className="space-y-2">
               <button
-                onClick={() => {
-                  const useGoogleMeet =
-                    import.meta.env.VITE_USE_GOOGLE_MEET_FALLBACK === "true";
-                  if (useGoogleMeet) {
+                onClick={async () => {
+                  setVideoCallStarting(true);
+                  try {
+                    const session = await requestVideoCallSession();
                     handleSend(
-                      "🎥 Live call started: https://meet.google.com/abc-defg-hij"
+                      formatVideoCallChatMessage(
+                        "Video call started. Join from this conversation when you're ready.",
+                        session.meetingId
+                      )
                     );
                     setActiveModal(null);
-                    window.open("https://meet.google.com/new", "_blank");
-                  } else {
-                    const roomName = `meant2grow-${(activeChatId || "chat").replace(/[/.:]/g, "-")}-${Date.now().toString(36)}`;
-                    const roomUrl = `https://meet.jit.si/${roomName}`;
-                    handleSend(`📞 Meant2Grow call started – join here: ${roomUrl}`);
-                    setJitsiRoom({ roomName, roomUrl });
-                    setActiveModal(null);
+                    navigateToVideoCall(session.meetingId);
+                  } catch (error: unknown) {
+                    onErrorToast?.(getErrorMessage(error));
+                  } finally {
+                    setVideoCallStarting(false);
                   }
                 }}
-                className="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center gap-2 transition-colors"
+                disabled={videoCallStarting}
+                className="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold hover:bg-emerald-700 flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <PhoneCall className="w-5 h-5" /> Start call now
+                <PhoneCall className="w-5 h-5" />{" "}
+                {videoCallStarting ? "Starting…" : "Start call now"}
               </button>
               <button
                 onClick={() => setActiveModal("schedule")}
@@ -3845,90 +4037,6 @@ className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm font-medi
                 Cancel
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {jitsiRoom && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-slate-900 animate-in fade-in">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-900/95 backdrop-blur-sm flex-shrink-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
-                <PhoneCall className="w-4 h-4 text-white" />
-              </div>
-              <div className="min-w-0">
-                <span className="font-semibold text-white text-sm block truncate">
-                  Meant2Grow
-                </span>
-                <span className="text-slate-400 text-xs block truncate">
-                  {activeChat?.name}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => setJitsiRoom(null)}
-              className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors"
-              aria-label="End call and return"
-            >
-              <X className="w-4 h-4" />
-              End call
-            </button>
-          </div>
-          <div className="flex-1 min-h-0 bg-slate-900">
-            <JitsiMeeting
-              domain="meet.jit.si"
-              roomName={jitsiRoom.roomName}
-              configOverwrite={{
-                startWithAudioMuted: false,
-                startWithVideoMuted: false,
-                enableLobby: false,
-                prejoinConfig: { enabled: false },
-                disableModeratorIndicator: true,
-                requireDisplayName: false,
-                enableWelcomePage: false,
-                disableThirdPartyRequests: true,
-                enableClosePage: false,
-              }}
-              interfaceConfigOverwrite={{
-                APP_NAME: "Meant2Grow",
-                PROVIDER_NAME: "Meant2Grow",
-                SHOW_JITSI_WATERMARK: false,
-                SHOW_BRAND_WATERMARK: false,
-                SHOW_POWERED_BY: false,
-                SHOW_PROMOTIONAL_CLOSE_PAGE: false,
-                MOBILE_APP_PROMO: false,
-                DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
-                HIDE_INVITE_MORE_HEADER: true,
-                DISPLAY_WELCOME_FOOTER: false,
-                BRAND_WATERMARK_LINK: "",
-                JITSI_WATERMARK_LINK: "",
-                ...(typeof window !== "undefined" && {
-                  DEFAULT_LOGO_URL: `${window.location.origin}/logo-temp.svg`,
-                  DEFAULT_WELCOME_PAGE_LOGO_URL: `${window.location.origin}/logo-temp.svg`,
-                }),
-                TOOLBAR_BUTTONS: [
-                  "microphone",
-                  "camera",
-                  "desktop",
-                  "fullscreen",
-                  "hangup",
-                  "chat",
-                  "settings",
-                  "raisehand",
-                  "tileview",
-                ],
-              }}
-              userInfo={{
-                displayName: currentUser?.name || "Participant",
-              }}
-              getIFrameRef={(ref) => {
-                if (ref) {
-                  ref.style.height = "100%";
-                  ref.style.width = "100%";
-                }
-              }}
-              onReadyToClose={() => setJitsiRoom(null)}
-            />
           </div>
         </div>
       )}

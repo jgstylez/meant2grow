@@ -216,6 +216,12 @@ const Authentication: React.FC<AuthenticationProps> = ({
           // Don't fail organization creation if trial setup fails
         });
 
+        if (!formData.password?.trim()) {
+          throw new Error(
+            "Please choose a password for your administrator account. It is required to sign in and manage your organization."
+          );
+        }
+
         // Create Admin User
         const adminProfile = {
           name: formData.name || "Organization Admin",
@@ -232,26 +238,19 @@ const Authentication: React.FC<AuthenticationProps> = ({
         };
         const userId = await createUser(adminProfile);
 
-        // Optionally create Firebase Auth account if password is provided
-        let sessionUserId = userId;
-        if (formData.password) {
-          try {
-            const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
-            const authUid = await createFirebaseAuthAccount(
-              formData.email,
-              formData.password,
-              userId,
-              adminProfile
-            );
-            if (authUid) {
-              sessionUserId = authUid;
-            }
-          } catch (authError) {
-            logger.warn("Failed to create Firebase Auth account during signup (will be created on first login)", authError);
-            // Continue with signup even if Firebase Auth creation fails
-            // User will be migrated on first login
-          }
+        const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
+        const authUid = await createFirebaseAuthAccount(
+          formData.email.trim(),
+          formData.password.trim(),
+          userId,
+          adminProfile as Record<string, unknown>
+        );
+        if (!authUid) {
+          throw new Error(
+            "We could not finish creating your administrator account. Please check your email isn’t already registered, then try again."
+          );
         }
+        const sessionUserId = authUid;
 
         localStorage.setItem("authToken", "simulated-token");
         localStorage.setItem("organizationId", orgId);
@@ -323,6 +322,12 @@ const Authentication: React.FC<AuthenticationProps> = ({
           }
         }
 
+        if (!formData.password?.trim()) {
+          throw new Error(
+            "Please choose a password to secure your account. A password is required to use chat and the rest of the app."
+          );
+        }
+
         // Create User
         const userData = {
           name: formData.name,
@@ -341,26 +346,19 @@ const Authentication: React.FC<AuthenticationProps> = ({
         };
         const userId = await createUser(userData);
 
-        // Optionally create Firebase Auth account if password is provided
-        let sessionUserId = userId;
-        if (formData.password) {
-          try {
-            const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
-            const authUid = await createFirebaseAuthAccount(
-              formData.email,
-              formData.password,
-              userId,
-              userData
-            );
-            if (authUid) {
-              sessionUserId = authUid;
-            }
-          } catch (authError) {
-            logger.warn("Failed to create Firebase Auth account during signup (will be created on first login)", authError);
-            // Continue with signup even if Firebase Auth creation fails
-            // User will be migrated on first login
-          }
+        const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
+        const authUid = await createFirebaseAuthAccount(
+          formData.email.trim(),
+          formData.password.trim(),
+          userId,
+          userData as Record<string, unknown>
+        );
+        if (!authUid) {
+          throw new Error(
+            "We could not finish creating your account. Please check your email isn’t already registered, then try again."
+          );
         }
+        const sessionUserId = authUid;
 
         // Mark invitation as accepted (only if using invitation)
         if (invitationToUse) {
@@ -802,6 +800,12 @@ const Authentication: React.FC<AuthenticationProps> = ({
           // Don't fail organization creation if trial setup fails
         });
 
+        if (!formData.password?.trim()) {
+          throw new Error(
+            "Please choose a password for your administrator account. It is required to sign in and manage your organization."
+          );
+        }
+
         const proceedAdminProfile = {
           name: formData.name || "Admin",
           email: formData.email,
@@ -817,26 +821,19 @@ const Authentication: React.FC<AuthenticationProps> = ({
         };
         const userId = await createUser(proceedAdminProfile);
 
-        let sessionUserId = userId;
-        if (formData.password) {
-          try {
-            const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
-            const authUid = await createFirebaseAuthAccount(
-              formData.email,
-              formData.password,
-              userId,
-              proceedAdminProfile
-            );
-            if (authUid) {
-              sessionUserId = authUid;
-            }
-          } catch (authError) {
-            logger.warn(
-              "Failed to create Firebase Auth after proceed-with-signup (user can set password on first login)",
-              authError
-            );
-          }
+        const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
+        const authUid = await createFirebaseAuthAccount(
+          formData.email.trim(),
+          formData.password.trim(),
+          userId,
+          proceedAdminProfile as Record<string, unknown>
+        );
+        if (!authUid) {
+          throw new Error(
+            "We could not finish creating your administrator account. Please check your email isn’t already registered, then try again."
+          );
         }
+        const sessionUserId = authUid;
 
         localStorage.setItem("authToken", "simulated-token");
         localStorage.setItem("organizationId", orgId);

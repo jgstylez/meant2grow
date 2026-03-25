@@ -1,7 +1,7 @@
 // Google OAuth 2.0 - Authentication only (no calendar/drive access)
 // Uses Firebase signInWithPopup to get ID token (initTokenClient only returns access_token, not id_token)
 
-import { signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, signInWithCredential } from 'firebase/auth';
 import { auth } from './firebase';
 import { logger } from './logger';
 
@@ -157,4 +157,29 @@ export const getIdToken = (): string | null => {
 export const isAuthenticated = (): boolean => {
   return !!getIdToken();
 };
+
+/**
+ * Firebase ID token for Cloud Functions (verifyIdToken). Prefer the live Auth session
+ * so tokens stay fresh; localStorage keys can be missing or out of sync with auth.
+ */
+export async function getFirebaseIdTokenForCloudFunctions(): Promise<string> {
+  const user = auth.currentUser;
+  if (user) {
+    return user.getIdToken();
+  }
+
+  const stored = localStorage.getItem("authToken");
+  if (stored && stored !== "simulated-token" && stored.trim().length > 0) {
+    return stored;
+  }
+
+  const google = localStorage.getItem("google_id_token");
+  if (google && google.trim().length > 0) {
+    return google;
+  }
+
+  throw new Error(
+    "Sign in required for video calls. Refresh the page or sign in again."
+  );
+}
 

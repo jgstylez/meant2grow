@@ -46,10 +46,26 @@ service cloud.firestore {
               getUserData().organizationId == 'platform');
     }
     
-    // Check if user owns the resource (by userId field)
+    // Owns resource by userId field, or legacy users/{randomId} with firebaseAuthUid == request.auth.uid
     function isOwner(userId) {
-      return isAuthenticated() && 
-             request.auth.uid == userId;
+      return isAuthenticated() && (
+        request.auth.uid == userId ||
+        (
+          exists(/databases/$(database)/documents/users/$(userId)) &&
+          get(/databases/$(database)/documents/users/$(userId)).data.get('firebaseAuthUid', '') == request.auth.uid
+        )
+      );
+    }
+    
+    // users/{profileDocId} belongs to organizationId and caller is that profile (doc id or linked firebaseAuthUid).
+    function profileDocActsForOrg(profileDocId, organizationId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(profileDocId)) &&
+        get(/databases/$(database)/documents/users/$(profileDocId)).data.organizationId == organizationId &&
+        (
+          request.auth.uid == profileDocId ||
+          get(/databases/$(database)/documents/users/$(profileDocId)).data.get('firebaseAuthUid', '') == request.auth.uid
+        );
     }
     
     // Check if document belongs to user's organization
@@ -163,16 +179,16 @@ service cloud.firestore {
       // Platform operators can update any match
       allow update: if isPlatformOperator() ||
                       (isOrgScoped(resource.data.organizationId) &&
-                       (request.auth.uid == resource.data.mentorId ||
-                        request.auth.uid == resource.data.menteeId ||
+                       (isOwner(resource.data.mentorId) ||
+                        isOwner(resource.data.menteeId) ||
                         isOrgAdmin(resource.data.organizationId)));
       
       // Users can delete matches they're part of, or org admins can delete in their org
       // Platform operators can delete any match
       allow delete: if isPlatformOperator() ||
                       (isOrgScoped(resource.data.organizationId) &&
-                       (request.auth.uid == resource.data.mentorId ||
-                        request.auth.uid == resource.data.menteeId ||
+                       (isOwner(resource.data.mentorId) ||
+                        isOwner(resource.data.menteeId) ||
                         isOrgAdmin(resource.data.organizationId)));
     }
     
@@ -181,7 +197,9 @@ service cloud.firestore {
     match /goals/{goalId} {
       // Users can create goals in their organization, platform operators can create anywhere
       allow create: if isAuthenticated() && 
-                      (isPlatformOperator() || belongsToOrg(request.resource.data.organizationId));
+                      (isPlatformOperator() || 
+                       belongsToOrg(request.resource.data.organizationId) ||
+                       profileDocActsForOrg(request.resource.data.userId, request.resource.data.organizationId));
       
       // Users can read goals in their organization, platform operators can read all
       allow read: if isPlatformOperator() || isOrgScoped(resource.data.organizationId);
@@ -232,16 +250,16 @@ service cloud.firestore {
       // Platform operators can update any event
       allow update: if isPlatformOperator() ||
                       (isOrgScoped(resource.data.organizationId) &&
-                       (request.auth.uid == resource.data.mentorId ||
-                        request.auth.uid == resource.data.menteeId ||
+                       (isOwner(resource.data.mentorId) ||
+                        isOwner(resource.data.menteeId) ||
                         isOrgAdmin(resource.data.organizationId)));
       
       // Users can delete events they're part of, or org admins can delete any in their org
       // Platform operators can delete any event
       allow delete: if isPlatformOperator() ||
                       (isOrgScoped(resource.data.organizationId) &&
-                       (request.auth.uid == resource.data.mentorId ||
-                        request.auth.uid == resource.data.menteeId ||
+                       (isOwner(resource.data.mentorId) ||
+                        isOwner(resource.data.menteeId) ||
                         isOrgAdmin(resource.data.organizationId)));
     }
     
@@ -334,40 +352,32 @@ service cloud.firestore {
     // ==================== CHAT MESSAGES ====================
     
     match /chatMessages/{messageId} {
-      // Users can create messages in their organization, platform operators can create anywhere
+      // senderId may be a legacy Firestore id while request.auth.uid is the Firebase Auth uid (linked via firebaseAuthUid)
       allow create: if isAuthenticated() && 
                       (isPlatformOperator() || 
-                       (belongsToOrg(request.resource.data.organizationId) &&
-                        request.auth.uid == request.resource.data.senderId));
+                       profileDocActsForOrg(request.resource.data.senderId, request.resource.data.organizationId));
       
       // Users can read messages in their organization, platform operators can read all
       allow read: if isPlatformOperator() || isOrgScoped(resource.data.organizationId);
       
-      // Users can update their own messages, platform operators can update any
       allow update: if isPlatformOperator() ||
-                      (isOrgScoped(resource.data.organizationId) &&
-                       request.auth.uid == resource.data.senderId);
+                      profileDocActsForOrg(resource.data.senderId, resource.data.organizationId);
       
-      // Users can delete their own messages, or org admins can delete any in their org
-      // Platform operators can delete any message
       allow delete: if isPlatformOperator() ||
+                      profileDocActsForOrg(resource.data.senderId, resource.data.organizationId) ||
                       (isOrgScoped(resource.data.organizationId) &&
-                       (request.auth.uid == resource.data.senderId ||
-                        isOrgAdmin(resource.data.organizationId)));
+                       isOrgAdmin(resource.data.organizationId));
     }
     
     // ==================== TYPING STATUS ====================
     
     match /typingStatus/{typingId} {
-      // Users can set/update their own typing status in their org; platform operators can when impersonating
       allow create, update: if isAuthenticated() &&
-                              ((request.resource.data.userId == request.auth.uid &&
-                                belongsToOrg(request.resource.data.organizationId)) ||
-                               isPlatformOperator());
+                              (isPlatformOperator() ||
+                               profileDocActsForOrg(request.resource.data.userId, request.resource.data.organizationId));
       
-      // Users can delete their own typing status; platform operators when impersonating
       allow delete: if isAuthenticated() &&
-                      (resource.data.userId == request.auth.uid || isPlatformOperator());
+                      (isOwner(resource.data.userId) || isPlatformOperator());
       
       // Users can read typing status for chats in their organization
       allow read: if isPlatformOperator() || isOrgScoped(resource.data.organizationId);
@@ -395,32 +405,23 @@ service cloud.firestore {
     // ==================== PRIVATE MESSAGE REQUESTS ====================
     
     match /privateMessageRequests/{requestId} {
-      // Users can create requests in their organization, platform operators can create anywhere
       allow create: if isAuthenticated() && 
                       (isPlatformOperator() ||
-                       (belongsToOrg(request.resource.data.organizationId) &&
-                        request.auth.uid == request.resource.data.requesterId));
+                       profileDocActsForOrg(request.resource.data.requesterId, request.resource.data.organizationId));
       
-      // Users can read their own requests (as requester or recipient)
-      // Platform operators can read all requests
       allow read: if isPlatformOperator() ||
-                     (isOrgScoped(resource.data.organizationId) &&
-                      (request.auth.uid == resource.data.requesterId ||
-                       request.auth.uid == resource.data.recipientId));
+                     profileDocActsForOrg(resource.data.requesterId, resource.data.organizationId) ||
+                     profileDocActsForOrg(resource.data.recipientId, resource.data.organizationId);
       
-      // Recipients can update requests (approve/reject), or org admins can update any
-      // Platform operators can update any request
       allow update: if isPlatformOperator() ||
+                      profileDocActsForOrg(resource.data.recipientId, resource.data.organizationId) ||
                       (isOrgScoped(resource.data.organizationId) &&
-                       (request.auth.uid == resource.data.recipientId ||
-                        isOrgAdmin(resource.data.organizationId)));
+                       isOrgAdmin(resource.data.organizationId));
       
-      // Requesters can delete their own requests, or org admins can delete any
-      // Platform admins can delete any request
       allow delete: if isPlatformOperator() ||
+                      profileDocActsForOrg(resource.data.requesterId, resource.data.organizationId) ||
                       (isOrgScoped(resource.data.organizationId) &&
-                       (request.auth.uid == resource.data.requesterId ||
-                        isOrgAdmin(resource.data.organizationId)));
+                       isOrgAdmin(resource.data.organizationId));
     }
     
     // ==================== BLOG POSTS (Platform-wide) ====================

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from "react";
+import React, { useState, useEffect, lazy, Suspense, useMemo } from "react";
 import Layout from "./components/Layout";
 import LandingPage from "./components/LandingPage";
 import Authentication from "./components/Authentication";
@@ -81,6 +81,7 @@ const Referrals = lazy(() => import("./components/Referrals"));
 const NotificationsView = lazy(() => import("./components/NotificationsView"));
 const UserManagement = lazy(() => import("./components/UserManagement"));
 const PlatformOperatorManagement = lazy(() => import("./components/PlatformOperatorManagement"));
+const VideoCallPage = lazy(() => import("./components/VideoCallPage"));
 
 // Keep these as regular imports (smaller, needed for initial render)
 import OrganizationSetup from "./components/OrganizationSetup";
@@ -97,6 +98,8 @@ import { useVideoActions } from "./hooks/useVideoActions";
 import { useOnboardingActions } from "./hooks/useOnboardingActions";
 import { useGoalActions } from "./hooks/useGoalActions";
 import { useFCM } from "./hooks/useFCM";
+import { getFCMStorageUserId } from "./utils/fcmOwner";
+import { consumeVideoCallReturnPage } from "./utils/videoCallNavigation";
 import { getErrorMessage, getErrorCode, formatError } from "./utils/errors";
 import { logger } from "./services/logger";
 import { signInToFirebaseAuth, getIdToken, signOut as signOutGoogle } from "./services/googleAuth";
@@ -501,10 +504,12 @@ const App: React.FC = () => {
             localStorage.setItem('originalOperatorIdToken', idToken);
             logger.info('Migrated impersonation session: stored originalOperatorIdToken');
           } else {
-            // Don't exit impersonation - just log a warning
-            // Impersonation can work without Firebase Auth (though Firestore operations will fail)
-            logger.debug('Impersonating without Google ID token; Firebase Auth unavailable, impersonation continues.');
-            // Continue without token - impersonation UI will still work
+            // Email/password or local dev often have no Google OAuth token in storage (expected).
+            if (import.meta.env.PROD) {
+              logger.warn(
+                'Impersonation: no Google ID token in storage; Firebase Auth not restored. Re-sign in with Google for full Firestore access when impersonating.'
+              );
+            }
             return;
           }
         }
@@ -587,8 +592,20 @@ const App: React.FC = () => {
     markUserOnboardingComplete,
   } = useOnboarding();
 
+  // FCM/device tokens must stay on the operator while impersonating (not the impersonated user)
+  const fcmStorageUserId = useMemo(() => {
+    const opId =
+      originalOperator?.id ||
+      (typeof window !== "undefined" ? localStorage.getItem("originalOperatorId") : null);
+    return getFCMStorageUserId({
+      sessionUserId: userId,
+      isImpersonating,
+      originalOperatorId: opId,
+    });
+  }, [userId, isImpersonating, originalOperator?.id]);
+
   // Initialize Firebase Cloud Messaging for push notifications
-  const fcm = useFCM(userId);
+  const fcm = useFCM(fcmStorageUserId);
 
   // Handle navigation based on user state and onboarding status (Firebase is source of truth so it works after refresh/sandbox/production)
   useEffect(() => {
@@ -1760,6 +1777,7 @@ const App: React.FC = () => {
               <ErrorBoundary title="Settings Error">
                 <SettingsView
                   user={currentUser}
+                  fcmStorageUserId={fcmStorageUserId}
                   onUpdateUser={handleUpdateUser}
                   initialTab={tab || "profile"}
                   organizationId={organizationId}
@@ -2009,6 +2027,40 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
+    );
+  }
+
+  if (currentPage.startsWith("video-call:")) {
+    const meetingId = currentPage.slice("video-call:".length);
+    if (!meetingId.trim()) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-white p-6">
+          <p className="text-slate-400 mb-4 text-sm text-center">This call link is invalid.</p>
+          <button
+            type="button"
+            onClick={() => setCurrentPage("chat")}
+            className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+          >
+            Back to messages
+          </button>
+        </div>
+      );
+    }
+    return (
+      <>
+        <Suspense fallback={<LoadingSpinner message="Loading video call..." />}>
+          <VideoCallPage
+            meetingId={meetingId}
+            currentUser={currentUser}
+            onErrorToast={(message) => addToast(message, "error")}
+            onNavigateBack={() => {
+              const dest = consumeVideoCallReturnPage();
+              setCurrentPage(dest);
+            }}
+          />
+        </Suspense>
+        <PrivacyBanner />
+      </>
     );
   }
 
