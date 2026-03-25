@@ -137,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await auth.updateUser(firebaseAuthUid, {
               password: password,
             });
-          } catch (emailError: any) {
+          } catch {
             // User doesn't exist in Firebase Auth - create new account
             firebaseUser = await auth.createUser({
               email: userEmail,

@@ -73,7 +73,7 @@ export const generateAppleCalendarICS = (event: CalendarEvent, meetLink?: string
   const uid = `${event.id || Date.now()}@meant2grow.com`;
   const now = new Date();
   
-  let ics = [
+  const ics = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//Meant2Grow//Calendar Event//EN',

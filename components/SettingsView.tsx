@@ -3,17 +3,14 @@ import { User, Role, Mood, ProgramSettings, Match, MatchStatus, Goal, Rating, Ca
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
 import {
     Users, Settings, Bell, Shield, Calendar, ToggleRight, ToggleLeft, Moon, CheckCircle, Save,
-    Key, Smartphone, Globe, LogOut, Trash2, Download, History, AlertTriangle, Check,
-    CreditCard, ArrowUp, ArrowDown, X, FileText, Smile, Meh, Frown, Zap, Coffee, Heart, AlertCircle,
-    UserPlus, Crown, Edit2, Palette, Upload, Layout
+    Key, Smartphone, Globe, Trash2, Download, History, Check,
+    CreditCard, ArrowUp, ArrowDown, X, FileText, Smile, Meh, Frown, Zap, Coffee, Heart, AlertCircle, Edit2, Palette, Upload, Layout
 } from 'lucide-react';
-import { createUser, getUserByEmail, updateUser, getUsersByOrganization, getOrganization, deleteAllUserData, getChatMessagesBySender } from '../services/database';
+import { getOrganization, deleteAllUserData, getChatMessagesBySender } from '../services/database';
 import { uploadFile, generateUniquePath } from '../services/storage';
 import { updatePassword as firebaseUpdatePassword, deleteFirebaseAuthUser } from '../services/firebaseAuth';
 import { signOut as signOutGoogle } from '../services/googleAuth';
 import { exportUserProfileData } from '../utils/exportUtils';
-import { query, collection, where, getDocs } from 'firebase/firestore';
-import { db } from '../services/firebase';
 import { createCheckoutSession, getBillingData, openBillingPortal, PRICING_TIERS, type BillingData } from '../services/flowglad';
 import { Organization } from '../types';
 import SkillsSelector from './SkillsSelector';
@@ -24,23 +21,17 @@ import {
     clearCalendarCredentials
 } from '../services/calendarService';
 import {
-    requestOutlookAccess,
     storeOutlookCredentials,
     getOutlookCredentials,
-    clearOutlookCredentials,
     exchangeOutlookCode,
 } from '../services/outlookCalendarService';
 import {
-    requestAppleCalendarAccess,
-    storeAppleCredentials,
     getAppleCredentials,
-    clearAppleCredentials,
 } from '../services/appleCalendarService';
 import { useDevices } from '../hooks/useDevices';
 import { getErrorMessage } from '../utils/errors';
 import { logger } from '../services/logger';
 import { LocationInput } from './LocationInput';
-import { CityStateZip } from './CityStateZipInput';
 import { AvatarCropperModal } from './AvatarCropperModal';
 import { LogoCropperModal } from './LogoCropperModal';
 import { setupTotp, verifyTotpSetup, disableTotp } from '../services/totpService';
@@ -213,7 +204,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, fcmStorageUserId, onU
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [isBillingLoading, setIsBillingLoading] = useState(false);
     const [billingData, setBillingData] = useState<BillingData | null>(null);
-    const [billingError, setBillingError] = useState<string | null>(null);
+    const [, setBillingError] = useState<string | null>(null);
 
     // Fetch billing data from Flowglad when billing tab is active
     useEffect(() => {
@@ -276,8 +267,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, fcmStorageUserId, onU
 
     // Calendar Sync State
     const [googleConnected, setGoogleConnected] = useState(false);
-    const [outlookConnected, setOutlookConnected] = useState(false);
-    const [appleConnected, setAppleConnected] = useState(false);
+    const [, setOutlookConnected] = useState(false);
+    const [, setAppleConnected] = useState(false);
     const [calendarSyncing, setCalendarSyncing] = useState<Record<string, boolean>>({
         google: false,
         outlook: false,
@@ -296,7 +287,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, fcmStorageUserId, onU
         const handleOutlookCallback = async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get('code');
-            const state = urlParams.get('state');
 
             if (code && window.location.pathname.includes('/auth/outlook/callback')) {
                 try {

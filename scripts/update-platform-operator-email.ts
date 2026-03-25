@@ -46,9 +46,6 @@ const __dirname = dirname(__filename);
 // Load environment variables
 dotenv.config({ path: resolve(__dirname, "../.env.local") });
 
-// Store the detected project ID at module level
-let detectedProjectId = "meant2grow-prod";
-
 // Initialize Firebase Admin
 if (getApps().length === 0) {
   // Try to use service account key file if it exists
@@ -69,14 +66,12 @@ if (getApps().length === 0) {
     readFileSync(prodServiceAccountPath, "utf8");
     serviceAccountPath = prodServiceAccountPath;
     projectId = "meant2grow-prod";
-    detectedProjectId = "meant2grow-prod";
   } catch {
     // Fall back to dev service account
     try {
       readFileSync(devServiceAccountPath, "utf8");
       serviceAccountPath = devServiceAccountPath;
       projectId = "meant2grow-dev";
-      detectedProjectId = "meant2grow-dev";
     } catch {
       // Neither exists, will use default credentials
     }
@@ -94,7 +89,7 @@ if (getApps().length === 0) {
       console.log("✅ Initialized Firebase Admin with service account");
       console.log(`   Service Account: ${serviceAccountEmail}`);
       console.log(`   Project: ${projectId}`);
-    } catch (fileError) {
+    } catch {
       // Fallback to default credentials
       try {
         initializeApp({
@@ -102,7 +97,7 @@ if (getApps().length === 0) {
           projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId,
         });
         console.log("✅ Initialized Firebase Admin with default credentials");
-      } catch (defaultError) {
+      } catch {
         initializeApp({
           projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId,
         });
@@ -117,7 +112,7 @@ if (getApps().length === 0) {
         projectId: process.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-prod",
       });
       console.log("✅ Initialized Firebase Admin with default credentials");
-    } catch (defaultError) {
+    } catch {
       initializeApp({
         projectId: process.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-prod",
       });
@@ -244,8 +239,6 @@ async function updatePlatformOperatorEmail(oldEmail: string, newEmail: string) {
       console.log(`   Firebase Auth UID: ${userData.firebaseAuthUid}`);
       
       try {
-        const firebaseUser = await auth.getUser(userData.firebaseAuthUid);
-        
         // Update email in Firebase Auth
         await auth.updateUser(userData.firebaseAuthUid, {
           email: normalizedNewEmail,

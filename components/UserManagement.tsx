@@ -5,7 +5,6 @@ import {
   getAllOrganizations,
   updateUser,
   deleteUser,
-  updateOrganization,
   deleteOrganization,
 } from "../services/database";
 import { emailService } from "../services/emailService";
@@ -15,7 +14,6 @@ import { logger } from "../services/logger";
 import {
   Users,
   Search,
-  Filter,
   Edit2,
   Trash2,
   Building,
@@ -32,10 +30,6 @@ import {
   ChevronUp,
   ChevronLeft,
   ChevronRight,
-  Eye,
-  EyeOff,
-  Plus,
-  Globe,
   CheckCircle,
   Send,
   LogIn,
@@ -49,7 +43,7 @@ interface UserManagementProps {
 
 const UserManagement: React.FC<UserManagementProps> = ({
   currentUser,
-  onNavigate,
+  onNavigate: _onNavigate,
   initialTab = "users",
 }) => {
   const [users, setUsers] = useState<User[]>([]);
@@ -302,7 +296,6 @@ const UserManagement: React.FC<UserManagementProps> = ({
       clearTimeout(safetyTimeout);
       isLoadingRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run on mount
 
   // Update activeTab when initialTab prop changes (but only if it's actually different)
@@ -310,7 +303,6 @@ const UserManagement: React.FC<UserManagementProps> = ({
     if (initialTab && initialTab !== activeTab) {
       setActiveTab(initialTab);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTab]); // Only depend on initialTab, not activeTab, to prevent resetting when user clicks tabs
 
   const getRoleIcon = (role: Role) => {

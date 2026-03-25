@@ -18,4 +18,12 @@ View your app in AI Studio: https://ai.studio/apps/drive/1hd7rOX_UAE-OgOqPv6ytJi
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Quality checks
+
+- **`npm run lint`** — ESLint (TypeScript, React, React Hooks, unused imports).
+- **`npm run lint:fix`** — Same as above with safe auto-fixes (e.g. remove unused imports).
+- **`npx tsc --noEmit`** — TypeScript typecheck (root app; Firebase `functions/` uses its own `tsconfig`).
+
+CI runs `npm run lint` and `npm run build` on every push and pull request (see [.github/workflows/ci.yml](.github/workflows/ci.yml)).
 # meant2grow

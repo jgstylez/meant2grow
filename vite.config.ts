@@ -11,7 +11,6 @@ export default defineConfig(({ mode, command }) => {
   // mode is typically: development, production
   const nodeEnv = process.env.NODE_ENV || mode;
   const isSandbox = nodeEnv === "sandbox";
-  const isProduction = nodeEnv === "production" && !isSandbox;
 
   // Read version from version.json (bumped by prebuild script)
   let appVersion = "1.0.0";

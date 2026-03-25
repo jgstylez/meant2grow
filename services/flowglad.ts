@@ -123,7 +123,7 @@ export const openBillingPortal = async (organizationId: string): Promise<void> =
  * Legacy function for backwards compatibility
  * @deprecated Use createCheckoutSession instead
  */
-export const createCustomer = async (organization: Organization, email: string): Promise<string> => {
+export const createCustomer = async (organization: Organization, _email: string): Promise<string> => {
     // Customer creation is now handled automatically during checkout
     // Return the organization ID as a placeholder
     return organization.id;

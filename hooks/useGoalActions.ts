@@ -1,6 +1,6 @@
 
 import { useCallback } from 'react';
-import { User, Goal, Notification } from '../types';
+import { User, Goal } from '../types';
 import { getErrorMessage } from '../utils/errors';
 import { createGoal, updateGoal, deleteGoal, createNotification } from '../services/database';
 

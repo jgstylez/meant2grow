@@ -75,7 +75,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     unwantedSelectors.forEach(selector => {
       try {
         tempDiv.querySelectorAll(selector).forEach(el => el.remove());
-      } catch (e) {
+      } catch {
         // Invalid selector, skip
       }
     });
@@ -112,7 +112,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     });
 
     // Clean up empty paragraphs and normalize whitespace
-    let cleanedHtml = tempDiv.innerHTML
+    const cleanedHtml = tempDiv.innerHTML
       .replace(/<p><\/p>/g, '<br>')
       .replace(/<p>\s*<\/p>/g, '<br>')
       .replace(/<p>\s*<br>\s*<\/p>/g, '<br>')

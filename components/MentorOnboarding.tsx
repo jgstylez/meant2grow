@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
-import { Check, ChevronRight, ChevronLeft, User, Briefcase, MessageSquare, Sparkles, ArrowRight, CheckCircle2, Bell, Users, BookOpen, Calendar } from 'lucide-react';
+import { Check, ChevronRight, ChevronLeft, User, Briefcase, MessageSquare, Sparkles, ArrowRight, CheckCircle2, Bell, BookOpen, Calendar } from 'lucide-react';
 import { ProgramSettings, User as UserType } from '../types';
 import DynamicSignupForm from './DynamicSignupForm';
 import SkillsSelector from './SkillsSelector';
@@ -19,7 +19,7 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
     if (stored) {
       try {
         return JSON.parse(stored);
-      } catch (e) {
+      } catch {
         return null;
       }
     }

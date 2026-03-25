@@ -7,7 +7,6 @@ import {
   getNotificationPermission,
   removeFCMToken
 } from '../services/messaging';
-import { getAuth } from 'firebase/auth';
 import { getErrorMessage } from '../utils/errors';
 
 interface FCMState {

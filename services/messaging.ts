@@ -1,8 +1,7 @@
 import { messaging, getToken, onMessage } from './firebase';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { getAuth } from 'firebase/auth';
-import { saveDeviceInfo, createDeviceInfo, generateDeviceId, getUserDevices, removeDevice } from './deviceTracking';
+import { saveDeviceInfo, createDeviceInfo, generateDeviceId, removeDevice } from './deviceTracking';
 import { getErrorMessage, getErrorCode } from '../utils/errors';
 import { isLocalDevelopment } from '../utils/environment';
 import { logger } from './logger';

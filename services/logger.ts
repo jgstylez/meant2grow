@@ -19,16 +19,6 @@ type LogData =
   | null
   | undefined;
 
-interface LogEntry {
-  level: LogLevel;
-  message: string;
-  data?: LogData;
-  timestamp: Timestamp;
-  userId?: string;
-  organizationId?: string;
-  url: string;
-}
-
 class Logger {
   private isProduction: boolean;
 
@@ -36,7 +26,7 @@ class Logger {
     // Safely check if we're in production, default to false if env is not available
     try {
       this.isProduction = Boolean(import.meta.env?.PROD);
-    } catch (e) {
+    } catch {
       // Fallback if import.meta.env is not available
       this.isProduction = false;
     }
@@ -98,7 +88,7 @@ class Logger {
           // Silently fail - logging should never break the app
         });
       }
-    } catch (e) {
+    } catch {
       // Fallback to console if logger fails
       console.log(`[DEBUG] ${message}`, data);
     }
@@ -110,7 +100,7 @@ class Logger {
       this.log(LogLevel.INFO, message, data).catch(() => {
         // Silently fail - logging should never break the app
       });
-    } catch (e) {
+    } catch {
       // Fallback to console if logger fails
       console.log(`[INFO] ${message}`, data);
     }
@@ -122,7 +112,7 @@ class Logger {
       this.log(LogLevel.WARN, message, data).catch(() => {
         // Silently fail - logging should never break the app
       });
-    } catch (e) {
+    } catch {
       // Fallback to console if logger fails
       console.warn(`[WARN] ${message}`, data);
     }
@@ -145,7 +135,7 @@ class Logger {
       this.log(LogLevel.ERROR, message, errorData).catch(() => {
         // Silently fail - logging should never break the app
       });
-    } catch (e) {
+    } catch {
       // Fallback to console if logger fails
       console.error(`[ERROR] ${message}`, error);
     }

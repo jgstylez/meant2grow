@@ -792,7 +792,7 @@ export const sendAdminEmail = functions.onRequest(
             );
             
             const invalidRecipients = recipientDocs.filter(
-              (doc, idx) => !doc.exists || doc.data()?.organizationId !== organizationId
+              (doc) => !doc.exists || doc.data()?.organizationId !== organizationId
             );
             
             if (invalidRecipients.length > 0) {
@@ -1095,7 +1095,7 @@ export const resetPassword = functions.onRequest(
               await auth.updateUser(firebaseAuthUid, {
                 password: password,
               });
-            } catch (emailError: any) {
+            } catch {
               // User doesn't exist in Firebase Auth - create new account
               firebaseUser = await auth.createUser({
                 email: userEmail,
@@ -1152,7 +1152,7 @@ export const resetPassword = functions.onRequest(
 // Trigger when a new user is created
 export const onUserCreated = functionsV1.firestore
   .document("users/{userId}")
-  .onCreate(async (snap, context) => {
+  .onCreate(async (snap, _context) => {
     try {
       const userData = snap.data();
       const user: User = {
@@ -1196,7 +1196,7 @@ export const onUserCreated = functionsV1.firestore
 // Trigger when a match is created
 export const onMatchCreated = functionsV1.firestore
   .document("matches/{matchId}")
-  .onCreate(async (snap, context) => {
+  .onCreate(async (snap, _context) => {
     try {
       const matchData = snap.data();
       const match: Match = {
@@ -1265,7 +1265,7 @@ export const onMatchCreated = functionsV1.firestore
 // Trigger when a goal is updated to "Completed"
 export const onGoalCompleted = functionsV1.firestore
   .document("goals/{goalId}")
-  .onUpdate(async (change, context) => {
+  .onUpdate(async (change, _context) => {
     try {
       const beforeData = change.before.data();
       const afterData = change.after.data();
@@ -1331,7 +1331,7 @@ export const onGoalCompleted = functionsV1.firestore
 export const checkExpiringTrials = functionsV1.pubsub
   .schedule("every 24 hours")
   .timeZone("America/New_York")
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     try {
       const now = new Date();
 
@@ -1498,7 +1498,7 @@ export const syncCalendarEvent = functions.onRequest(
 export const checkMeetingReminders = functionsV1.pubsub
   .schedule("every 1 hours")
   .timeZone("America/New_York")
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     try {
       const now = new Date();
       // const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // Unused
@@ -1991,7 +1991,7 @@ export const sendInvitationEmail = functions.onRequest(
 // Firestore trigger: Send FCM push notification when a notification is created
 export const onNotificationCreated = functionsV1.firestore
   .document("notifications/{notificationId}")
-  .onCreate(async (snap, context) => {
+  .onCreate(async (snap, _context) => {
     try {
       const notificationData = snap.data();
       const notificationId = snap.id;

@@ -11,7 +11,7 @@ interface ForgotPasswordProps {
   onBack: () => void;
 }
 
-const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onNavigate, onBack }) => {
+const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onNavigate: _onNavigate, onBack }) => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

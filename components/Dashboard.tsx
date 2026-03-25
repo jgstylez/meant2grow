@@ -28,9 +28,6 @@ import {
 import { QueryDocumentSnapshot } from "firebase/firestore";
 import {
   exportUsersToCSV,
-  exportMatchesToCSV,
-  exportGoalsToCSV,
-  exportRatingsToCSV,
   exportToPDF,
 } from "../utils/exportUtils";
 import { platformOperatorCache, cacheKeys } from "../utils/cache";
@@ -43,11 +40,9 @@ import {
   computeAverageFromRatings,
 } from "../utils/ratingsUtils";
 import { logger } from "../services/logger";
-import { parseDurationToHours } from "../services/utils";
 import {
   Users,
   Search,
-  Plus,
   AlertCircle,
   Star,
   Check,
@@ -59,7 +54,6 @@ import {
   Globe,
   Repeat,
   ArrowRight,
-  Settings,
   Layout,
   Edit,
   Copy,
@@ -71,10 +65,6 @@ import {
   Mail,
   ChevronRight,
   TrendingUp,
-  Award,
-  Trophy,
-  Medal,
-  Clock,
   BookOpen,
   Pencil,
 } from "lucide-react";
@@ -219,9 +209,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Platform Operator State
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [allOrganizations, setAllOrganizations] = useState<Organization[]>([]);
-  const [allCalendarEvents, setAllCalendarEvents] = useState<CalendarEvent[]>(
-    [],
-  );
+  const [, setAllCalendarEvents] = useState<CalendarEvent[]>([]);
   const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [allGoals, setAllGoals] = useState<Goal[]>([]);
   const [allRatings, setAllRatings] = useState<Rating[]>([]);
@@ -572,61 +560,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
     );
-  };
-
-  // Calculate meeting hours for a mentor
-  // Uses parseDurationToHours from services/utils.ts which correctly handles
-  // combined formats like "2h 30m" by parsing hours and minutes separately
-  const calculateMentorHours = (
-    mentorId: string,
-    events: CalendarEvent[],
-  ): number => {
-    const mentorEvents = events.filter((e) => e.mentorId === mentorId);
-    return mentorEvents.reduce((total, event) => {
-      return total + parseDurationToHours(event.duration);
-    }, 0);
-  };
-
-  // Get award/badge based on hours
-  const getMentorAward = (
-    hours: number,
-  ): { badge: string; icon: React.ReactNode; color: string } => {
-    if (hours >= 100) {
-      return {
-        badge: "Platinum Mentor",
-        icon: <Trophy className="w-5 h-5" />,
-        color: "text-purple-600 dark:text-purple-400",
-      };
-    } else if (hours >= 50) {
-      return {
-        badge: "Gold Mentor",
-        icon: <Award className="w-5 h-5" />,
-        color: "text-amber-600 dark:text-amber-400",
-      };
-    } else if (hours >= 25) {
-      return {
-        badge: "Silver Mentor",
-        icon: <Medal className="w-5 h-5" />,
-        color: "text-slate-600 dark:text-slate-400",
-      };
-    } else if (hours >= 10) {
-      return {
-        badge: "Bronze Mentor",
-        icon: <Star className="w-5 h-5" />,
-        color: "text-orange-600 dark:text-orange-400",
-      };
-    } else if (hours >= 5) {
-      return {
-        badge: "Rising Mentor",
-        icon: <TrendingUp className="w-5 h-5" />,
-        color: "text-emerald-600 dark:text-emerald-400",
-      };
-    }
-    return {
-      badge: "New Mentor",
-      icon: <GraduationCap className="w-5 h-5" />,
-      color: "text-blue-600 dark:text-blue-400",
-    };
   };
 
   // --- PLATFORM OPERATOR VIEW ---
@@ -1014,15 +947,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           m.status === MatchStatus.ACTIVE &&
           (m.mentorId === userId || m.menteeId === userId),
       );
-    };
-
-    // Get matched partner for a user
-    const getMatchedPartner = (userId: string): User | null => {
-      const userMatch = getUserMatches(userId)[0];
-      if (!userMatch) return null;
-      const partnerId =
-        userMatch.mentorId === userId ? userMatch.menteeId : userMatch.mentorId;
-      return allUsers.find((u) => u.id === partnerId) || null;
     };
 
     // Format role for display
@@ -2503,10 +2427,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     // Calculate matched vs unmatched participants
     const matchedParticipants = activeMatches * 2; // Each match has 2 participants
-    const unmatchedParticipants = Math.max(
-      0,
-      totalParticipants - matchedParticipants,
-    );
 
     return (
       <>

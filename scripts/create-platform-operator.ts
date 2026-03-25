@@ -159,7 +159,7 @@ if (getApps().length === 0) {
       console.log("✅ Initialized Firebase Admin with service account");
       console.log(`   Service Account: ${serviceAccountEmail}`);
       console.log(`   Project: ${projectId}`);
-    } catch (fileError) {
+    } catch {
       // Fallback to default credentials (if running on GCP or with GOOGLE_APPLICATION_CREDENTIALS)
       try {
         initializeApp({
@@ -167,7 +167,7 @@ if (getApps().length === 0) {
           projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId,
         });
         console.log("✅ Initialized Firebase Admin with default credentials");
-      } catch (defaultError) {
+      } catch {
         // Last resort: initialize without credentials (will use environment variables)
         initializeApp({
           projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId,
@@ -185,7 +185,7 @@ if (getApps().length === 0) {
         projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId || "meant2grow-dev",
       });
       console.log("✅ Initialized Firebase Admin with default credentials");
-    } catch (defaultError) {
+    } catch {
       // Last resort: initialize without credentials (will use environment variables)
       initializeApp({
         projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId || "meant2grow-dev",

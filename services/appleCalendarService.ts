@@ -166,7 +166,7 @@ export const convertToAppleEvent = (event: CalendarEvent, meetLink?: string): Ap
 export const convertFromAppleEvent = (
   appleEvent: AppleCalendarEvent,
   organizationId: string,
-  userId: string
+  _userId: string
 ): Omit<CalendarEvent, 'id' | 'createdAt'> => {
   const start = new Date(appleEvent.dtstart);
   const end = new Date(appleEvent.dtend);

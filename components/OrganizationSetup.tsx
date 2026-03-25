@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ProgramSettings } from '../types';
-import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
-import { Check, ChevronRight, ChevronLeft, Upload, Layout, Type, ToggleLeft, ToggleRight, Info, Plus, Trash2, X, Palette } from 'lucide-react';
+import { INPUT_CLASS, BUTTON_PRIMARY } from '../styles/common';
+import { Check, ChevronRight, ChevronLeft, Upload, Layout, Type, ToggleLeft, ToggleRight, Plus, Trash2, X, Palette } from 'lucide-react';
 import { LogoCropperModal } from './LogoCropperModal';
 import { uploadFile, generateUniquePath } from '../services/storage';
 

@@ -1,7 +1,6 @@
 import React from 'react';
 import { DatePicker } from './DatePicker';
 import { TimePicker } from './TimePicker';
-import { INPUT_CLASS } from '../styles/common';
 
 interface DateTimePickerProps {
   dateValue: string; // Format: "YYYY-MM-DD"

@@ -7,7 +7,6 @@ import PublicPages from "./components/PublicPages";
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
 import { EnvironmentBanner } from "./components/EnvironmentBanner";
-import { isSandbox } from "./utils/environment";
 import { safeIngest } from "./utils/analyticsIngest";
 import { getMentorsCircleId, getMenteesHubId } from "./utils/chatGroups";
 import {
@@ -15,31 +14,20 @@ import {
   User,
   Match,
   MatchStatus,
-  Goal,
-  Rating,
-  Resource,
   CalendarEvent,
   Notification,
-  Invitation,
   ProgramSettings,
   BlogPost,
-  DiscussionGuide,
-  CareerTemplate,
-  TrainingVideo,
 } from "./types";
 import { getBlogPosts } from "./services/database";
 import { parseDurationToHours } from "./services/utils";
 import { useOrganizationData } from "./hooks/useOrganizationData";
 import {
   createMatch,
-  updateMatch,
-  createGoal,
-  updateGoal,
   createRating,
   updateRating,
   deleteRating,
   createResource,
-  deleteResource,
   createCalendarEvent,
   getCalendarEvent,
   updateCalendarEvent,
@@ -48,23 +36,10 @@ import {
   updateNotification,
   deleteNotification,
   createInvitation,
-  updateInvitation,
   getUser,
   updateUser,
   incrementMentorHours,
   updateOrganization,
-  createBlogPost,
-  updateBlogPost,
-  deleteBlogPost,
-  createDiscussionGuide,
-  updateDiscussionGuide,
-  deleteDiscussionGuide,
-  createCareerTemplate,
-  updateCareerTemplate,
-  deleteCareerTemplate,
-  createTrainingVideo,
-  updateTrainingVideo,
-  deleteTrainingVideo,
   createChatMessage,
 } from "./services/database";
 
@@ -211,7 +186,6 @@ const App: React.FC = () => {
         setPublicRoute("reset-password");
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
   // Sync dark mode from localStorage on app mount (backup for index.html inline script)
@@ -351,7 +325,7 @@ const App: React.FC = () => {
       setOriginalOperator(null);
       setOriginalOperatorLoading(false);
     }
-  }, []);
+  }, [userId, organizationId]);
 
   // Sync currentUser from loadedUser
   useEffect(() => {
@@ -437,7 +411,6 @@ const App: React.FC = () => {
         setPublicRoute("org-signup");
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once on mount
 
   // Set up Firebase Auth state listener to handle auth state changes and token refresh
@@ -589,7 +562,6 @@ const App: React.FC = () => {
   const {
     getOnboardingComplete,
     setOnboardingComplete,
-    markUserOnboardingComplete,
   } = useOnboarding();
 
   // FCM/device tokens must stay on the operator while impersonating (not the impersonated user)
@@ -605,7 +577,7 @@ const App: React.FC = () => {
   }, [userId, isImpersonating, originalOperator?.id]);
 
   // Initialize Firebase Cloud Messaging for push notifications
-  const fcm = useFCM(fcmStorageUserId);
+  useFCM(fcmStorageUserId);
 
   // Handle navigation based on user state and onboarding status (Firebase is source of truth so it works after refresh/sandbox/production)
   useEffect(() => {

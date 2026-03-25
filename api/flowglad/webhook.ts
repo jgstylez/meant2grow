@@ -47,10 +47,9 @@ const PRICE_TO_TIER: Record<string, string> = {
 async function getRawBody(req: VercelRequest): Promise<Buffer> {
     return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
-        let timeout: NodeJS.Timeout;
-        
+
         // Set a timeout to prevent hanging (10 seconds)
-        timeout = setTimeout(() => {
+        const timeout = setTimeout(() => {
             reject(new Error('Request body read timeout'));
         }, 10000);
         

@@ -30,7 +30,6 @@ const getMailerSendClient = async () => {
   clientPromise = (async () => {
     try {
       // Dynamic import - only loads in server environments
-      // @ts-ignore - mailersend types may not be available in all environments
       const { MailerSend } = await import("mailersend");
       
       const apiToken = import.meta.env.VITE_MAILERSEND_API_TOKEN;
@@ -54,16 +53,6 @@ const getMailerSendClient = async () => {
   })();
 
   return clientPromise;
-};
-
-// Lazy getter for client (synchronous check, async initialization)
-const getClient = () => {
-  // In browser, always return null immediately
-  if (typeof window !== 'undefined') {
-    return null;
-  }
-  // In server, return the client (may be null if not initialized yet)
-  return client;
 };
 
 // Email configuration
@@ -98,7 +87,6 @@ const sendEmail = async (options: {
   }
 
   try {
-    // @ts-ignore - mailersend types may not be available in all environments
     const { EmailParams, Sender, Recipient } = await import("mailersend");
     const sentFrom = new Sender(EMAIL_CONFIG.from.email, EMAIL_CONFIG.from.name);
     const recipients = options.to.map(recipient => 
@@ -680,8 +668,7 @@ export const sendInvitationEmail = async (
   inviterName: string
 ) => {
   const roleText = role === Role.MENTOR ? "Mentor" : role === Role.MENTEE ? "Mentee" : role;
-  const appUrl = import.meta.env.VITE_APP_URL || "https://meant2grow.com";
-  
+
   const subject = `You've been invited to join ${organization.name} on Meant2Grow!`;
   const html = `
     <!DOCTYPE html>

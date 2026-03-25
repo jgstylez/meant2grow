@@ -199,7 +199,7 @@ export const convertToOutlookEvent = (event: CalendarEvent, meetLink?: string): 
 export const convertFromOutlookEvent = (
   outlookEvent: OutlookCalendarEvent,
   organizationId: string,
-  userId: string
+  _userId: string
 ): Omit<CalendarEvent, 'id' | 'createdAt'> => {
   const start = new Date(outlookEvent.start.dateTime);
   const end = new Date(outlookEvent.end.dateTime);

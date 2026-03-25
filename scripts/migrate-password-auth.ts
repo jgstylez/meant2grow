@@ -84,7 +84,7 @@ if (!getApps().length) {
             projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId,
           });
           console.log('✅ Initialized Firebase Admin with default credentials');
-        } catch (defaultError: any) {
+        } catch {
           console.error('❌ Failed to initialize Firebase Admin:');
           console.error('   Please ensure you have either:');
           console.error('   1. A service account JSON file (meant2grow-dev-*.json or meant2grow-prod-*.json)');
@@ -115,7 +115,7 @@ if (!getApps().length) {
           projectId: serviceAccount.projectId,
         });
         console.log('✅ Initialized Firebase Admin with default credentials');
-      } catch (defaultError: any) {
+      } catch {
         console.error('❌ Failed to initialize Firebase Admin:');
         console.error('   Please ensure you have either:');
         console.error('   1. A service account JSON file (meant2grow-dev-*.json or meant2grow-prod-*.json)');
@@ -159,7 +159,7 @@ async function checkFirebaseAuthUser(email: string): Promise<string | null> {
   }
 }
 
-async function generateMigrationReport(dryRun: boolean, sendResetEmails: boolean): Promise<MigrationReport> {
+async function generateMigrationReport(_dryRun: boolean, _sendResetEmails: boolean): Promise<MigrationReport> {
   const report: MigrationReport = {
     totalUsers: 0,
     usersWithPasswordHash: 0,

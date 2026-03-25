@@ -16,11 +16,9 @@ import { breakdownGoal, suggestMilestones, SuggestedMilestone } from "../service
 import {
   createMilestone,
   updateMilestone,
-  deleteMilestone,
   subscribeToMilestones,
 } from "../services/database";
 import { logger } from "../services/logger";
-import { getErrorMessage } from "../utils/errors";
 
 interface GoalsProps {
   user: User;

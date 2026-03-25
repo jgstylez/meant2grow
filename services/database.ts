@@ -9,7 +9,6 @@ import {
   query,
   where,
   Timestamp,
-  addDoc,
   orderBy,
   limit as firestoreLimit,
   onSnapshot,
@@ -58,7 +57,6 @@ import {
   Notification,
   Invitation,
   Organization,
-  ProgramSettings,
   ChatMessage,
   ChatGroup,
   BlogPost,
@@ -104,7 +102,7 @@ const FIRESTORE_INDEX_HINT =
  * This prevents listener state corruption when queries require missing composite indexes
  * Note: This function is currently unused but kept for future use
  */
-function safeOnSnapshot(
+function _safeOnSnapshot(
   queryOrDoc: Parameters<typeof onSnapshot>[0],
   onNext: (snapshot: QuerySnapshot | DocumentSnapshot) => void,
   onError?: (error: Error) => void
@@ -850,7 +848,7 @@ export const createMatch = async (
         if (authUserDoc.exists()) {
           authUserDocData = authUserDoc.data();
         }
-      } catch (docError) {
+      } catch {
         // Ignore - we're already in error handling
       }
     }

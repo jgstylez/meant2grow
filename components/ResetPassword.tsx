@@ -19,7 +19,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, onBack, token
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isValidatingToken, setIsValidatingToken] = useState(true);
+  const [, setIsValidatingToken] = useState(true);
   const [tokenError, setTokenError] = useState<string | null>(null);
 
   // Get token from URL if not provided as prop

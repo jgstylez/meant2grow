@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { Notification } from '../types';
-import { BUTTON_PRIMARY, CARD_CLASS, INPUT_CLASS } from '../styles/common';
-import { Bell, Check, Trash2, Search, Filter, MailOpen, ArrowLeft, X } from 'lucide-react';
+import { CARD_CLASS, INPUT_CLASS } from '../styles/common';
+import { Bell, Check, Trash2, Search, MailOpen, ArrowLeft } from 'lucide-react';
 
 interface NotificationsViewProps {
   notifications: Notification[];
@@ -17,7 +17,7 @@ const NotificationsView: React.FC<NotificationsViewProps> = ({
     notifications, 
     onMarkAsRead, 
     onMarkAllAsRead, 
-    onDismiss,
+    onDismiss: _onDismiss,
     onDelete,
     onNavigate
 }) => {

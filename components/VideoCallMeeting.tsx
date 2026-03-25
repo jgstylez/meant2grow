@@ -73,15 +73,17 @@ function MeetingShell({
   onLeave,
   onErrorToast,
   localAvatarUrl,
-  localDisplayName,
 }: {
   onLeave: () => void;
   onErrorToast?: (message: string) => void;
   localAvatarUrl?: string;
-  localDisplayName: string;
 }) {
   const hadSuccessfulJoinRef = useRef(false);
+  /** Avoid navigating away when `leave()` runs only because the component unmounted (e.g. React Strict Mode). */
+  const isUnmountingRef = useRef(false);
+  const leaveRef = useRef<() => void>(() => {});
   const [toggleBusy, setToggleBusy] = useState<"mic" | "cam" | "share" | null>(null);
+  const [meetingJoined, setMeetingJoined] = useState(false);
 
   const {
     leave,
@@ -94,13 +96,14 @@ function MeetingShell({
     localWebcamOn,
     localScreenShareOn,
     presenterId,
-    isMeetingJoined,
   } = useMeeting({
     onMeetingJoined: () => {
       hadSuccessfulJoinRef.current = true;
+      setMeetingJoined(true);
     },
     onMeetingLeft: () => {
-      if (hadSuccessfulJoinRef.current) {
+      setMeetingJoined(false);
+      if (hadSuccessfulJoinRef.current && !isUnmountingRef.current) {
         onLeave();
       }
     },
@@ -115,6 +118,8 @@ function MeetingShell({
       }
     },
   });
+
+  leaveRef.current = leave;
 
   // VideoSDK can reject with AwaitQueueStoppedError when the room transport closes during
   // unmount; it is benign but pollutes the console as an unhandled rejection.
@@ -139,13 +144,14 @@ function MeetingShell({
 
   useEffect(() => {
     return () => {
+      isUnmountingRef.current = true;
       try {
-        leave();
+        leaveRef.current();
       } catch {
         /* ignore sync errors from teardown */
       }
     };
-  }, [leave]);
+  }, []);
 
   const handleLeave = useCallback(() => {
     leave();
@@ -205,7 +211,7 @@ function MeetingShell({
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-slate-950 text-white">
       <div className={`flex-1 min-h-0 p-3 grid gap-3 ${gridClass} auto-rows-fr`}>
-        {!isMeetingJoined ? (
+        {!meetingJoined ? (
           <div className="flex flex-col items-center justify-center rounded-2xl bg-slate-900/80 border border-slate-700/80 col-span-full min-h-[200px]">
             <div className="h-10 w-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
             <p className="text-sm text-slate-300">Connecting…</p>
@@ -299,7 +305,7 @@ function MeetingShell({
         )}
       </div>
 
-      {isMeetingJoined ? (
+      {meetingJoined ? (
         <div className="flex-shrink-0 border-t border-slate-800 bg-slate-900/95 backdrop-blur-md px-4 py-3">
           <p className="text-center text-[11px] text-slate-500 mb-2">
             Mic and camera can be turned on or off anytime
@@ -400,7 +406,6 @@ const VideoCallMeeting: React.FC<VideoCallMeetingProps> = ({
         onLeave={onLeave}
         onErrorToast={onErrorToast}
         localAvatarUrl={localAvatarUrl}
-        localDisplayName={displayName}
       />
     </MeetingProvider>
   );

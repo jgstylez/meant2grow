@@ -6,7 +6,7 @@ This guide covers setting up GitHub Actions for automated deployments to sandbox
 
 The CI/CD pipeline consists of three workflows:
 
-1. **CI** (`ci.yml`) - Runs on all pushes and PRs (lint, build, test)
+1. **CI** (`ci.yml`) - Runs on all pushes and PRs (`npm run lint`, `npm run build`, functions build; tests placeholder)
 2. **Deploy Sandbox** (`deploy-sandbox.yml`) - Deploys to sandbox on push to `main`/`develop`
 3. **Deploy Production** (`deploy-production.yml`) - Deploys to production via manual trigger or release tags
 

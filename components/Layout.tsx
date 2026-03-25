@@ -57,7 +57,7 @@ const Layout: React.FC<LayoutProps> = ({
   onNavigate,
   currentPage,
   onLogout,
-  onSwitchUser,
+  onSwitchUser: _onSwitchUser,
   notifications,
   onMarkAsRead,
   onMarkAllAsRead,
@@ -174,15 +174,8 @@ const Layout: React.FC<LayoutProps> = ({
     (userForNavigationChecks.role === Role.MENTEE ||
       userRoleString === "MENTEE");
 
-  // For access control to platform operator pages, use originalOperator when impersonating
-  // This ensures platform operator pages can only be accessed by actual platform operators
-  const userForAccessControl =
-    isImpersonating && originalOperator ? originalOperator : currentUser;
-
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const brandColor = programSettings?.accentColor || "#10b981"; // Default Emerald
-  const programName = programSettings?.programName || "Meant2Grow";
-  const customLogo = programSettings?.logo;
 
   const handleExitImpersonation = () => {
     const originalId = localStorage.getItem("originalOperatorId");

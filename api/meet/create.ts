@@ -8,7 +8,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { title, startTime, endTime } = req.body;
+    const { endTime } = req.body;
 
     // Use service account for Meet API (not user's personal account)
     const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -55,7 +55,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       expiresAt: endTime || undefined,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorStack = error instanceof Error ? error.stack : undefined;
     console.error('Error creating Meet link:', error);
 

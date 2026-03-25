@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { safeIngest } from '../utils/analyticsIngest';
-import { User, Goal, Role } from '../types';
-import { MentorOnboardingData, MenteeOnboardingData } from '../types/onboarding';
+import { User, Goal } from '../types';
 import { getErrorMessage } from '../utils/errors';
 import { createGoal, updateUserProfileForSession } from '../services/database';
 

@@ -25,7 +25,7 @@ const DynamicSignupForm: React.FC<DynamicSignupFormProps> = ({
     if (stored) {
       try {
         return JSON.parse(stored);
-      } catch (e) {
+      } catch {
         return null;
       }
     }
@@ -341,7 +341,6 @@ const DynamicSignupForm: React.FC<DynamicSignupFormProps> = ({
         style={{ backgroundColor: programSettings.accentColor }}
         onMouseEnter={(e) => {
           // Darken color on hover
-          const color = programSettings.accentColor;
           e.currentTarget.style.filter = 'brightness(0.9)';
         }}
         onMouseLeave={(e) => {

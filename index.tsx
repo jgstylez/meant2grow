@@ -34,7 +34,8 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              newWorker.skipWaiting();
+              // lib.dom ServiceWorker typings omit skipWaiting(); it exists in browsers.
+              void (newWorker as ServiceWorker & { skipWaiting: () => Promise<void> }).skipWaiting();
             }
           });
         }

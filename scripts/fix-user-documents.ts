@@ -89,14 +89,14 @@ if (getApps().length === 0) {
       });
       console.log(`✅ Initialized Firebase Admin with service account`);
       console.log(`   Project: ${projectId}`);
-    } catch (fileError) {
+    } catch {
       try {
         initializeApp({
           credential: applicationDefault(),
           projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId,
         });
         console.log(`✅ Initialized Firebase Admin with default credentials`);
-      } catch (defaultError) {
+      } catch {
         initializeApp({
           projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId,
         });
@@ -110,7 +110,7 @@ if (getApps().length === 0) {
         projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId || "meant2grow-dev",
       });
       console.log(`✅ Initialized Firebase Admin with default credentials`);
-    } catch (defaultError) {
+    } catch {
       initializeApp({
         projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId || "meant2grow-dev",
       });

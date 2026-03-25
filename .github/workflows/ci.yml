@@ -27,9 +27,8 @@ jobs:
         run: npm ci
         working-directory: ./functions
       
-      - name: Lint code (skip for now)
-        run: echo "Linting skipped - add linting script when ready"
-        continue-on-error: true
+      - name: Lint code
+        run: npm run lint
       
       - name: Build frontend
         run: npm run build

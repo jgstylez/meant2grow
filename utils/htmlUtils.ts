@@ -46,7 +46,7 @@ export const cleanHtml = (html: string): string => {
     unwantedSelectors.forEach(selector => {
         try {
             tempDiv.querySelectorAll(selector).forEach(el => el.remove());
-        } catch (e) {
+        } catch {
             // Invalid selector, skip
         }
     });
@@ -79,7 +79,7 @@ export const cleanHtml = (html: string): string => {
     });
 
     // Final cleanup of empty paragraphs and extra whitespace
-    let cleanedHtml = tempDiv.innerHTML
+    const cleanedHtml = tempDiv.innerHTML
         .replace(/<p><\/p>/g, '<br>')
         .replace(/<p>\s*<\/p>/g, '<br>')
         .replace(/<p>\s*<br>\s*<\/p>/g, '<br>')

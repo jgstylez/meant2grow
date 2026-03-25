@@ -43,10 +43,6 @@ const __dirname = dirname(__filename);
 // Load environment variables
 dotenv.config({ path: resolve(__dirname, "../.env.local") });
 
-// Store the detected project ID at module level
-// Default to sandbox (dev) for safety - use 'firebase use production' before running for production
-let detectedProjectId = "meant2grow-dev";
-
 // Try to read Firebase CLI active project from .firebaserc
 function getFirebaseActiveProject(): string | null {
   try {
@@ -98,7 +94,6 @@ if (getApps().length === 0) {
   const activeProject = getFirebaseActiveProject();
   if (activeProject) {
     projectId = activeProject;
-    detectedProjectId = activeProject;
     console.log(`📋 Detected Firebase CLI active project: ${activeProject}`);
   }
   
@@ -108,14 +103,12 @@ if (getApps().length === 0) {
       readFileSync(devServiceAccountPath, "utf8");
       serviceAccountPath = devServiceAccountPath;
       projectId = "meant2grow-dev";
-      detectedProjectId = "meant2grow-dev";
     } catch {
       // Dev service account doesn't exist, try production
       try {
         readFileSync(prodServiceAccountPath, "utf8");
         serviceAccountPath = prodServiceAccountPath;
         projectId = "meant2grow-prod";
-        detectedProjectId = "meant2grow-prod";
       } catch {
         // Neither exists, will use default credentials
       }
@@ -126,14 +119,12 @@ if (getApps().length === 0) {
       readFileSync(prodServiceAccountPath, "utf8");
       serviceAccountPath = prodServiceAccountPath;
       projectId = "meant2grow-prod";
-      detectedProjectId = "meant2grow-prod";
     } catch {
       // Production service account doesn't exist, fall back to dev
       try {
         readFileSync(devServiceAccountPath, "utf8");
         serviceAccountPath = devServiceAccountPath;
         projectId = "meant2grow-dev";
-        detectedProjectId = "meant2grow-dev";
       } catch {
         // Neither exists, will use default credentials
       }
@@ -152,7 +143,7 @@ if (getApps().length === 0) {
       console.log("✅ Initialized Firebase Admin with service account");
       console.log(`   Service Account: ${serviceAccountEmail}`);
       console.log(`   Project: ${projectId}`);
-    } catch (fileError) {
+    } catch {
       // Fallback to default credentials
       try {
         initializeApp({
@@ -160,7 +151,7 @@ if (getApps().length === 0) {
           projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId,
         });
         console.log("✅ Initialized Firebase Admin with default credentials");
-      } catch (defaultError) {
+      } catch {
         initializeApp({
           projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId,
         });
@@ -175,7 +166,7 @@ if (getApps().length === 0) {
         projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId || "meant2grow-dev",
       });
       console.log("✅ Initialized Firebase Admin with default credentials");
-    } catch (defaultError) {
+    } catch {
       initializeApp({
         projectId: process.env.VITE_FIREBASE_PROJECT_ID || projectId || "meant2grow-dev",
       });

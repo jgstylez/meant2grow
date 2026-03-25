@@ -20,7 +20,7 @@ dotenv.config({ path: resolve(__dirname, '../.env.local') });
 try {
   // Check if already initialized
   admin.app();
-} catch (error) {
+} catch {
   // Not initialized, so initialize it
   // Try to use service account key file if it exists
   const serviceAccountPath = resolve(__dirname, '../meant2grow-dev-dfcfbc9ebeaa.json');
@@ -31,7 +31,7 @@ try {
       projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'meant2grow-dev',
     });
     console.log('✅ Initialized Firebase Admin with service account');
-  } catch (fileError) {
+  } catch {
     // Fallback to default credentials (if running on GCP or with GOOGLE_APPLICATION_CREDENTIALS)
     admin.initializeApp({
       projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'meant2grow-dev',

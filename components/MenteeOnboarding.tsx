@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from "../styles/common";
 import {
   Check,
@@ -8,9 +8,8 @@ import {
   Target,
   BookOpen,
   Sparkles,
-  ArrowRight,
 } from "lucide-react";
-import { ProgramSettings, Goal, User as UserType } from "../types";
+import { ProgramSettings, User as UserType } from "../types";
 import DynamicSignupForm from "./DynamicSignupForm";
 import SkillsSelector from "./SkillsSelector";
 import { DatePicker } from "./DatePicker";
@@ -38,7 +37,7 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
     if (stored) {
       try {
         return JSON.parse(stored);
-      } catch (e) {
+      } catch {
         return null;
       }
     }
@@ -47,11 +46,21 @@ const MenteeOnboarding: React.FC<MenteeOnboardingProps> = ({
 
   const storedData = getStoredFormData();
   const isFirstTimeOnboarding = !currentUser?.onboardingCompleted;
+  // Default target date: 90 days from first render (computed once; avoids impure Date.now in render)
+  const defaultGoalTargetDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 90);
+    return d.toISOString().split("T")[0];
+  }, []);
   // Convert user.goals (string[]) to GoalInput[] for returning users
-  const goalsFromUser = (currentUser?.goals || []).map((title: string) => ({
-    title,
-    targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-  }));
+  const goalsFromUser = useMemo(
+    () =>
+      (currentUser?.goals || []).map((title: string) => ({
+        title,
+        targetDate: defaultGoalTargetDate,
+      })),
+    [currentUser?.goals, defaultGoalTargetDate]
+  );
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({

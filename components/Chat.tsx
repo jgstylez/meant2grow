@@ -35,7 +35,6 @@ import {
   FileText,
   Download,
   X,
-  Mic,
   Plus,
   Meh,
   Frown,
@@ -60,8 +59,6 @@ import {
   updatePrivateMessageRequest,
   subscribeToPrivateMessageRequests,
   getApprovedPrivateMessagePartners,
-  getUser,
-  updateUser,
   incrementMentorHours,
   setTypingStatus,
   clearTypingStatus,
@@ -361,11 +358,9 @@ const Chat: React.FC<ChatProps> = ({
         // Find existing groups - prioritize by org-scoped ID, then by name
         const mentorGroupById = existingGroups.find((g) => g.id === mentorsCircleId);
         const mentorGroupByName = existingGroups.find((g) => g.name === "Mentors Circle");
-        const mentorGroup = mentorGroupById || mentorGroupByName;
         
         const menteeGroupById = existingGroups.find((g) => g.id === menteesHubId);
         const menteeGroupByName = existingGroups.find((g) => g.name === "Mentees Hub");
-        const menteeGroup = menteeGroupById || menteeGroupByName;
         
         // Legacy: if group exists with old global ID (g-mentors/g-mentees), we still use it
         if (mentorGroupByName && mentorGroupByName.id !== mentorsCircleId && mentorGroupByName.id !== "g-mentors") {
@@ -1762,6 +1757,109 @@ const Chat: React.FC<ChatProps> = ({
     previousSentimentHashRef.current = ""; // Reset hash so sentiment updates for new chat
   }, [activeChatId]);
 
+  // Fetch GIFs from GIPHY API
+  useEffect(() => {
+    if (!showGifPicker) {
+      // Reset search when picker closes
+      setGifSearchQuery("");
+      setGifsError(null);
+      return;
+    }
+
+    // Don't fetch if API key is not configured
+    if (!GIPHY_API_KEY || 
+        GIPHY_API_KEY === "4Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3" || 
+        GIPHY_API_KEY === "your_giphy_api_key_here") {
+      setGifs([]);
+      setGifsLoading(false);
+      setGifsError("GIPHY API key not configured. Get a free key at developers.giphy.com");
+      return;
+    }
+
+    const fetchGifs = async () => {
+      setGifsLoading(true);
+      setGifsError(null);
+      try {
+        const url = gifSearchQuery.trim()
+          ? `${GIPHY_BASE_URL}/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(gifSearchQuery.trim())}&limit=30&rating=g`
+          : `${GIPHY_BASE_URL}/trending?api_key=${GIPHY_API_KEY}&limit=30&rating=g`;
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          // Try to parse error response
+          let errorMessage = `HTTP error: ${response.status} ${response.statusText}`;
+          try {
+            const errorData = await response.json();
+            if (errorData.meta && errorData.meta.msg) {
+              errorMessage = errorData.meta.msg;
+            }
+          } catch {
+            // If JSON parsing fails, use the default error message
+          }
+          throw new Error(errorMessage);
+        }
+        
+        const data = await response.json();
+        
+        // Check for API errors in the meta field (even if HTTP status is 200)
+        if (data.meta && data.meta.status !== 200) {
+          throw new Error(data.meta.msg || `GIPHY API error: ${data.meta.status}`);
+        }
+        
+        if (data.data && Array.isArray(data.data)) {
+          setGifs(data.data);
+          setGifsError(null);
+        } else {
+          setGifs([]);
+          setGifsError(gifSearchQuery.trim() ? "No GIFs found" : null);
+        }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to fetch GIFs";
+        logger.error("Error fetching GIFs", {
+          error: errorMessage,
+          gifSearchQuery,
+          apiKey: GIPHY_API_KEY ? `${GIPHY_API_KEY.substring(0, 4)}...` : "missing"
+        });
+        setGifs([]);
+        setGifsError(errorMessage);
+      } finally {
+        setGifsLoading(false);
+      }
+    };
+
+    // Debounce search
+    const timeoutId = setTimeout(() => {
+      fetchGifs();
+    }, gifSearchQuery.trim() ? 500 : 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [showGifPicker, gifSearchQuery]);
+
+  // Subscribe to private message requests and fetch approved partners
+  useEffect(() => {
+    if (!organizationId || !currentUser) return;
+    
+    const unsubscribe = subscribeToPrivateMessageRequests(
+      currentUser.id,
+      organizationId,
+      (requests) => {
+        setPrivateMessageRequests(requests);
+      }
+    );
+    
+    // Fetch approved private message partners
+    getApprovedPrivateMessagePartners(currentUser.id, organizationId)
+      .then(partnerIds => {
+        setApprovedPrivateMessagePartners(new Set(partnerIds));
+      })
+      .catch(error => {
+        logger.error('Error fetching approved private message partners', error);
+      });
+    
+    return () => unsubscribe();
+  }, [organizationId, currentUser]);
+
   // Don't show "Loading" if we just haven't selected a chat yet
   // Only show loading if we're waiting for a specific chat to load
   // But don't wait forever - if we have chats but the requested one isn't there, show the list
@@ -1982,85 +2080,6 @@ const Chat: React.FC<ChatProps> = ({
     navigateToVideoCall(meetingId);
   };
 
-  // Fetch GIFs from GIPHY API
-  useEffect(() => {
-    if (!showGifPicker) {
-      // Reset search when picker closes
-      setGifSearchQuery("");
-      setGifsError(null);
-      return;
-    }
-
-    // Don't fetch if API key is not configured
-    if (!GIPHY_API_KEY || 
-        GIPHY_API_KEY === "4Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3" || 
-        GIPHY_API_KEY === "your_giphy_api_key_here") {
-      setGifs([]);
-      setGifsLoading(false);
-      setGifsError("GIPHY API key not configured. Get a free key at developers.giphy.com");
-      return;
-    }
-
-    const fetchGifs = async () => {
-      setGifsLoading(true);
-      setGifsError(null);
-      try {
-        const url = gifSearchQuery.trim()
-          ? `${GIPHY_BASE_URL}/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(gifSearchQuery.trim())}&limit=30&rating=g`
-          : `${GIPHY_BASE_URL}/trending?api_key=${GIPHY_API_KEY}&limit=30&rating=g`;
-        
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-          // Try to parse error response
-          let errorMessage = `HTTP error: ${response.status} ${response.statusText}`;
-          try {
-            const errorData = await response.json();
-            if (errorData.meta && errorData.meta.msg) {
-              errorMessage = errorData.meta.msg;
-            }
-          } catch {
-            // If JSON parsing fails, use the default error message
-          }
-          throw new Error(errorMessage);
-        }
-        
-        const data = await response.json();
-        
-        // Check for API errors in the meta field (even if HTTP status is 200)
-        if (data.meta && data.meta.status !== 200) {
-          throw new Error(data.meta.msg || `GIPHY API error: ${data.meta.status}`);
-        }
-        
-        if (data.data && Array.isArray(data.data)) {
-          setGifs(data.data);
-          setGifsError(null);
-        } else {
-          setGifs([]);
-          setGifsError(gifSearchQuery.trim() ? "No GIFs found" : null);
-        }
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : "Failed to fetch GIFs";
-        logger.error("Error fetching GIFs", {
-          error: errorMessage,
-          gifSearchQuery,
-          apiKey: GIPHY_API_KEY ? `${GIPHY_API_KEY.substring(0, 4)}...` : "missing"
-        });
-        setGifs([]);
-        setGifsError(errorMessage);
-      } finally {
-        setGifsLoading(false);
-      }
-    };
-
-    // Debounce search
-    const timeoutId = setTimeout(() => {
-      fetchGifs();
-    }, gifSearchQuery.trim() ? 500 : 0);
-
-    return () => clearTimeout(timeoutId);
-  }, [showGifPicker, gifSearchQuery]);
-
   const handleToggleReaction = async (messageId: string, emoji: string) => {
     try {
       const message = messages[activeChatId]?.find((m) => m.id === messageId);
@@ -2140,7 +2159,6 @@ const Chat: React.FC<ChatProps> = ({
       });
       
       // Create notification for recipient
-      const recipient = users.find(u => u.id === recipientId);
       await createNotification({
         organizationId,
         userId: recipientId,
@@ -2159,30 +2177,6 @@ const Chat: React.FC<ChatProps> = ({
       setRequestingPrivateMessage(null);
     }
   };
-
-  // Subscribe to private message requests and fetch approved partners
-  useEffect(() => {
-    if (!organizationId || !currentUser) return;
-    
-    const unsubscribe = subscribeToPrivateMessageRequests(
-      currentUser.id,
-      organizationId,
-      (requests) => {
-        setPrivateMessageRequests(requests);
-      }
-    );
-    
-    // Fetch approved private message partners
-    getApprovedPrivateMessagePartners(currentUser.id, organizationId)
-      .then(partnerIds => {
-        setApprovedPrivateMessagePartners(new Set(partnerIds));
-      })
-      .catch(error => {
-        logger.error('Error fetching approved private message partners', error);
-      });
-    
-    return () => unsubscribe();
-  }, [organizationId, currentUser?.id]);
 
   // Handle approving/declining private message requests
   const handleRespondToRequest = async (requestId: string, approve: boolean) => {
@@ -2392,7 +2386,6 @@ const Chat: React.FC<ChatProps> = ({
       // Create notifications for all participants except the creator (non-blocking)
       participants.forEach((participantId) => {
         if (participantId !== currentUser.id) {
-          const participant = users.find((u) => u.id === participantId);
           createNotification({
             organizationId,
             userId: participantId,
@@ -2884,8 +2877,7 @@ const Chat: React.FC<ChatProps> = ({
         <div className="flex-1 min-h-0 overflow-y-auto touch-action-pan-y overscroll-contain">
           {sortedChats.map((item) => {
             const lastMsg = messages[item.id]?.[messages[item.id]?.length - 1];
-            // @ts-ignore
-            const itemIsGroup = item.type === "group";
+            const itemIsGroup = "type" in item && item.type === "group";
             const isPinned = pinnedChats.includes(item.id);
             const isMuted = mutedChats.includes(item.id);
 

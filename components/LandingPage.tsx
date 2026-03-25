@@ -17,7 +17,6 @@ import {
   Star,
   Quote,
   TrendingUp,
-  Clock,
   Award,
   Menu,
   X,

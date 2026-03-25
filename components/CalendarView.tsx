@@ -10,28 +10,21 @@ import {
   RefreshCw,
   Calendar as CalendarIcon,
   ExternalLink,
-  Edit,
   Trash2,
   CalendarX,
   CalendarClock,
 } from "lucide-react";
 import {
   getCalendarCredentials,
-  syncFromGoogleCalendar,
 } from "../services/calendarService";
 import { syncFromAllCalendars } from "../services/unifiedCalendarService";
-import { createMeetLink } from "../services/meetApi";
 import {
   createCalendarEvent,
-  updateCalendarEvent,
   createNotification,
   createChatMessage,
 } from "../services/database";
 import {
-  openCalendarEvent,
   generateGoogleCalendarLink,
-  generateOutlookCalendarLink,
-  generateAppleCalendarICS,
 } from "../services/calendarDeepLinks";
 import { getErrorMessage } from "../utils/errors";
 import { logger } from "../services/logger";

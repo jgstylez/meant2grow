@@ -159,7 +159,7 @@ export const convertToGoogleEvent = (event: CalendarEvent, meetLink?: string): G
 export const convertFromGoogleEvent = (
   googleEvent: GoogleCalendarEvent,
   organizationId: string,
-  userId: string
+  _userId: string
 ): Omit<CalendarEvent, 'id' | 'createdAt'> => {
   const start = googleEvent.start.dateTime 
     ? new Date(googleEvent.start.dateTime)

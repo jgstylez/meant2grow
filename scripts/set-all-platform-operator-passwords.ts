@@ -24,7 +24,6 @@ import * as dotenv from "dotenv";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { readFileSync } from "fs";
-import * as crypto from "crypto";
 
 // Error handling utilities
 function getErrorMessage(error: unknown): string {
@@ -85,7 +84,7 @@ if (getApps().length === 0) {
       });
       console.log(`✅ Initialized Firebase Admin with service account (${projectId})`);
       console.log(`⚠️  Note: If you get permission errors, the service account needs Firebase Admin permissions.`);
-    } catch (fileError) {
+    } catch {
       console.error("❌ Failed to initialize Firebase Admin with service account");
       // Try default credentials as fallback
       try {
@@ -94,7 +93,7 @@ if (getApps().length === 0) {
           projectId: projectId,
         });
         console.log(`✅ Initialized Firebase Admin with default credentials (${projectId})`);
-      } catch (defaultError) {
+      } catch {
         console.error("❌ Failed to initialize Firebase Admin");
         console.error("   Please ensure you have proper credentials configured");
         process.exit(1);
@@ -111,7 +110,7 @@ if (getApps().length === 0) {
         projectId: projectId,
       });
       console.log(`✅ Initialized Firebase Admin with default credentials (${projectId})`);
-    } catch (defaultError) {
+    } catch {
       console.error("❌ No credentials found. Please ensure:");
       console.error("   1. Service account JSON file exists in project root, OR");
       console.error("   2. Default credentials are configured: gcloud auth application-default login");

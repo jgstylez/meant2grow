@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Resource, Role, BlogPost, DiscussionGuide, CareerTemplate, TrainingVideo } from '../types';
-import { BookOpen, File, Book, PlayCircle, ArrowRight } from 'lucide-react';
+import { BookOpen, File, Book, PlayCircle } from 'lucide-react';
 import { getRecommendedResources } from '../services/geminiService';
 
 // Decomposed Components
