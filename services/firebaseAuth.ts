@@ -8,10 +8,44 @@ import {
   EmailAuthProvider,
   deleteUser as firebaseDeleteUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { updateUser, getUser } from './database';
 import { logger } from './logger';
+
+/** Thrown when email/password cannot be used because the Firebase user has no password provider (e.g. Google-only). */
+export class AuthLinkFailureError extends Error {
+  readonly authLinkCode: 'SOCIAL_SIGN_IN_REQUIRED';
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthLinkFailureError';
+    this.authLinkCode = 'SOCIAL_SIGN_IN_REQUIRED';
+  }
+}
+
+export function isAuthLinkFailureError(e: unknown): e is AuthLinkFailureError {
+  return e instanceof AuthLinkFailureError;
+}
+
+/**
+ * Sign-up called `createUserWithEmailAndPassword` but Firebase already has this email,
+ * and we could not sign in / link with the password provided (wrong password, etc.).
+ */
+export class EmailAlreadyInUseOnSignupError extends Error {
+  constructor() {
+    super(
+      'This email is already registered. You cannot create another account with it. Switch to Sign in and use your password, or use Continue with Google if you signed up with Google. If you forgot your password, use Forgot password on the sign-in screen.'
+    );
+    this.name = 'EmailAlreadyInUseOnSignupError';
+  }
+}
+
+export function isEmailAlreadyInUseOnSignupError(
+  e: unknown
+): e is EmailAlreadyInUseOnSignupError {
+  return e instanceof EmailAlreadyInUseOnSignupError;
+}
 
 /**
  * Ensures a Firestore user has a Firebase Auth account (lazy migration)
@@ -211,6 +245,13 @@ export const ensureFirebaseAuthAccount = async (
     }
     
     if (signInMethods.length > 0) {
+      if (!signInMethods.includes('password')) {
+        const msg = signInMethods.includes('google.com')
+          ? 'This email is already registered with Google. Use “Continue with Google” instead of a password.'
+          : 'This email is registered with a social sign-in, not a password. Sign in the same way you used originally.';
+        throw new AuthLinkFailureError(msg);
+      }
+
       // User has Firebase Auth account - try to authenticate
       if (!password) {
         // No password provided - can't authenticate
@@ -467,6 +508,9 @@ export const ensureFirebaseAuthAccount = async (
       }
     }
   } catch (error: any) {
+    if (error instanceof AuthLinkFailureError) {
+      throw error;
+    }
     logger.error('Error ensuring Firebase Auth account', {
       email,
       firestoreUserId,
@@ -496,11 +540,24 @@ export const createFirebaseAuthAccount = async (
   firestoreUserId: string,
   userData?: Record<string, unknown>
 ): Promise<string | null> => {
+  const deleteOrphanAuthUser = async (uid: string) => {
+    const cu = auth.currentUser;
+    if (cu?.uid === uid) {
+      try {
+        await firebaseDeleteUser(cu);
+      } catch (e: unknown) {
+        logger.warn('Could not delete orphan Firebase Auth user after failed signup', {
+          uid,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  };
+
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseAuthUid = userCredential.user.uid;
-    
-    // Verify user is authenticated (createUserWithEmailAndPassword automatically signs them in)
+
     if (auth.currentUser?.uid !== firebaseAuthUid) {
       logger.warn('User created but not authenticated', {
         email,
@@ -508,62 +565,108 @@ export const createFirebaseAuthAccount = async (
         currentUserUid: auth.currentUser?.uid,
       });
     }
-    
-    // CRITICAL: Create users/{firebaseAuthUid} FIRST so userExists() returns true for Firestore rules.
-    // belongsToOrg() and isOrgScoped() depend on userExists() which checks users/{request.auth.uid}.
-    // Without this doc, the new user gets "Missing or insufficient permissions" on all org subscriptions.
+
+    const authUidDocRef = doc(db, 'users', firebaseAuthUid);
+    let wroteCanonical = false;
+
     if (userData) {
       try {
-        const authUidDocRef = doc(db, 'users', firebaseAuthUid);
-        await setDoc(authUidDocRef, {
-          ...userData,
-          id: firebaseAuthUid,
-          firebaseAuthUid: firebaseAuthUid,
-          originalFirestoreUserId: firestoreUserId,
-          createdAt: userData.createdAt || Timestamp.now(),
-        }, { merge: true });
-      } catch (docError: any) {
-        logger.warn('Failed to create user document at users/{firebaseAuthUid}', {
-          firebaseAuthUid,
-          firestoreUserId,
-          error: docError.message,
-        });
-        // Continue - we'll try the fallback path
-      }
-    }
-    
-    // Link Firebase Auth UID to the original Firestore user document
-    await updateUser(firestoreUserId, { firebaseAuthUid });
-    
-    // Fallback: If userData wasn't provided, try to copy from original doc (may fail if rules block read)
-    if (!userData) {
-      try {
-        const originalUser = await getUser(firestoreUserId);
-        if (originalUser) {
-          const authUidDocRef = doc(db, 'users', firebaseAuthUid);
-          await setDoc(authUidDocRef, {
-            ...originalUser,
+        await setDoc(
+          authUidDocRef,
+          {
+            ...userData,
             id: firebaseAuthUid,
             firebaseAuthUid: firebaseAuthUid,
             originalFirestoreUserId: firestoreUserId,
-          }, { merge: true });
-        }
-      } catch (docError: any) {
-        logger.warn('Failed to create user document with Firebase Auth UID as ID', {
+            createdAt: userData.createdAt || Timestamp.now(),
+          },
+          { merge: true }
+        );
+        wroteCanonical = true;
+      } catch (docError: unknown) {
+        logger.warn('Failed to create user document at users/{firebaseAuthUid}', {
           firebaseAuthUid,
           firestoreUserId,
-          error: docError.message,
+          error: docError instanceof Error ? docError.message : String(docError),
         });
       }
     }
-    
+
+    if (!wroteCanonical) {
+      try {
+        const originalUser = await getUser(firestoreUserId);
+        if (originalUser) {
+          await setDoc(
+            authUidDocRef,
+            {
+              ...originalUser,
+              id: firebaseAuthUid,
+              firebaseAuthUid: firebaseAuthUid,
+              originalFirestoreUserId: firestoreUserId,
+            },
+            { merge: true }
+          );
+          wroteCanonical = true;
+        }
+      } catch (docError: unknown) {
+        logger.warn('Failed to create user document with Firebase Auth UID as ID', {
+          firebaseAuthUid,
+          firestoreUserId,
+          error: docError instanceof Error ? docError.message : String(docError),
+        });
+      }
+    }
+
+    const canonicalSnap = await getDoc(authUidDocRef);
+    if (!canonicalSnap.exists()) {
+      await deleteOrphanAuthUser(firebaseAuthUid);
+      logger.error('Signup aborted: missing canonical user doc at users/{auth.uid}', {
+        email,
+        firestoreUserId,
+        firebaseAuthUid,
+      });
+      return null;
+    }
+
+    try {
+      await updateUser(firestoreUserId, { firebaseAuthUid });
+    } catch (linkErr: unknown) {
+      logger.warn(
+        'Failed to set firebaseAuthUid on legacy user doc (canonical profile still works)',
+        {
+          firestoreUserId,
+          firebaseAuthUid,
+          error: linkErr instanceof Error ? linkErr.message : String(linkErr),
+        }
+      );
+    }
+
+    if (firestoreUserId !== firebaseAuthUid) {
+      try {
+        const snap = await getDoc(authUidDocRef);
+        if (snap.exists()) {
+          await deleteDoc(doc(db, 'users', firestoreUserId));
+          logger.info('Removed legacy user document after Firebase Auth link', {
+            firestoreUserId,
+            firebaseAuthUid,
+          });
+        }
+      } catch (delErr: unknown) {
+        logger.warn('Could not delete legacy user document (non-fatal)', {
+          firestoreUserId,
+          firebaseAuthUid,
+          error: delErr instanceof Error ? delErr.message : String(delErr),
+        });
+      }
+    }
+
     logger.info('Created Firebase Auth account for new user', {
       email,
       firebaseAuthUid,
       firestoreUserId,
       authenticated: auth.currentUser?.uid === firebaseAuthUid,
     });
-    
+
     return firebaseAuthUid;
   } catch (error: any) {
     logger.error('Failed to create Firebase Auth account for new user', {
@@ -576,16 +679,20 @@ export const createFirebaseAuthAccount = async (
     if (error.code === 'auth/email-already-in-use') {
       logger.info('Email already in use, attempting lazy migration', { email });
       const result = await ensureFirebaseAuthAccount(email, password, firestoreUserId);
-      
-      // If ensureFirebaseAuthAccount failed, log helpful message
+
       if (!result) {
-        logger.warn('Failed to link existing Firebase Auth account. The account exists but may not be linked to Firestore user.', {
-          email,
-          firestoreUserId,
-          suggestion: 'Run: npm run link-firebase-auth-account <email> or npm run set-platform-operator-password <email> <password>',
-        });
+        logger.warn(
+          'Failed to link existing Firebase Auth account. The account exists but may not be linked to Firestore user.',
+          {
+            email,
+            firestoreUserId,
+            suggestion:
+              'Run: npm run link-firebase-auth-account <email> or npm run set-platform-operator-password <email> <password>',
+          }
+        );
+        throw new EmailAlreadyInUseOnSignupError();
       }
-      
+
       return result;
     }
     

@@ -1,5 +1,6 @@
 import { MailerSend, EmailParams, Sender, Recipient } from "mailersend";
 import { EmailProvider, EmailProviderConfig, SendEmailOptions } from "../types";
+import { agentDebugLog } from "../../agentDebugLog";
 
 export function createMailerSendProvider(config: EmailProviderConfig): EmailProvider {
   const client = new MailerSend({ apiKey: config.apiToken });
@@ -44,6 +45,23 @@ export function createMailerSendProvider(config: EmailProviderConfig): EmailProv
         `[MailerSend] Attempting to send: ${options.subject} to ${options.to.map((t) => t.email).join(", ")}`
       );
 
+      // #region agent log
+      {
+        const fromDomain = from.email.includes("@")
+          ? (from.email.split("@")[1] ?? "")
+          : "";
+        agentDebugLog({
+          location: "mailersendProvider.ts:send",
+          message: "before MailerSend API send",
+          hypothesisId: "H2,H4",
+          data: {
+            tokenLength: config.apiToken.length,
+            fromDomain,
+          },
+        });
+      }
+      // #endregion
+
       try {
         const response = await client.email.send(emailParams);
         console.log(
@@ -62,7 +80,23 @@ export function createMailerSendProvider(config: EmailProviderConfig): EmailProv
           error: msg,
           statusCode: error?.response?.statusCode ?? error?.statusCode,
         });
-        throw new Error(`Email sending failed: ${msg}`);
+        const hint =
+          typeof msg === "string" &&
+          /unauthenticated|401|invalid.*token/i.test(msg)
+            ? " Verify MAILERSEND_API_TOKEN is set for this Firebase project and the token has sending permissions."
+            : "";
+        // #region agent log
+        agentDebugLog({
+          location: "mailersendProvider.ts:catch",
+          message: "MailerSend API error",
+          hypothesisId: "H4",
+          data: {
+            apiMessage: typeof msg === "string" ? msg.slice(0, 160) : String(msg),
+            statusCode: error?.response?.statusCode ?? error?.statusCode ?? null,
+          },
+        });
+        // #endregion
+        throw new Error(`Email sending failed: ${msg}.${hint}`);
       }
     },
   };

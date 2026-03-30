@@ -73,6 +73,14 @@ service cloud.firestore {
     function isOrgScoped(organizationId) {
       return isPlatformOperator() || belongsToOrg(organizationId);
     }
+
+    // Anonymous signup: only Pending -> Accepted or Expired, status field only
+    function unauthInvitationStatusUpdate() {
+      return request.auth == null &&
+        resource.data.status == 'Pending' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        (request.resource.data.status == 'Accepted' || request.resource.data.status == 'Expired');
+    }
     
     // Validate organization data on create
     function isValidOrganization() {
@@ -149,14 +157,19 @@ service cloud.firestore {
       // Users can update their own profile, org admins can update users in their org, platform operators can update any
       // Allow adding firebaseAuthUid to legacy docs (created with random ID) - only when doc doesn't have it yet
       // Owner updates when doc id is legacy random id but firebaseAuthUid matches signed-in user (mirrors read rule)
+      // Link firebaseAuthUid on legacy random-id docs: `exists()` is for paths only, not map keys.
       allow update: if request.auth.uid == userId ||
-                     (!exists(resource.data.firebaseAuthUid) && request.resource.data.firebaseAuthUid == request.auth.uid) ||
+                     ((!resource.data.keys().hasAny(['firebaseAuthUid']) || resource.data.firebaseAuthUid == null) && request.resource.data.firebaseAuthUid == request.auth.uid) ||
                      (resource.data.firebaseAuthUid != null && resource.data.firebaseAuthUid == request.auth.uid) ||
                      (belongsToOrg(resource.data.organizationId) && isOrgAdmin(resource.data.organizationId)) ||
                      isPlatformOperator();
       
-      // Only platform operators can delete users
-      allow delete: if isPlatformOperator();
+      // Platform operators can delete any user.
+      // Authenticated users may delete a legacy duplicate profile doc (random id) after linking to Firebase Auth UID.
+      allow delete: if isPlatformOperator() ||
+        (isAuthenticated() &&
+         resource.data.get('firebaseAuthUid', '') == request.auth.uid &&
+         userId != request.auth.uid);
     }
     
     // ==================== MATCHES ====================
@@ -307,18 +320,23 @@ service cloud.firestore {
       allow create: if isAuthenticated() && 
                       (isPlatformOperator() || belongsToOrg(request.resource.data.organizationId));
       
-      // Users can read invitations in their organization, platform operators can read all
-      // Also allow unauthenticated reads for invitation-based signup
-      allow read: if isPlatformOperator() ||
-                     isOrgScoped(resource.data.organizationId) ||
-                     // Allow unauthenticated reads for invitation token lookups during signup
-                     request.auth == null;
+      // Single-document get: org members, platform ops, or anonymous holder of secret link (token == doc id)
+      allow get: if isPlatformOperator() ||
+                     (isAuthenticated() && isOrgScoped(resource.data.organizationId)) ||
+                     (request.auth == null &&
+                      resource.data.status == 'Pending' &&
+                      resource.data.token == invitationId &&
+                      invitationId.size() >= 20);
+      
+      // Queries / subscriptions: authenticated org members or platform operators only (no anonymous listing)
+      allow list: if isPlatformOperator() ||
+                     (isAuthenticated() && belongsToOrg(resource.data.organizationId));
       
       // Org admins can update invitations in their org, platform operators can update any
-      // Also allow unauthenticated updates for accepting invitations during signup
+      // Anonymous signup may only change status Pending -> Accepted or Expired (status field only)
       allow update: if isPlatformOperator() ||
-                     request.auth == null || // Allow during signup flow (accepting invitation)
-                     isOrgAdmin(resource.data.organizationId);
+                     isOrgAdmin(resource.data.organizationId) ||
+                     unauthInvitationStatusUpdate();
       
       // Org admins can delete invitations in their org, platform operators can delete any
       allow delete: if isPlatformOperator() || isOrgAdmin(resource.data.organizationId);

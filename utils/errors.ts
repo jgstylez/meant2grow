@@ -62,6 +62,16 @@ export function getErrorCode(error: unknown): string | undefined {
     return undefined;
 }
 
+/** Firestore / client listeners: permission denied or rules rejection */
+export function isFirestorePermissionDenied(error: unknown): boolean {
+    const code = getErrorCode(error);
+    if (code === 'permission-denied') {
+        return true;
+    }
+    const msg = getErrorMessage(error).toLowerCase();
+    return msg.includes('missing or insufficient permissions');
+}
+
 /**
  * Format error for logging
  */

@@ -585,20 +585,37 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             ev.menteeId === currentUser.id));
                       const isHovered = hoveredEventId === ev.id;
 
+                      const eventChipLabel = `${ev.title} at ${ev.startTime}${participantNames ? ` with ${participantNames}${extraCount > 0 ? ` and ${extraCount} more` : ""}` : ""}. Click to ${canEdit ? "edit" : "view details"}`;
+
+                      const activateEventChip = () => {
+                        if (canEdit && onUpdateEvent) {
+                          handleEditEvent(ev);
+                        } else {
+                          handleViewEvent(ev);
+                        }
+                      };
+
                       return (
-                        <button
+                        <div
                           key={ev.id}
-                          type="button"
-                          aria-label={`${ev.title} at ${ev.startTime}${participantNames ? ` with ${participantNames}${extraCount > 0 ? ` and ${extraCount} more` : ""}` : ""}. Click to ${canEdit ? "edit" : "view details"}`}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={eventChipLabel}
                           className="text-[10px] sm:text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 px-1.5 py-1 rounded truncate border border-indigo-200 dark:border-indigo-800 group relative cursor-pointer hover:z-10 w-full text-left min-h-[32px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           onMouseEnter={() => setHoveredEventId(ev.id)}
                           onMouseLeave={() => setHoveredEventId(null)}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (canEdit && onUpdateEvent) {
-                              handleEditEvent(ev);
-                            } else {
-                              handleViewEvent(ev);
+                            activateEventChip();
+                          }}
+                          onKeyDown={(e) => {
+                            if (
+                              e.key === "Enter" ||
+                              e.key === " "
+                            ) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              activateEventChip();
                             }
                           }}
                         >
@@ -701,7 +718,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               )}
                             </div>
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>

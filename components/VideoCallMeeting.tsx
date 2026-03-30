@@ -15,6 +15,13 @@ import {
   User,
 } from "lucide-react";
 import { displayNameInitials } from "../utils/mediaPermissions";
+import {
+  clearVideoMeetingHmrLeave,
+  installVideoMeetingHmrDispose,
+  logVideoUsageEvent,
+  registerVideoMeetingHmrLeave,
+  setVideoTelemetryActiveMeetingId,
+} from "../utils/videoUsageTelemetry";
 
 type VideoCallMeetingProps = {
   meetingId: string;
@@ -70,10 +77,14 @@ function ParticipantAvatarPlate({
 }
 
 function MeetingShell({
+  meetingId,
+  participantId,
   onLeave,
   onErrorToast,
   localAvatarUrl,
 }: {
+  meetingId: string;
+  participantId: string;
   onLeave: () => void;
   onErrorToast?: (message: string) => void;
   localAvatarUrl?: string;
@@ -100,14 +111,33 @@ function MeetingShell({
     onMeetingJoined: () => {
       hadSuccessfulJoinRef.current = true;
       setMeetingJoined(true);
+      logVideoUsageEvent("video_meeting_joined", {
+        meetingId,
+        participantId,
+        source: "videosdk",
+      });
     },
     onMeetingLeft: () => {
       setMeetingJoined(false);
+      if (hadSuccessfulJoinRef.current) {
+        logVideoUsageEvent("video_meeting_left", {
+          meetingId,
+          participantId,
+          source: "videosdk",
+          extra: { unmounting: isUnmountingRef.current },
+        });
+      }
       if (hadSuccessfulJoinRef.current && !isUnmountingRef.current) {
         onLeave();
       }
     },
     onError: ({ message, code }) => {
+      logVideoUsageEvent("video_sdk_error", {
+        meetingId,
+        participantId,
+        source: "videosdk",
+        extra: { message, code },
+      });
       const m = message || "Video call error";
       if (/permission|denied|NotAllowed|device/i.test(m) || code === "permission_denied") {
         onErrorToast?.(
@@ -120,6 +150,15 @@ function MeetingShell({
   });
 
   leaveRef.current = leave;
+
+  useEffect(() => {
+    setVideoTelemetryActiveMeetingId(meetingId);
+    registerVideoMeetingHmrLeave(() => leaveRef.current(), meetingId);
+    return () => {
+      clearVideoMeetingHmrLeave();
+      setVideoTelemetryActiveMeetingId(null);
+    };
+  }, [meetingId]);
 
   // VideoSDK can reject with AwaitQueueStoppedError when the room transport closes during
   // unmount; it is benign but pollutes the console as an unhandled rejection.
@@ -382,10 +421,15 @@ const VideoCallMeeting: React.FC<VideoCallMeetingProps> = ({
   onLeave,
   onErrorToast,
 }) => {
+  /** Fixed for the whole meeting so MeetingProvider never sees config churn from parent re-renders. */
+  const [displayNameForSdk] = useState(
+    () => displayName.trim() || "Participant"
+  );
+
   const config = useMemo(
     () => ({
       meetingId,
-      name: displayName,
+      name: displayNameForSdk,
       participantId,
       micEnabled: false,
       webcamEnabled: false,
@@ -393,16 +437,19 @@ const VideoCallMeeting: React.FC<VideoCallMeetingProps> = ({
       multiStream: false,
       debugMode: import.meta.env.DEV,
     }),
-    [meetingId, displayName, participantId]
+    [meetingId, displayNameForSdk, participantId]
   );
 
   return (
     <MeetingProvider
       token={token}
       joinWithoutUserInteraction
+      reinitialiseMeetingOnConfigChange={false}
       config={config}
     >
       <MeetingShell
+        meetingId={meetingId}
+        participantId={participantId}
         onLeave={onLeave}
         onErrorToast={onErrorToast}
         localAvatarUrl={localAvatarUrl}
@@ -410,5 +457,7 @@ const VideoCallMeeting: React.FC<VideoCallMeetingProps> = ({
     </MeetingProvider>
   );
 };
+
+installVideoMeetingHmrDispose();
 
 export default VideoCallMeeting;

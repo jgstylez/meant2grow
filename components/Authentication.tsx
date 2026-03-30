@@ -28,6 +28,10 @@ import {
 import { resolveCanonicalFirestoreUserId } from "../utils/resolveCanonicalUserId";
 import { Role, User, Invitation, Organization } from "../types";
 import { getErrorMessage } from "../utils/errors";
+import {
+  isAuthLinkFailureError,
+  isEmailAlreadyInUseOnSignupError,
+} from "../services/firebaseAuth";
 import { logger } from "../services/logger";
 import { verifyTotpLogin } from "../services/totpService";
 
@@ -135,28 +139,47 @@ const Authentication: React.FC<AuthenticationProps> = ({
     }
   }, []);
 
-  // Initialize Google Auth when component mounts
+  // Initialize Google Auth when component mounts (single init is enforced in googleAuth.ts)
   useEffect(() => {
-    const initAuth = async () => {
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = async () => {
       try {
-        // Wait for Google API to load
-        if (typeof window !== "undefined" && window.google) {
-          await initializeGoogleAuth();
+        await initializeGoogleAuth();
+        if (!cancelled) {
           setGoogleAuthReady(true);
-        } else {
-          // Retry after a delay if Google API hasn't loaded yet
-          setTimeout(() => {
-            if (window.google) {
-              initializeGoogleAuth().then(() => setGoogleAuthReady(true));
-            }
-          }, 1000);
         }
       } catch (err) {
         logger.error("Failed to initialize Google Auth", err);
-        // Continue without Google Auth if it fails
       }
     };
+
+    const initAuth = () => {
+      if (typeof window === "undefined") {
+        return;
+      }
+      if (window.google) {
+        void finish();
+        return;
+      }
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        if (cancelled || !window.google) {
+          return;
+        }
+        void finish();
+      }, 1000);
+    };
+
     initAuth();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer !== null) {
+        clearTimeout(retryTimer);
+      }
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -449,7 +472,11 @@ const Authentication: React.FC<AuthenticationProps> = ({
       }
     } catch (err: unknown) {
       logger.error("Authentication error", err);
-      setError(getErrorMessage(err) || "Authentication failed");
+      if (isAuthLinkFailureError(err) || isEmailAlreadyInUseOnSignupError(err)) {
+        setError(err.message);
+      } else {
+        setError(getErrorMessage(err) || "Authentication failed");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -897,7 +924,11 @@ const Authentication: React.FC<AuthenticationProps> = ({
       }
     } catch (err: unknown) {
       logger.error("Signup error", err);
-      setError(getErrorMessage(err) || "Failed to create organization");
+      if (isAuthLinkFailureError(err) || isEmailAlreadyInUseOnSignupError(err)) {
+        setError(err.message);
+      } else {
+        setError(getErrorMessage(err) || "Failed to create organization");
+      }
     } finally {
       setIsLoading(false);
       setIsGoogleLoading(false);

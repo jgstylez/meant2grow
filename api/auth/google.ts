@@ -202,6 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           skills: [],
           bio: '',
           googleId,
+          ...(firebaseAuthUid ? { firebaseAuthUid } : {}),
           createdAt: Timestamp.now(),
         });
 
@@ -281,6 +282,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         skills: [],
         bio: '',
         googleId,
+        ...(firebaseAuthUid ? { firebaseAuthUid } : {}),
         createdAt: Timestamp.now(),
       });
 
@@ -386,6 +388,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           skills: [],
           bio: '',
           googleId,
+          ...(firebaseAuthUid ? { firebaseAuthUid } : {}),
           createdAt: Timestamp.now(),
         });
 

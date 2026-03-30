@@ -94,14 +94,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, fcmStorageUserId, onU
         setFormData(user);
     }, [user]);
 
-    // Initialize goalsPublic from user, defaulting to false if not set
-    const [goalsPublic, setGoalsPublic] = useState(user.goalsPublic ?? false);
+    // Align with app-wide rule: goals are visible unless explicitly goalsPublic === false
+    const [goalsPublic, setGoalsPublic] = useState(user.goalsPublic !== false);
 
-    // Sync goalsPublic with user prop when it changes (only if defined in user)
     useEffect(() => {
-        if (user.goalsPublic !== undefined) {
-            setGoalsPublic(user.goalsPublic);
-        }
+        setGoalsPublic(user.goalsPublic !== false);
     }, [user.goalsPublic]);
 
     // Calculate mentor's current active matches count
@@ -398,8 +395,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, fcmStorageUserId, onU
     const toggleGoalsPublic = () => {
         const newValue = !goalsPublic;
         setGoalsPublic(newValue);
-        // Auto-save the preference
-        onUpdateUser({ ...formData, goalsPublic: newValue });
+        onUpdateUser({ ...user, goalsPublic: newValue });
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
     };
@@ -776,13 +772,25 @@ const SettingsView: React.FC<SettingsViewProps> = ({ user, fcmStorageUserId, onU
                                 <div className={CARD_CLASS}>
                                     <h3 className="font-bold text-slate-800 dark:text-white mb-4">Learning Visibility</h3>
                                     <div className="space-y-4">
-                                        <label className="flex items-center justify-between p-3 sm:p-4 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                                            <span className="text-sm font-medium">Make Goals Public</span>
-                                            <button onClick={toggleGoalsPublic} type="button" aria-label={goalsPublic ? "Make goals private" : "Make goals public"} className="focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded">
-                                                <span aria-hidden="true">
-                                                    {goalsPublic ? <ToggleRight className="w-6 h-6 text-emerald-500 flex-shrink-0" /> : <ToggleLeft className="w-6 h-6 text-slate-400 flex-shrink-0" />}
-                                                </span>
-                                            </button>
+                                        <label
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={toggleGoalsPublic}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    toggleGoalsPublic();
+                                                }
+                                            }}
+                                            aria-label={goalsPublic ? "Goals are public; switch to private" : "Goals are private; switch to public"}
+                                            className="flex items-center justify-between p-3 sm:p-4 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                        >
+                                            <span className="text-sm font-medium">
+                                                {goalsPublic ? "Goals are public" : "Goals are private"}
+                                            </span>
+                                            <span aria-hidden="true">
+                                                {goalsPublic ? <ToggleRight className="w-6 h-6 text-emerald-500 flex-shrink-0" /> : <ToggleLeft className="w-6 h-6 text-slate-400 flex-shrink-0" />}
+                                            </span>
                                         </label>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 px-3">
                                             {goalsPublic

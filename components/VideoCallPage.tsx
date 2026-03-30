@@ -1,11 +1,4 @@
-import React, {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Mic,
@@ -21,8 +14,8 @@ import {
 } from "../services/videoCallApi";
 import { getErrorMessage } from "../utils/errors";
 import { displayNameInitials } from "../utils/mediaPermissions";
-
-const VideoCallMeeting = lazy(() => import("./VideoCallMeeting"));
+import { consumePendingVideoCallSession } from "../utils/videoCallNavigation";
+import VideoCallMeeting from "./VideoCallMeeting";
 
 type VideoCallPageProps = {
   meetingId: string;
@@ -95,8 +88,9 @@ function LobbyMicLevel({ stream }: { stream: MediaStream | null }) {
 }
 
 /**
- * Full-screen video call route. Loads a fresh token for the room so the call
- * is not tied to chat component lifecycle (avoids disappearing UI on reconnect errors).
+ * Full-screen video call route. Tokens are minted when the user enters the room (or reused
+ * from a pending session after “Start call” in chat) to avoid duplicate VideoSDK sessions on
+ * lobby mount, Strict Mode, or HMR.
  */
 const VideoCallPage: React.FC<VideoCallPageProps> = ({
   meetingId,
@@ -105,9 +99,8 @@ const VideoCallPage: React.FC<VideoCallPageProps> = ({
   onNavigateBack,
 }) => {
   const [session, setSession] = useState<VideoCallSessionResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [retryKey, setRetryKey] = useState(0);
+  const [enteringRoom, setEnteringRoom] = useState(false);
   const [enteredRoom, setEnteredRoom] = useState(false);
   const [lobbyCamOn, setLobbyCamOn] = useState(false);
   const [lobbyMicOn, setLobbyMicOn] = useState(false);
@@ -117,30 +110,12 @@ const VideoCallPage: React.FC<VideoCallPageProps> = ({
   const previewStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setFetchError(null);
-    setSession(null);
-    requestVideoCallSession(meetingId)
-      .then((s) => {
-        if (!cancelled) setSession(s);
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setFetchError(getErrorMessage(e) ?? "Could not join this call");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [meetingId, retryKey]);
-
-  useEffect(() => {
     setEnteredRoom(false);
     setLobbyCamOn(false);
     setLobbyMicOn(false);
-  }, [meetingId, retryKey]);
+    setFetchError(null);
+    setSession(consumePendingVideoCallSession(meetingId));
+  }, [meetingId]);
 
   useEffect(() => {
     if (!lobbyCamOn && !lobbyMicOn) {
@@ -220,7 +195,7 @@ const VideoCallPage: React.FC<VideoCallPageProps> = ({
     [lobbyToggleBusy]
   );
 
-  const handleEnterRoom = useCallback(() => {
+  const handleEnterRoom = useCallback(async () => {
     if (previewStreamRef.current) {
       previewStreamRef.current.getTracks().forEach((t) => t.stop());
       previewStreamRef.current = null;
@@ -228,8 +203,24 @@ const VideoCallPage: React.FC<VideoCallPageProps> = ({
     setPreviewStream(null);
     setLobbyCamOn(false);
     setLobbyMicOn(false);
-    setEnteredRoom(true);
-  }, []);
+
+    if (session) {
+      setEnteredRoom(true);
+      return;
+    }
+
+    setEnteringRoom(true);
+    setFetchError(null);
+    try {
+      const s = await requestVideoCallSession(meetingId);
+      setSession(s);
+      setEnteredRoom(true);
+    } catch (e: unknown) {
+      setFetchError(getErrorMessage(e) ?? "Could not join this call");
+    } finally {
+      setEnteringRoom(false);
+    }
+  }, [meetingId, session]);
 
   const displayName = currentUser.name?.trim() || "Participant";
   const initials = displayNameInitials(displayName);
@@ -262,20 +253,13 @@ const VideoCallPage: React.FC<VideoCallPageProps> = ({
       </header>
 
       <div className="flex-1 min-h-0 flex flex-col">
-        {loading && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
-            <div className="h-10 w-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-slate-400 text-center">Preparing your call…</p>
-          </div>
-        )}
-
-        {!loading && fetchError && (
+        {!enteredRoom && fetchError && (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 max-w-md mx-auto text-center">
             <p className="text-slate-300 text-sm">{fetchError}</p>
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:justify-center">
               <button
                 type="button"
-                onClick={() => setRetryKey((k) => k + 1)}
+                onClick={() => setFetchError(null)}
                 className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold text-sm"
               >
                 Try again
@@ -291,7 +275,7 @@ const VideoCallPage: React.FC<VideoCallPageProps> = ({
           </div>
         )}
 
-        {!loading && !fetchError && session && !enteredRoom && (
+        {!enteredRoom && !fetchError && (
           <div className="flex-1 flex flex-col items-center justify-center gap-5 p-6 max-w-md mx-auto w-full">
             <div className="relative shrink-0">
               {currentUser.avatar ? (
@@ -388,34 +372,26 @@ const VideoCallPage: React.FC<VideoCallPageProps> = ({
 
             <button
               type="button"
-              disabled={lobbyToggleBusy !== null}
-              onClick={handleEnterRoom}
+              disabled={lobbyToggleBusy !== null || enteringRoom}
+              onClick={() => void handleEnterRoom()}
               className="w-full px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 font-semibold text-sm min-h-[48px]"
             >
-              Enter meeting room
+              {enteringRoom ? "Joining…" : "Enter meeting room"}
             </button>
           </div>
         )}
 
-        {!loading && !fetchError && session && enteredRoom && (
-          <Suspense
-            fallback={
-              <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
-                Loading video…
-              </div>
-            }
-          >
-            <VideoCallMeeting
-              key={`${session.meetingId}-${session.participantId}`}
-              meetingId={session.meetingId}
-              token={session.token}
-              participantId={session.participantId}
-              displayName={displayName}
-              localAvatarUrl={currentUser.avatar}
-              onLeave={onNavigateBack}
-              onErrorToast={onErrorToast}
-            />
-          </Suspense>
+        {!fetchError && session && enteredRoom && (
+          <VideoCallMeeting
+            key={`${session.meetingId}-${session.participantId}`}
+            meetingId={session.meetingId}
+            token={session.token}
+            participantId={session.participantId}
+            displayName={displayName}
+            localAvatarUrl={currentUser.avatar}
+            onLeave={onNavigateBack}
+            onErrorToast={onErrorToast}
+          />
         )}
       </div>
     </div>

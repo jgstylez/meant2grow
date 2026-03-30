@@ -25,10 +25,10 @@ const SkillsSelector: React.FC<SkillsSelectorProps> = ({
   // Ensure selectedSkills is always an array
   const safeSelectedSkills = selectedSkills || [];
 
-  // Filter out already selected skills from the dropdown
-  const availableSkills = filteredSkills.filter(
-    (skill) => !safeSelectedSkills.includes(skill)
-  );
+  // Filter out already selected skills, then sort A–Z for the dropdown
+  const availableSkills = filteredSkills
+    .filter((skill) => !safeSelectedSkills.includes(skill))
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
   // Handle clicking outside to close dropdown
   useEffect(() => {
@@ -168,7 +168,7 @@ const SkillsSelector: React.FC<SkillsSelectorProps> = ({
           <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
             {availableSkills.length > 0 ? (
               <div className="py-1">
-                {availableSkills.slice(0, 10).map((skill, idx) => (
+                {availableSkills.map((skill, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -178,11 +178,6 @@ const SkillsSelector: React.FC<SkillsSelectorProps> = ({
                     {skill}
                   </button>
                 ))}
-                {availableSkills.length > 10 && (
-                  <div className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400">
-                    +{availableSkills.length - 10} more skills
-                  </div>
-                )}
               </div>
             ) : customSkill.trim() ? (
               <div className="py-2 px-4">

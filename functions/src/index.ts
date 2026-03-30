@@ -1,4 +1,5 @@
 import * as functions from "firebase-functions/v2/https";
+import { logger } from "firebase-functions/v2";
 import * as functionsV1 from "firebase-functions/v1";
 import { defineString, defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
@@ -9,6 +10,8 @@ import { createEmailService } from "./emailService";
 import { setTrialPeriod } from "./organizationUtils";
 import { getErrorMessage, getErrorCode, formatError } from "./utils/errors";
 import { mintParticipantToken, videosdkCreateRoom } from "./videoSdk";
+import { checkVideoCallSessionRateLimit } from "./videoCallRateLimit";
+import { agentDebugLog } from "./agentDebugLog";
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -83,10 +86,11 @@ const LIGHT_HTTP_RUNTIME = {
 // Helper function to get email service instance with current config values
 const getEmailService = () => {
   const providerName = (emailProvider.value() || "mailersend") as "mailersend" | "mailtrap";
-  const apiToken =
+  const rawToken =
     providerName === "mailtrap"
       ? mailtrapApiToken.value()
       : mailerSendApiToken.value();
+  const apiToken = (rawToken || "").trim();
   const fromEmail = emailFrom.value();
   const replyToEmail = emailReplyTo.value();
   const appUrlValue = appUrl.value();
@@ -680,6 +684,20 @@ export const videoCallSession = functions.onRequest(
         return;
       }
 
+      const rate = checkVideoCallSessionRateLimit(uid);
+      if (!rate.ok) {
+        logger.warn("videoCallSession.rate_limited", {
+          uid,
+          retryAfterSec: rate.retryAfterSec,
+        });
+        res.status(429).json({
+          error: "Too many requests",
+          message: "Too many video session requests. Please wait a moment and try again.",
+          retryAfterSec: rate.retryAfterSec,
+        });
+        return;
+      }
+
       const apiKey = videoSdkApiKey.value();
       const secret = videoSdkSecret.value();
       if (!apiKey || !secret) {
@@ -709,6 +727,14 @@ export const videoCallSession = functions.onRequest(
         uid,
         PARTICIPANT_TOKEN_TTL
       );
+
+      const createdNewRoom = !body.meetingId || typeof body.meetingId !== "string";
+      logger.info("videoCallSession.token_minted", {
+        uid,
+        roomId,
+        createdNewRoom,
+        participantId: uid,
+      });
 
       res.json({
         meetingId: roomId,
@@ -1945,6 +1971,31 @@ export const sendInvitationEmail = functions.onRequest(
         return;
       }
 
+      // #region agent log
+      {
+        const providerNameDiag = (emailProvider.value() || "mailersend") as string;
+        const rawTok =
+          providerNameDiag === "mailtrap"
+            ? mailtrapApiToken.value()
+            : mailerSendApiToken.value();
+        const tok = (rawTok || "").trim();
+        agentDebugLog({
+          location: "index.ts:sendInvitationEmail",
+          message: "runtime email params snapshot",
+          hypothesisId: "H1,H2,H3,H5",
+          data: {
+            gcpProject: process.env.GCLOUD_PROJECT ?? process.env.GCP_PROJECT ?? "",
+            functionsEmulator: process.env.FUNCTIONS_EMULATOR === "true",
+            cloudRunOrJob: !!(process.env.K_SERVICE || process.env.CLOUD_RUN_JOB),
+            providerName: providerNameDiag,
+            tokenLength: tok.length,
+            rawTokenLength: (rawTok || "").length,
+            trimRemovedChars: (rawTok || "").length - tok.length,
+          },
+        });
+      }
+      // #endregion
+
       // Send invitation email
       try {
         await getEmailService().sendInvitation(
@@ -2086,4 +2137,7 @@ export {
 
 // Export TOTP 2FA functions
 export { setupTotp, verifyTotpSetup, verifyTotpLogin, disableTotp } from "./totp";
+
+// Invitation lookup for legacy token-based docs (random id)
+export { lookupInvitationByToken } from "./invitations";
 

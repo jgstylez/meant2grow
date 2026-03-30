@@ -1,3 +1,4 @@
+import { logVideoUsageEvent } from "../utils/videoUsageTelemetry";
 import { getCloudFunctionUrl, getDefaultCloudFunctionsBaseUrl } from "./cloudFunctionsUrl";
 import { getFirebaseIdTokenForCloudFunctions } from "./googleAuth";
 
@@ -57,6 +58,20 @@ export async function requestVideoCallSession(
   }
 
   if (!response.ok) {
+    if (response.status === 429) {
+      let retryAfterSec: number | undefined;
+      try {
+        const j = JSON.parse(raw) as { retryAfterSec?: number };
+        if (typeof j.retryAfterSec === "number") retryAfterSec = j.retryAfterSec;
+      } catch {
+        /* ignore */
+      }
+      throw new Error(
+        retryAfterSec != null
+          ? `Too many video session requests. Try again in about ${retryAfterSec}s.`
+          : "Too many video session requests. Please wait a minute and try again."
+      );
+    }
     if (response.status === 404) {
       const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-dev";
       const base = getDefaultCloudFunctionsBaseUrl();
@@ -79,9 +94,16 @@ export async function requestVideoCallSession(
     );
   }
 
-  return {
+  const out = {
     meetingId: data.meetingId,
     token: data.token,
     participantId: data.participantId,
   };
+  logVideoUsageEvent("video_session_mint", {
+    meetingId: out.meetingId,
+    participantId: out.participantId,
+    source: "cloud_function_videoCallSession",
+    extra: { hadExistingMeetingId: Boolean(meetingId) },
+  });
+  return out;
 }

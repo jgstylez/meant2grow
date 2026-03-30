@@ -170,13 +170,17 @@ const MentorOnboarding: React.FC<MentorOnboardingProps> = ({ onComplete, program
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone Number</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Phone Number{' '}
+                    <span className="font-normal text-slate-400 dark:text-slate-500">(optional)</span>
+                  </label>
                   <input 
                     type="tel" 
                     value={formData.phoneNumber}
                     onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})}
                     className={INPUT_CLASS}
                     placeholder="e.g., +1 (555) 123-4567"
+                    aria-label="Phone number (optional)"
                   />
                 </div>
               </div>

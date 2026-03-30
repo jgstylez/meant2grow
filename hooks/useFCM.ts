@@ -42,7 +42,8 @@ export function useFCM(fcmStorageUserId: string | null) {
     
     // Only initialize if permission is not denied
     if (currentPermission === 'denied') {
-      setState(prev => ({ ...prev, error: 'Notification permission denied' }));
+      // Expected when user or browser blocks notifications — not an app error
+      setState(prev => ({ ...prev, error: null }));
       return;
     }
 

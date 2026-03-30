@@ -266,7 +266,7 @@ export const MOCK_INVITATIONS: Invitation[] = [
   }
 ];
 
-// Predefined skills list for dropdown selection
+// Predefined skills list for dropdown selection (broad industry coverage; users can still add custom skills)
 export const PREDEFINED_SKILLS = [
   // Leadership & Management
   'Leadership',
@@ -278,7 +278,10 @@ export const PREDEFINED_SKILLS = [
   'Crisis Management',
   'Project Management',
   'Program Management',
-  
+  'Operations Management',
+  'Vendor Management',
+  'Budgeting & Forecasting',
+
   // Product & Strategy
   'Product Strategy',
   'Product Management',
@@ -288,8 +291,10 @@ export const PREDEFINED_SKILLS = [
   'User Stories',
   'Roadmap Planning',
   'Stakeholder Management',
-  
-  // Technical Skills
+  'Go-to-Market Strategy',
+  'Competitive Analysis',
+
+  // Software & IT
   'Software Development',
   'System Design',
   'Cloud Architecture',
@@ -303,19 +308,38 @@ export const PREDEFINED_SKILLS = [
   'Data Science',
   'DevOps',
   'Cybersecurity',
-  
+  'Mobile Development',
+  'iOS Development',
+  'Android Development',
+  'QA & Testing',
+  'API Design',
+  'Database Administration',
+  'IT Infrastructure',
+  'Technical Writing',
+  'Site Reliability',
+
+  // Data & Analytics
+  'Analytics',
+  'Data Analysis',
+  'Business Intelligence',
+  'Data Engineering',
+  'Data Visualization',
+  'Experimentation & A/B Testing',
+
   // Marketing & Sales
   'Digital Marketing',
   'Brand Strategy',
   'Content Marketing',
   'SEO',
   'Social Media',
-  'Public Speaking',
   'Sales',
+  'Account Management',
   'Negotiation',
   'Client Relations',
   'CRM',
-  
+  'Partnerships',
+  'Revenue Operations',
+
   // Design & Creative
   'UX Design',
   'UI Design',
@@ -327,26 +351,47 @@ export const PREDEFINED_SKILLS = [
   'Adobe Suite',
   'Typography',
   'Motion Graphics',
-  
-  // Business & Finance
+  'Video Production',
+  'Copywriting',
+
+  // Business, Finance & Accounting
   'Business Strategy',
   'Financial Planning',
+  'Accounting',
+  'Bookkeeping',
+  'FP&A',
   'Mergers & Acquisitions',
   'Operations',
   'Supply Chain',
   'Logistics',
-  'Analytics',
-  'Data Analysis',
+  'Procurement',
   'Business Development',
-  
+  'Investor Relations',
+  'Tax Planning',
+
+  // Banking, Insurance & Real Estate
+  'Commercial Banking',
+  'Retail Banking',
+  'Investment Banking',
+  'Wealth Management',
+  'Risk Management',
+  'Insurance Underwriting',
+  'Claims Management',
+  'Real Estate',
+  'Property Management',
+  'Mortgage & Lending',
+
   // HR & People
   'Talent Development',
   'Recruiting',
   'Employee Relations',
   'People Analytics',
   'Performance Management',
-  
-  // Communication & Soft Skills
+  'Compensation & Benefits',
+  'DEI',
+  'Learning & Development',
+
+  // Communication & soft skills
   'Communication',
   'Presentation Skills',
   'Public Speaking',
@@ -355,14 +400,88 @@ export const PREDEFINED_SKILLS = [
   'Coaching',
   'Time Management',
   'Problem Solving',
-  
-  // Industry Specific
-  'Healthcare',
+  'Conflict Resolution',
+
+  // Legal, compliance & policy
   'Legal',
   'Contract Law',
   'Compliance',
   'Regulatory Affairs',
+  'Privacy & Data Protection',
+  'Intellectual Property',
+  'Patents',
+  'Government Relations',
+
+  // Healthcare & life sciences
+  'Healthcare Administration',
+  'Clinical Operations',
+  'Nursing',
+  'Mental Health',
+  'Pharmaceuticals',
+  'Biotech',
+  'Medical Devices',
+  'Health Informatics',
+  'Public Health',
+
+  // Education & nonprofit
+  'Teaching & Instruction',
+  'Curriculum Design',
+  'Educational Technology',
+  'Higher Education',
+  'Nonprofit Management',
+  'Fundraising & Grants',
+  'Community Outreach',
+
+  // Engineering & manufacturing
+  'Mechanical Engineering',
+  'Electrical Engineering',
+  'Civil Engineering',
+  'Chemical Engineering',
+  'Industrial Engineering',
+  'Manufacturing',
+  'Quality Assurance (Manufacturing)',
+  'Process Improvement',
+  'Six Sigma / Lean',
+
+  // Energy, construction & environment
+  'Energy & Utilities',
+  'Renewable Energy',
+  'Oil & Gas',
+  'Construction Management',
+  'Architecture',
+  'Environmental Science',
+  'Sustainability & ESG',
+  'Agriculture & AgTech',
+
+  // Transportation, aerospace & defense
+  'Automotive',
+  'Aviation',
+  'Aerospace',
+  'Maritime & Shipping',
+  'Defense & Security',
+
+  // Retail, hospitality & consumer
+  'Retail Management',
+  'E-commerce',
+  'Merchandising',
+  'Hospitality',
+  'Food & Beverage',
+  'Tourism',
+  'Consumer Packaged Goods',
+
+  // Media, entertainment & sports
+  'Journalism',
+  'Broadcasting',
+  'Entertainment',
+  'Gaming',
+  'Sports Management',
+  'Event Planning',
+
+  // Customer & professional services
+  'Customer Success',
+  'Customer Support',
+  'Consulting',
   'Research',
   'Innovation Management',
-  'Patents',
+  'Translation & Localization',
 ];

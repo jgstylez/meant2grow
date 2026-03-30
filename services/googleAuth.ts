@@ -30,31 +30,55 @@ export interface GoogleUser {
   picture: string;
 }
 
-export const initializeGoogleAuth = (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined' || !window.google) {
-      reject(new Error('Google API not loaded. Make sure to include the Google Sign-In script.'));
-      return;
-    }
+/** Google warns if `initialize()` runs more than once per page load. */
+let gsiClientInitialized = false;
 
+const GSI_INIT_PROMISE_KEY = '__meant2grow_gsi_init_promise__';
+
+/**
+ * Single initialize() per browser tab: dedupes React Strict Mode, remounts, and duplicate
+ * bundled copies of this module (each would otherwise have its own module-level flag).
+ */
+export const initializeGoogleAuth = (): Promise<void> => {
+  if (typeof window === 'undefined') {
+    return Promise.reject(
+      new Error('Google API not loaded. Make sure to include the Google Sign-In script.')
+    );
+  }
+
+  type GsiWindow = Window & { [GSI_INIT_PROMISE_KEY]?: Promise<void> };
+  const w = window as GsiWindow;
+  const existing = w[GSI_INIT_PROMISE_KEY];
+  if (existing) {
+    return existing;
+  }
+
+  const p = (async () => {
+    if (!window.google) {
+      throw new Error('Google API not loaded. Make sure to include the Google Sign-In script.');
+    }
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     if (!clientId) {
-      reject(new Error('VITE_GOOGLE_CLIENT_ID is not set'));
+      throw new Error('VITE_GOOGLE_CLIENT_ID is not set');
+    }
+    if (gsiClientInitialized) {
       return;
     }
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: () => {
+        // Auto-select callback (optional)
+      },
+    });
+    gsiClientInitialized = true;
+  })();
 
-    try {
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: () => {
-          // Auto-select callback (optional)
-        },
-      });
-      resolve();
-    } catch (error) {
-      reject(error);
-    }
+  p.catch(() => {
+    delete w[GSI_INIT_PROMISE_KEY];
   });
+
+  w[GSI_INIT_PROMISE_KEY] = p;
+  return p;
 };
 
 /**

@@ -23,6 +23,10 @@ import { Role, User, Invitation, Organization } from "../types";
 import { resolveCanonicalFirestoreUserId } from "../utils/resolveCanonicalUserId";
 import { getErrorMessage } from "../utils/errors";
 import { logger } from "../services/logger";
+import {
+  isAuthLinkFailureError,
+  isEmailAlreadyInUseOnSignupError,
+} from "../services/firebaseAuth";
 
 interface OrganizationSignupProps {
   onLogin: (
@@ -142,28 +146,47 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
     };
   }, []);
 
-  // Initialize Google Auth when component mounts
+  // Initialize Google Auth when component mounts (single init is enforced in googleAuth.ts)
   useEffect(() => {
-    const initAuth = async () => {
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = async () => {
       try {
-        // Wait for Google API to load
-        if (typeof window !== "undefined" && window.google) {
-          await initializeGoogleAuth();
+        await initializeGoogleAuth();
+        if (!cancelled) {
           setGoogleAuthReady(true);
-        } else {
-          // Retry after a delay if Google API hasn't loaded yet
-          setTimeout(() => {
-            if (window.google) {
-              initializeGoogleAuth().then(() => setGoogleAuthReady(true));
-            }
-          }, 1000);
         }
       } catch (err) {
-        console.error("Failed to initialize Google Auth:", err);
-        // Continue without Google Auth if it fails
+        logger.error("Failed to initialize Google Auth", err);
       }
     };
+
+    const initAuth = () => {
+      if (typeof window === "undefined") {
+        return;
+      }
+      if (window.google) {
+        void finish();
+        return;
+      }
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        if (cancelled || !window.google) {
+          return;
+        }
+        void finish();
+      }, 1000);
+    };
+
     initAuth();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer !== null) {
+        clearTimeout(retryTimer);
+      }
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -254,23 +277,26 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
 
       let sessionUserId = userId;
       if (formData.password) {
-        try {
-          const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
-          const authUid = await createFirebaseAuthAccount(
-            formData.email,
-            formData.password,
-            userId,
-            participantProfile
-          );
-          if (authUid) {
-            sessionUserId = authUid;
+        const { createFirebaseAuthAccount } = await import("../services/firebaseAuth");
+        const authUid = await createFirebaseAuthAccount(
+          formData.email,
+          formData.password,
+          userId,
+          participantProfile
+        );
+        if (!authUid) {
+          const { signOut } = await import("firebase/auth");
+          const { auth } = await import("../services/firebase");
+          try {
+            await signOut(auth);
+          } catch {
+            /* ignore */
           }
-        } catch (authError) {
-          logger.warn(
-            "Failed to create Firebase Auth during org-signup page signup (user can use Forgot Password or login migration)",
-            authError
+          throw new Error(
+            "We couldn't finish setting up your sign-in. Please try again, or use Forgot Password if you already have an account."
           );
         }
+        sessionUserId = authUid;
       }
 
       // Mark invitation as accepted (only if using invitation)
@@ -285,7 +311,11 @@ const OrganizationSignup: React.FC<OrganizationSignupProps> = ({
       onLogin(false, true, participantRole);
     } catch (err: unknown) {
       logger.error("Authentication error", err);
-      setError(getErrorMessage(err) || "Authentication failed");
+      if (isAuthLinkFailureError(err) || isEmailAlreadyInUseOnSignupError(err)) {
+        setError(err.message);
+      } else {
+        setError(getErrorMessage(err) || "Authentication failed");
+      }
     } finally {
       setIsLoading(false);
     }

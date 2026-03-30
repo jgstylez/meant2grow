@@ -78,7 +78,10 @@ import {
 import { parseVideoCallMessage, formatVideoCallChatMessage } from "../utils/videoCallMarkers";
 import { isVerboseChatLogging } from "../utils/environment";
 import { requestVideoCallSession } from "../services/videoCallApi";
-import { setVideoCallReturnPage } from "../utils/videoCallNavigation";
+import {
+  setVideoCallReturnPage,
+  storePendingVideoCallSession,
+} from "../utils/videoCallNavigation";
 
 // Using ChatMessage and ChatGroup from types.ts
 
@@ -3996,6 +3999,7 @@ className={`w-full text-left px-4 py-2 flex items-center gap-2 text-sm font-medi
                   setVideoCallStarting(true);
                   try {
                     const session = await requestVideoCallSession();
+                    storePendingVideoCallSession(session);
                     handleSend(
                       formatVideoCallChatMessage(
                         "Video call started. Join from this conversation when you're ready.",

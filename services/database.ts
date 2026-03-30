@@ -38,6 +38,17 @@ const convertTimestamp = (value: any): string => {
   if (value instanceof Date) {
     return value.toISOString();
   }
+  // JSON-serialized Firestore Timestamp shape
+  if (
+    typeof value === "object" &&
+    typeof (value as { seconds?: unknown }).seconds === "number"
+  ) {
+    const { seconds, nanoseconds = 0 } = value as {
+      seconds: number;
+      nanoseconds?: number;
+    };
+    return new Date(seconds * 1000 + nanoseconds / 1e6).toISOString();
+  }
   // Fallback to current date
   return new Date().toISOString();
 };
@@ -65,8 +76,28 @@ import {
   TrainingVideo,
   PrivateMessageRequest,
 } from "../types";
-import { getErrorCode, getErrorMessage, formatError } from "../utils/errors";
+import {
+  getErrorCode,
+  getErrorMessage,
+  formatError,
+  isFirestorePermissionDenied,
+} from "../utils/errors";
 import { auth } from "./firebase";
+
+function logFirestoreListenerError(
+  label: string,
+  error: unknown,
+  context?: Record<string, unknown>
+): void {
+  if (isFirestorePermissionDenied(error)) {
+    logger.debug(label, { ...context, detail: getErrorMessage(error) });
+    return;
+  }
+  logger.error(label, error);
+  if (context && Object.keys(context).length > 0) {
+    logger.debug(`${label} (context)`, context);
+  }
+}
 
 /**
  * Helper function to check if an error is a Firestore internal assertion error
@@ -1126,7 +1157,9 @@ export const subscribeToMilestones = (
       callback(milestones);
     },
     (error) => {
-      logger.error("Error subscribing to milestones", error);
+      logFirestoreListenerError("Error subscribing to milestones", error, {
+        goalId,
+      });
       callback([]);
     }
   );
@@ -1757,7 +1790,8 @@ export const createInvitation = async (
       : import.meta.env.VITE_APP_URL || "https://meant2grow.com";
   const invitationLink = `${appUrl}/?invite=${token}`;
 
-  const invitationRef = doc(collection(db, "invitations"));
+  // Document ID = token so unauthenticated clients can get a single invite by path (no query / enumeration).
+  const invitationRef = doc(db, "invitations", token);
   await setDoc(invitationRef, {
     ...invitationData,
     token,
@@ -1766,7 +1800,7 @@ export const createInvitation = async (
       invitationData.expiresAt ||
       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default 30 days
   });
-  return invitationRef.id;
+  return token;
 };
 
 /**
@@ -1791,45 +1825,87 @@ export const getInvitation = async (
   } as Invitation;
 };
 
-/**
- * Gets invitation by token
- */
-export const getInvitationByToken = async (
-  token: string
-): Promise<Invitation | null> => {
-  const q = query(
-    collection(db, "invitations"),
-    where("token", "==", token),
-    where("status", "==", "Pending")
-  );
-  const snapshot = await getDocs(q);
-
-  if (snapshot.empty) {
-    return null;
-  }
-
-  const invitationDoc = snapshot.docs[0];
-  const data = invitationDoc.data();
-
-  // Check expiration
-  if (data.expiresAt) {
-    const expiresAt =
-      typeof data.expiresAt === "string"
-        ? new Date(data.expiresAt)
-        : data.expiresAt.toDate();
-    if (expiresAt < new Date()) {
-      // Mark as expired
-      await updateInvitation(invitationDoc.id, { status: "Expired" });
-      return null;
-    }
-  }
-
+function mapInvitationDoc(
+  invitationDoc: QueryDocumentSnapshot | DocumentSnapshot,
+  data: Record<string, unknown>
+): Invitation {
   return {
     id: invitationDoc.id,
     ...data,
     sentDate: convertTimestamp(data.sentDate),
     expiresAt: data.expiresAt ? convertTimestamp(data.expiresAt) : undefined,
   } as Invitation;
+}
+
+/**
+ * Gets invitation by token (document id is the token for new invites; legacy uses random id + callable fallback).
+ */
+export const getInvitationByToken = async (
+  token: string
+): Promise<Invitation | null> => {
+  if (!token || token.length < 20) {
+    return null;
+  }
+
+  const invitationRef = doc(db, "invitations", token);
+  const invitationSnap = await getDoc(invitationRef);
+
+  if (invitationSnap.exists()) {
+    const data = invitationSnap.data();
+    if (!data || data.status !== "Pending" || data.token !== token) {
+      return null;
+    }
+    if (data.expiresAt) {
+      const expiresAt =
+        typeof data.expiresAt === "string"
+          ? new Date(data.expiresAt)
+          : data.expiresAt.toDate();
+      if (expiresAt < new Date()) {
+        await updateInvitation(invitationSnap.id, { status: "Expired" });
+        return null;
+      }
+    }
+    return mapInvitationDoc(invitationSnap, data);
+  }
+
+  try {
+    const { getFunctions, httpsCallable } = await import("firebase/functions");
+    const { default: firebaseApp } = await import("./firebase");
+    const functions = getFunctions(firebaseApp, "us-central1");
+    const lookup = httpsCallable(functions, "lookupInvitationByToken");
+    const result = await lookup({ token });
+    const payload = result.data as { invitation: Record<string, unknown> | null } | undefined;
+    const inv = payload?.invitation;
+    if (!inv || typeof inv !== "object") {
+      return null;
+    }
+    const id = inv.id as string;
+    if (!id) {
+      return null;
+    }
+    if (inv.status !== "Pending") {
+      return null;
+    }
+    if (inv.expiresAt) {
+      const expiresAt =
+        typeof inv.expiresAt === "string"
+          ? new Date(inv.expiresAt)
+          : new Date(String(inv.expiresAt));
+      if (expiresAt < new Date()) {
+        await updateInvitation(id, { status: "Expired" });
+        return null;
+      }
+    }
+    return {
+      id,
+      ...inv,
+      sentDate: convertTimestamp(inv.sentDate),
+      expiresAt: inv.expiresAt ? convertTimestamp(inv.expiresAt) : undefined,
+    } as Invitation;
+  } catch (e) {
+    logger.warn("getInvitationByToken legacy lookup failed", e);
+    return null;
+  }
 };
 
 /**
@@ -1923,8 +1999,7 @@ export const subscribeToUser = (
       }
     },
     (error) => {
-      logger.error("Error subscribing to user", error);
-      logger.debug("UserId", { userId });
+      logFirestoreListenerError("Error subscribing to user", error, { userId });
       callback(null);
     }
   );
@@ -1949,8 +2024,9 @@ export const subscribeToOrganization = (
       }
     },
     (error) => {
-      logger.error("Error subscribing to organization", error);
-      logger.debug("OrganizationId", { organizationId });
+      logFirestoreListenerError("Error subscribing to organization", error, {
+        organizationId,
+      });
       callback(null);
     }
   );
@@ -1979,8 +2055,9 @@ export const subscribeToUsersByOrganization = (
       callback(users);
     },
     (error) => {
-      logger.error("Error subscribing to users", error);
-      logger.debug("OrganizationId", { organizationId });
+      logFirestoreListenerError("Error subscribing to users", error, {
+        organizationId,
+      });
       // Call callback with empty array on error to prevent UI from hanging
       callback([]);
     }
@@ -2009,8 +2086,9 @@ export const subscribeToMatchesByOrganization = (
       callback(matches);
     },
     (error) => {
-      logger.error("Error subscribing to matches", error);
-      logger.debug("OrganizationId", { organizationId });
+      logFirestoreListenerError("Error subscribing to matches", error, {
+        organizationId,
+      });
       callback([]);
     }
   );
@@ -2038,8 +2116,9 @@ export const subscribeToGoalsByOrganization = (
       callback(goals);
     },
     (error) => {
-      logger.error("Error subscribing to goals", error);
-      logger.debug("OrganizationId", { organizationId });
+      logFirestoreListenerError("Error subscribing to goals", error, {
+        organizationId,
+      });
       callback([]);
     }
   );
@@ -2067,8 +2146,9 @@ export const subscribeToRatingsByOrganization = (
       callback(ratings);
     },
     (error) => {
-      logger.error("Error subscribing to ratings", error);
-      logger.debug("OrganizationId", { organizationId });
+      logFirestoreListenerError("Error subscribing to ratings", error, {
+        organizationId,
+      });
       callback([]);
     }
   );
@@ -2097,8 +2177,9 @@ export const subscribeToResourcesByOrganization = (
       callback(resources);
     },
     (error) => {
-      logger.error("Error subscribing to resources", error);
-      logger.debug("OrganizationId", { organizationId });
+      logFirestoreListenerError("Error subscribing to resources", error, {
+        organizationId,
+      });
       callback([]);
     }
   );
@@ -2127,8 +2208,9 @@ export const subscribeToCalendarEventsByOrganization = (
       callback(events);
     },
     (error) => {
-      logger.error("Error subscribing to calendar events", error);
-      logger.debug("OrganizationId", { organizationId });
+      logFirestoreListenerError("Error subscribing to calendar events", error, {
+        organizationId,
+      });
       callback([]);
     }
   );
@@ -2161,8 +2243,10 @@ export const subscribeToNotificationsByUser = (
       callback(notifications);
     },
     (error) => {
-      logger.error("Error subscribing to notifications", error);
-      logger.debug("UserId, OrganizationId", { userId, organizationId });
+      logFirestoreListenerError("Error subscribing to notifications", error, {
+        userId,
+        organizationId,
+      });
       callback([]);
     }
   );
@@ -2183,15 +2267,23 @@ export const subscribeToInvitationsByOrganization = (
   return onSnapshot(
     q,
     (snapshot: QuerySnapshot) => {
-      const invitations = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Invitation[];
+      const invitations = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          sentDate: convertTimestamp(data.sentDate),
+          expiresAt: data.expiresAt
+            ? convertTimestamp(data.expiresAt)
+            : undefined,
+        } as Invitation;
+      });
       callback(invitations);
     },
     (error) => {
-      logger.error("Error subscribing to invitations", error);
-      logger.debug("OrganizationId", { organizationId });
+      logFirestoreListenerError("Error subscribing to invitations", error, {
+        organizationId,
+      });
       callback([]);
     }
   );
@@ -2224,7 +2316,7 @@ export const subscribeToBlogPosts = (
       callback(posts);
     },
     (error) => {
-      logger.error("Error subscribing to blog posts", error);
+      logFirestoreListenerError("Error subscribing to blog posts", error);
       callback([]);
     }
   );
@@ -2277,7 +2369,10 @@ export const subscribeToDiscussionGuides = (
       updateCallback();
     },
     (error) => {
-      logger.error("Error subscribing to platform discussion guides", error);
+      logFirestoreListenerError(
+        "Error subscribing to platform discussion guides",
+        error
+      );
       updateCallback();
     }
   );
@@ -2298,11 +2393,18 @@ export const subscribeToDiscussionGuides = (
         updateCallback();
       },
       (error) => {
-        logger.error("Error subscribing to org discussion guides", error);
-        if (isFirestoreIndexError(error)) {
-          logger.info(FIRESTORE_INDEX_HINT);
+        if (isFirestorePermissionDenied(error)) {
+          logger.debug("Error subscribing to org discussion guides", {
+            organizationId,
+            detail: getErrorMessage(error),
+          });
+        } else {
+          logger.error("Error subscribing to org discussion guides", error);
+          if (isFirestoreIndexError(error)) {
+            logger.info(FIRESTORE_INDEX_HINT);
+          }
+          logger.debug("OrganizationId", { organizationId });
         }
-        logger.debug("OrganizationId", { organizationId });
         updateCallback();
       }
     );
@@ -2361,7 +2463,10 @@ export const subscribeToCareerTemplates = (
       updateCallback();
     },
     (error) => {
-      logger.error("Error subscribing to platform career templates", error);
+      logFirestoreListenerError(
+        "Error subscribing to platform career templates",
+        error
+      );
       updateCallback();
     }
   );
@@ -2382,11 +2487,18 @@ export const subscribeToCareerTemplates = (
         updateCallback();
       },
       (error) => {
-        logger.error("Error subscribing to org career templates", error);
-        if (isFirestoreIndexError(error)) {
-          logger.info(FIRESTORE_INDEX_HINT);
+        if (isFirestorePermissionDenied(error)) {
+          logger.debug("Error subscribing to org career templates", {
+            organizationId,
+            detail: getErrorMessage(error),
+          });
+        } else {
+          logger.error("Error subscribing to org career templates", error);
+          if (isFirestoreIndexError(error)) {
+            logger.info(FIRESTORE_INDEX_HINT);
+          }
+          logger.debug("OrganizationId", { organizationId });
         }
-        logger.debug("OrganizationId", { organizationId });
         updateCallback();
       }
     );
@@ -2445,7 +2557,10 @@ export const subscribeToTrainingVideos = (
       updateCallback();
     },
     (error) => {
-      logger.error("Error subscribing to platform training videos", error);
+      logFirestoreListenerError(
+        "Error subscribing to platform training videos",
+        error
+      );
       updateCallback();
     }
   );
@@ -2466,11 +2581,18 @@ export const subscribeToTrainingVideos = (
         updateCallback();
       },
       (error) => {
-        logger.error("Error subscribing to org training videos", error);
-        if (isFirestoreIndexError(error)) {
-          logger.info(FIRESTORE_INDEX_HINT);
+        if (isFirestorePermissionDenied(error)) {
+          logger.debug("Error subscribing to org training videos", {
+            organizationId,
+            detail: getErrorMessage(error),
+          });
+        } else {
+          logger.error("Error subscribing to org training videos", error);
+          if (isFirestoreIndexError(error)) {
+            logger.info(FIRESTORE_INDEX_HINT);
+          }
+          logger.debug("OrganizationId", { organizationId });
         }
-        logger.debug("OrganizationId", { organizationId });
         updateCallback();
       }
     );
@@ -2914,8 +3036,10 @@ export const subscribeToChatMessages = (
           return;
         }
 
-        logger.error("Error subscribing to chat messages", error);
-        logger.debug("Chat subscription error details", { chatId, organizationId });
+        logFirestoreListenerError("Error subscribing to chat messages", error, {
+          chatId,
+          organizationId,
+        });
         // Call callback with empty array on error to prevent UI from hanging
         callback([]);
       }
@@ -3082,12 +3206,11 @@ export const subscribeToDMMessages = (
           return;
         }
 
-        logger.error("Error subscribing to DM messages (query 1)", error);
-        logger.debug("DM subscription error details", {
-          partnerId,
-          currentUserId,
-          organizationId
-        });
+        logFirestoreListenerError(
+          "Error subscribing to DM messages (query 1)",
+          error,
+          { partnerId, currentUserId, organizationId }
+        );
         // Fix 4: On transient errors, still callback with what we have
         query1HasFired = true;
         mergeAndCallback(true);
@@ -3188,12 +3311,11 @@ export const subscribeToDMMessages = (
               return;
             }
 
-            logger.error("Error subscribing to DM messages (query 2)", error);
-            logger.debug("DM subscription error details (query 2)", {
-              partnerId,
-              currentUserId,
-              organizationId
-            });
+            logFirestoreListenerError(
+              "Error subscribing to DM messages (query 2)",
+              error,
+              { partnerId, currentUserId, organizationId }
+            );
             // Fix 4: On transient errors, still callback with what we have
             query2HasFired = true;
             mergeAndCallback(true);
@@ -3436,7 +3558,10 @@ export const subscribeToTypingStatus = (
       callback(typingUserIds);
     },
     (error) => {
-      logger.error("Error subscribing to typing status", error);
+      logFirestoreListenerError("Error subscribing to typing status", error, {
+        chatId,
+        organizationId,
+      });
       callback([]);
     }
   );
@@ -3538,7 +3663,11 @@ export const subscribeToPrivateMessageRequests = (
       callback(requests);
     },
     (error) => {
-      logger.error("Error subscribing to private message requests", error);
+      logFirestoreListenerError(
+        "Error subscribing to private message requests",
+        error,
+        { userId, organizationId }
+      );
       callback([]);
     }
   );

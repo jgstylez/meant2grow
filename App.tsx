@@ -37,7 +37,7 @@ import {
   deleteNotification,
   createInvitation,
   getUser,
-  updateUser,
+  updateUserProfileForSession,
   incrementMentorHours,
   updateOrganization,
   createChatMessage,
@@ -764,11 +764,12 @@ const App: React.FC = () => {
   const handleUpdateUser = async (updatedUser: User) => {
     try {
       if (!updatedUser.id) throw new Error("User ID is required");
-      // Optimistically update local state
       setCurrentUser(updatedUser);
-      // Extract only the changed fields for the database update
-      const updates: Partial<User> = { ...updatedUser };
-      await updateUser(updatedUser.id, updates);
+      const { id: _omitFirestoreId, ...profileFields } = updatedUser;
+      await updateUserProfileForSession(
+        { id: updatedUser.id, firebaseAuthUid: updatedUser.firebaseAuthUid },
+        profileFields
+      );
       addToast("Profile updated successfully", "success");
     } catch (error: unknown) {
       logger.error("Error updating user", error);
@@ -1282,6 +1283,14 @@ const App: React.FC = () => {
               ? `http://localhost:5001/${projectId}/us-central1`
               : `https://us-central1-${projectId}.cloudfunctions.net`);
           const functionsUrl = `${functionsBase}/sendInvitationEmail`;
+
+          // #region agent log
+          try {
+            const baseForUrl = functionsBase.includes('://') ? functionsBase : `https://${functionsBase}`;
+            const u = new URL(baseForUrl);
+            fetch('http://127.0.0.1:7243/ingest/ddbd7d9b-fa55-49dd-a6eb-074ba22eeba5', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '47f738' }, body: JSON.stringify({ sessionId: '47f738', location: 'App.tsx:inviteEmail', message: 'invitation CF target', hypothesisId: 'H5', data: { functionsHost: u.hostname, viteDev: !!import.meta.env.DEV, hasViteFunctionsUrl: !!import.meta.env.VITE_FUNCTIONS_URL }, timestamp: Date.now() }) }).catch(() => {});
+          } catch { /* ignore */ }
+          // #endregion
 
           const response = await fetch(functionsUrl, {
             method: 'POST',
