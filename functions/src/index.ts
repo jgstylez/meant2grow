@@ -2141,3 +2141,11 @@ export { setupTotp, verifyTotpSetup, verifyTotpLogin, disableTotp } from "./totp
 // Invitation lookup for legacy token-based docs (random id)
 export { lookupInvitationByToken } from "./invitations";
 
+// Platform operator provisioning (Admin SDK; keeps creator signed in)
+export {
+  createPlatformOperatorAccount,
+  listPlatformOperators,
+  deletePlatformOperator,
+  updatePlatformOperatorProfile,
+} from "./platformOperators";
+

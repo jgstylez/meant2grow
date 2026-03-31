@@ -1,10 +1,14 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { User, Role } from '../types';
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
-import { Crown, UserPlus, Edit2, Trash2, Mail, X, AlertTriangle } from 'lucide-react';
-import { createUser, updateUser, getAllUsers, deleteUser } from '../services/database';
-import { query, collection, where, getDocs } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { Crown, UserPlus, Edit2, Trash2, Mail, X, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { auth } from '../services/firebase';
+import {
+    createPlatformOperatorAccount,
+    listPlatformOperators,
+    deletePlatformOperator,
+    updatePlatformOperatorProfile,
+} from '../services/platformOperatorAdmin';
 import { getErrorMessage } from '../utils/errors';
 import { logger } from '../services/logger';
 
@@ -12,8 +16,18 @@ interface PlatformOperatorManagementProps {
     currentUser: User;
 }
 
+/** Matches Cloud Function rules in `functions/src/platformOperators.ts` */
+function isOperatorPasswordValid(password: string): boolean {
+    return password.length >= 8 &&
+        /(?=.*[a-z])/.test(password) &&
+        /(?=.*[A-Z])/.test(password) &&
+        /(?=.*\d)/.test(password);
+}
+
 const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({ currentUser }) => {
     const [newAdminEmail, setNewAdminEmail] = useState('');
+    const [newAdminPassword, setNewAdminPassword] = useState('');
+    const [newAdminPasswordConfirm, setNewAdminPasswordConfirm] = useState('');
     const [newAdminName, setNewAdminName] = useState('');
     const [creatingAdmin, setCreatingAdmin] = useState(false);
     const [adminMessage, setAdminMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -21,6 +35,15 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
     const [loading, setLoading] = useState(true);
     const [editingOperator, setEditingOperator] = useState<User | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+
+    const passwordValid = useMemo(
+        () => isOperatorPasswordValid(newAdminPassword),
+        [newAdminPassword]
+    );
+    const confirmHasInput = newAdminPasswordConfirm.length > 0;
+    const passwordsMatch = newAdminPassword === newAdminPasswordConfirm;
 
     // Check if current user is platform operator
     const isPlatformOperator = useMemo(() => {
@@ -33,16 +56,15 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
     const loadPlatformOperators = useCallback(async () => {
         try {
             setLoading(true);
-            const allUsers = await getAllUsers();
-            const operators = allUsers.filter((u) => {
-                const userRoleString = String(u.role);
-                return u.role === Role.PLATFORM_OPERATOR || 
-                       userRoleString === "PLATFORM_OPERATOR";
-            });
+            const operators = await listPlatformOperators();
             setPlatformOperators(operators);
         } catch (error) {
             logger.error('Error loading platform operators', error);
-            setPlatformOperators([]);
+            setAdminMessage({
+                type: 'error',
+                text: getErrorMessage(error) || 'Failed to load platform operators',
+            });
+            // Avoid clearing the list: an empty UI looks like every operator was deleted (e.g. after a permission error).
         } finally {
             setLoading(false);
         }
@@ -53,8 +75,26 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
     }, [loadPlatformOperators]);
 
     const handleCreateOperator = async () => {
-        if (!newAdminEmail || !newAdminName) {
-            setAdminMessage({ type: 'error', text: 'Please fill in both email and name' });
+        const email = newAdminEmail.trim();
+        const name = newAdminName.trim() || 'Platform Operator';
+
+        if (!email) {
+            setAdminMessage({ type: 'error', text: 'Email is required' });
+            return;
+        }
+        if (!newAdminPassword) {
+            setAdminMessage({ type: 'error', text: 'Password is required' });
+            return;
+        }
+        if (!passwordValid) {
+            setAdminMessage({
+                type: 'error',
+                text: 'Password must be at least 8 characters and include upper, lower, and a number.',
+            });
+            return;
+        }
+        if (newAdminPassword !== newAdminPasswordConfirm) {
+            setAdminMessage({ type: 'error', text: 'Passwords do not match' });
             return;
         }
 
@@ -62,44 +102,19 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
         setAdminMessage(null);
 
         try {
-            // Check if user exists by querying users collection
-            const usersQuery = query(
-                collection(db, 'users'),
-                where('email', '==', newAdminEmail)
-            );
-            const existingUsersSnapshot = await getDocs(usersQuery);
-
-            if (!existingUsersSnapshot.empty) {
-                // Update existing user
-                const existingUserDoc = existingUsersSnapshot.docs[0];
-                await updateUser(existingUserDoc.id, {
-                    role: Role.PLATFORM_OPERATOR,
-                    organizationId: 'platform',
-                });
-                setAdminMessage({
-                    type: 'success',
-                    text: `Updated ${newAdminEmail} to Platform Operator role`
-                });
-            } else {
-                // Create new platform operator
-                await createUser({
-                    email: newAdminEmail,
-                    name: newAdminName,
-                    role: Role.PLATFORM_OPERATOR,
-                    organizationId: 'platform',
-                    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(newAdminName)}&background=10b981&color=fff`,
-                    title: 'Platform Operator',
-                    company: 'Meant2Grow',
-                    skills: [],
-                    bio: 'Platform operator for Meant2Grow',
-                });
-                setAdminMessage({
-                    type: 'success',
-                    text: `Created Platform Operator: ${newAdminName} (${newAdminEmail})`
-                });
-            }
+            await createPlatformOperatorAccount({
+                email,
+                password: newAdminPassword,
+                name,
+            });
+            setAdminMessage({
+                type: 'success',
+                text: `Platform operator ready: ${name} (${email}). They can sign in with this email and password after signing out.`,
+            });
 
             setNewAdminEmail('');
+            setNewAdminPassword('');
+            setNewAdminPasswordConfirm('');
             setNewAdminName('');
             await loadPlatformOperators();
         } catch (error: unknown) {
@@ -114,12 +129,13 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
     };
 
     const handleDeleteOperator = async (userId: string) => {
-        if (userId === currentUser.id) {
+        const authUid = auth.currentUser?.uid;
+        if (userId === currentUser.id || (authUid && userId === authUid)) {
             setAdminMessage({ type: 'error', text: 'You cannot delete yourself' });
             return;
         }
         try {
-            await deleteUser(userId);
+            await deletePlatformOperator(userId);
             setShowDeleteConfirm(null);
             await loadPlatformOperators();
             setAdminMessage({ type: 'success', text: 'Platform operator deleted successfully' });
@@ -128,6 +144,10 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
             setAdminMessage({ type: 'error', text: getErrorMessage(error) || 'Failed to delete platform operator' });
         }
     };
+
+    const pendingDeleteOperator = showDeleteConfirm
+        ? platformOperators.find((o) => o.id === showDeleteConfirm)
+        : undefined;
 
     if (!isPlatformOperator) {
         return (
@@ -169,6 +189,7 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                             value={newAdminEmail}
                             onChange={(e) => setNewAdminEmail(e.target.value)}
                             disabled={creatingAdmin}
+                            autoComplete="email"
                         />
                     </div>
                     <div>
@@ -178,11 +199,98 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                         <input
                             type="text"
                             className={INPUT_CLASS}
-                            placeholder="Platform Operator"
+                            placeholder="Full name (optional)"
                             value={newAdminName}
                             onChange={(e) => setNewAdminName(e.target.value)}
                             disabled={creatingAdmin}
+                            autoComplete="name"
                         />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            Password
+                        </label>
+                        <div className="relative">
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                className={INPUT_CLASS + ' pr-11'}
+                                placeholder="Min 8 characters, upper, lower, and a number"
+                                value={newAdminPassword}
+                                onChange={(e) => setNewAdminPassword(e.target.value)}
+                                disabled={creatingAdmin}
+                                autoComplete="new-password"
+                                aria-invalid={newAdminPassword.length > 0 && !passwordValid}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword((v) => !v)}
+                                disabled={creatingAdmin}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                        </div>
+                        {newAdminPassword.length > 0 && (
+                            <ul className="mt-2 text-xs space-y-1 text-slate-600 dark:text-slate-400" aria-live="polite">
+                                {[
+                                    { ok: newAdminPassword.length >= 8, label: 'At least 8 characters' },
+                                    { ok: /(?=.*[a-z])/.test(newAdminPassword), label: 'One lowercase letter' },
+                                    { ok: /(?=.*[A-Z])/.test(newAdminPassword), label: 'One uppercase letter' },
+                                    { ok: /(?=.*\d)/.test(newAdminPassword), label: 'One number' },
+                                ].map(({ ok, label }) => (
+                                    <li
+                                        key={label}
+                                        className={ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-500'}
+                                    >
+                                        {ok ? '✓ ' : '○ '}{label}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                            Confirm password
+                        </label>
+                        <div className="relative">
+                            <input
+                                type={showPasswordConfirm ? 'text' : 'password'}
+                                className={INPUT_CLASS + ' pr-11'}
+                                placeholder="Re-enter password"
+                                value={newAdminPasswordConfirm}
+                                onChange={(e) => setNewAdminPasswordConfirm(e.target.value)}
+                                disabled={creatingAdmin}
+                                autoComplete="new-password"
+                                aria-invalid={confirmHasInput && !passwordsMatch}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPasswordConfirm((v) => !v)}
+                                disabled={creatingAdmin}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+                                aria-label={showPasswordConfirm ? 'Hide password confirmation' : 'Show password confirmation'}
+                            >
+                                {showPasswordConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                        </div>
+                        {confirmHasInput && (
+                            <p
+                                className={
+                                    'mt-2 text-sm ' +
+                                    (passwordsMatch && passwordValid
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : 'text-red-600 dark:text-red-400')
+                                }
+                                role="status"
+                            >
+                                {passwordsMatch
+                                    ? passwordValid
+                                        ? 'Passwords match.'
+                                        : 'Passwords match, but the password does not meet all requirements above.'
+                                    : 'Passwords do not match.'}
+                            </p>
+                        )}
                     </div>
                     {adminMessage && (
                         <div className={`p-3 rounded-lg text-sm ${adminMessage.type === 'success'
@@ -194,7 +302,13 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                     )}
                     <button
                         onClick={handleCreateOperator}
-                        disabled={creatingAdmin || !newAdminEmail || !newAdminName}
+                        disabled={
+                            creatingAdmin ||
+                            !newAdminEmail.trim() ||
+                            !passwordValid ||
+                            !confirmHasInput ||
+                            !passwordsMatch
+                        }
                         className={BUTTON_PRIMARY + ' w-full sm:w-auto' + (creatingAdmin ? ' opacity-50 cursor-not-allowed' : '')}
                     >
                         {creatingAdmin ? (
@@ -288,8 +402,8 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                 <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-2 list-disc list-inside">
                     <li>Platform operators can manage blog posts and platform-wide resources</li>
                     <li>They can see all organizations but manage platform content only</li>
-                    <li>New platform operators will need to sign in through the app</li>
-                    <li>If a user already exists, their role will be updated to Platform Operator</li>
+                    <li>Each operator gets an email/password they can use to sign in after signing out</li>
+                    <li>If the email already has an account, its password is reset to the one you enter and the role becomes Platform Operator</li>
                 </ul>
             </div>
 
@@ -304,7 +418,13 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                                     Confirm Deletion
                                 </h3>
                                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                                    Are you sure you want to delete this platform operator? This action cannot be undone.
+                                    Remove only{' '}
+                                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                                        {pendingDeleteOperator
+                                            ? `${pendingDeleteOperator.name} (${pendingDeleteOperator.email})`
+                                            : 'this platform operator'}
+                                    </span>
+                                    ? This deletes that Firestore profile only and cannot be undone.
                                 </p>
                             </div>
                         </div>
@@ -373,7 +493,7 @@ const PlatformOperatorManagement: React.FC<PlatformOperatorManagementProps> = ({
                                 <button
                                     onClick={async () => {
                                         try {
-                                            await updateUser(editingOperator.id, {
+                                            await updatePlatformOperatorProfile(editingOperator.id, {
                                                 name: editingOperator.name,
                                                 email: editingOperator.email,
                                             });

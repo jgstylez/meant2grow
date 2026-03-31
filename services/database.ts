@@ -359,6 +359,26 @@ export const deleteOrganization = async (
 
 // ==================== USER OPERATIONS ====================
 
+/**
+ * Hydrate User from a Firestore users/* document. Spread stored fields first, then set `id` from
+ * the document path. Some documents include an `id` field (e.g. matching firebaseAuthUid from
+ * auth linking); if it overrode doc.id, delete/update would target the wrong path and could remove
+ * another profile (e.g. the signed-in user), making all operators disappear from the UI.
+ */
+function userFromFirestoreDoc(
+  docSnap: QueryDocumentSnapshot | DocumentSnapshot
+): User {
+  const data = docSnap.data();
+  if (!data) {
+    throw new Error("userFromFirestoreDoc: missing document data");
+  }
+  return {
+    ...data,
+    id: docSnap.id,
+    createdAt: convertTimestamp(data.createdAt),
+  } as User;
+}
+
 export const createUser = async (
   userData: Omit<User, "id" | "createdAt">
 ): Promise<string> => {
@@ -378,12 +398,7 @@ export const getUser = async (userId: string): Promise<User | null> => {
     return null;
   }
 
-  const userData = userSnap.data();
-  return {
-    id: userSnap.id,
-    ...userData,
-    createdAt: convertTimestamp(userData.createdAt),
-  } as User;
+  return userFromFirestoreDoc(userSnap);
 };
 
 export const getUserByEmail = async (
@@ -402,12 +417,7 @@ export const getUserByEmail = async (
   }
 
   const userDoc = snapshot.docs[0];
-  const userData = userDoc.data();
-  return {
-    id: userDoc.id,
-    ...userData,
-    createdAt: convertTimestamp(userData.createdAt),
-  } as User;
+  return userFromFirestoreDoc(userDoc);
 };
 
 /**
@@ -432,12 +442,7 @@ export const findUserByEmail = async (
   }
 
   const userDoc = snapshot.docs[0];
-  const userData = userDoc.data();
-  return {
-    id: userDoc.id,
-    ...userData,
-    createdAt: convertTimestamp(userData.createdAt),
-  } as User;
+  return userFromFirestoreDoc(userDoc);
 };
 
 export const getUserByGoogleId = async (
@@ -456,11 +461,7 @@ export const getUserByGoogleId = async (
   }
 
   const userDoc = snapshot.docs[0];
-  return {
-    id: userDoc.id,
-    ...userDoc.data(),
-    createdAt: convertTimestamp(userDoc.data().createdAt),
-  } as User;
+  return userFromFirestoreDoc(userDoc);
 };
 
 export const getUsersByOrganization = async (
@@ -473,11 +474,7 @@ export const getUsersByOrganization = async (
   );
   const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: convertTimestamp(doc.data().createdAt),
-  })) as User[];
+  return snapshot.docs.map((d) => userFromFirestoreDoc(d));
 };
 
 export const updateUser = async (
@@ -749,11 +746,7 @@ export const getAllUsers = async (): Promise<User[]> => {
           empty: snapshot.empty,
         });
         // Sort in memory
-        const docs = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: convertTimestamp(doc.data().createdAt),
-        })) as User[];
+        const docs = snapshot.docs.map((d) => userFromFirestoreDoc(d));
         return docs.sort((a, b) => {
           const aDate = new Date(a.createdAt).getTime();
           const bDate = new Date(b.createdAt).getTime();
@@ -769,11 +762,7 @@ export const getAllUsers = async (): Promise<User[]> => {
       }
     }
 
-    const users = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: convertTimestamp(doc.data().createdAt),
-    })) as User[];
+    const users = snapshot.docs.map((d) => userFromFirestoreDoc(d));
     
     // Detailed console logging for debugging
     console.log("🔍 [getAllUsers] Query result:", {
@@ -1989,11 +1978,7 @@ export const subscribeToUser = (
     userRef,
     (snap: DocumentSnapshot) => {
       if (snap.exists()) {
-        callback({
-          id: snap.id,
-          ...snap.data(),
-          createdAt: convertTimestamp(snap.data().createdAt),
-        } as User);
+        callback(userFromFirestoreDoc(snap));
       } else {
         callback(null);
       }
@@ -2047,11 +2032,7 @@ export const subscribeToUsersByOrganization = (
   return onSnapshot(
     q,
     (snapshot: QuerySnapshot) => {
-      const users = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: convertTimestamp(doc.data().createdAt),
-      })) as User[];
+      const users = snapshot.docs.map((d) => userFromFirestoreDoc(d));
       callback(users);
     },
     (error) => {
@@ -2638,11 +2619,9 @@ export const getUsersByOrganizationPaginated = async (
   const snapshot = await getDocs(q);
   const docs = snapshot.docs;
   const hasMore = docs.length > pageSize;
-  const data = (hasMore ? docs.slice(0, pageSize) : docs).map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: convertTimestamp(doc.data().createdAt),
-  })) as User[];
+  const data = (hasMore ? docs.slice(0, pageSize) : docs).map((d) =>
+    userFromFirestoreDoc(d)
+  );
 
   return {
     data,
@@ -2737,11 +2716,7 @@ export const getAllUsersPaginated = async (
   }
 
   const docs = snapshot.docs;
-  let data = docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: convertTimestamp(doc.data().createdAt),
-  })) as User[];
+  let data = docs.map((d) => userFromFirestoreDoc(d));
 
   // Apply filters in memory if needed
   if (options.filters) {
@@ -2862,11 +2837,7 @@ export const subscribeToAllUsers = (
     unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const users = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: convertTimestamp(doc.data().createdAt),
-        })) as User[];
+        const users = snapshot.docs.map((d) => userFromFirestoreDoc(d));
         
         if (cache) {
           cache.set(cacheKey, users);
@@ -2883,11 +2854,7 @@ export const subscribeToAllUsers = (
         unsubscribe = onSnapshot(
           fallbackQ,
           (snapshot) => {
-            const users = snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-              createdAt: convertTimestamp(doc.data().createdAt),
-            })) as User[];
+            const users = snapshot.docs.map((d) => userFromFirestoreDoc(d));
             
             const sorted = users.sort((a, b) => {
               const aDate = new Date(a.createdAt).getTime();
