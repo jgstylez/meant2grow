@@ -1,245 +1,141 @@
 # Deployment Guide
 
-This guide covers deployment procedures for both sandbox and production environments.
+This guide covers the current Firebase deployment workflow for sandbox and production.
 
-## Overview
+## Deployment Targets
 
-The application uses two separate Firebase projects:
-- **Sandbox**: `meant2grow-dev` (sandbox.meant2grow.com)
-- **Production**: `meant2grow-prod` (meant2grow.com)
+- Sandbox project: `meant2grow-dev`
+- Production project: `meant2grow-prod`
+- Firebase aliases are defined in `.firebaserc` (`sandbox`, `production`)
 
-## Prerequisites
+## Runtime And Tooling Requirements
 
-1. Firebase CLI installed: `npm install -g firebase-tools`
-2. Authenticated with Firebase: `firebase login`
-3. Node.js 20+ installed
-4. `.firebaserc` file configured (copy from `.firebaserc.example`)
+- Node.js 20+ for local/CI workflows
+- Firebase Functions runtime: Node 22 (`firebase.json`, `functions/package.json`)
+- Firebase CLI installed and authenticated:
+  - `npm install -g firebase-tools`
+  - `firebase login`
 
 ## Environment Setup
 
-### 1. Configure `.firebaserc`
-
-Copy the example file and update with your project IDs:
+### 1) Configure Firebase project aliases
 
 ```bash
 cp .firebaserc.example .firebaserc
 ```
 
-The `.firebaserc` file should contain:
+Verify that `.firebaserc` maps:
 
-```json
-{
-  "projects": {
-    "default": "meant2grow-dev",
-    "sandbox": "meant2grow-dev",
-    "production": "meant2grow-prod"
-  }
-}
-```
+- `sandbox` -> `meant2grow-dev`
+- `production` -> `meant2grow-prod`
 
-### 2. Create Environment Files
+### 2) Create environment files
 
-#### For Sandbox:
-```bash
-cp .env.sandbox.example .env.sandbox
-# Edit .env.sandbox with actual sandbox values
-```
-
-#### For Production:
-```bash
-cp .env.production.example .env.production
-# Edit .env.production with actual production values
-```
-
-#### For Local Development:
 ```bash
 cp env.local.example .env.local
-# Edit .env.local with actual local values
+cp .env.sandbox.example .env.sandbox
+cp .env.production.example .env.production
 ```
 
-## Manual Deployment
+Fill each file with the correct environment values before deployment.
 
-### Deploy to Sandbox
+## Recommended Deployment Commands
 
-```bash
-# Switch to sandbox project
-firebase use sandbox
+Use the npm scripts from `package.json` to ensure build + deploy steps stay consistent.
 
-# Build and deploy
-npm run build:sandbox
-firebase deploy
-```
+### Sandbox
 
-Or use the convenience script:
 ```bash
 npm run firebase:deploy:sandbox
 ```
 
-### Deploy to Production
+### Production
 
-```bash
-# Switch to production project
-firebase use production
-
-# Build and deploy
-npm run build:production
-firebase deploy
-```
-
-Or use the convenience script:
 ```bash
 npm run firebase:deploy:production
 ```
 
-### Deploy Specific Services
+### Service-Specific Deployments
 
 ```bash
-# Deploy only hosting
-firebase deploy --only hosting
+# Hosting only
+npm run firebase:deploy:hosting
 
-# Deploy only functions
-firebase deploy --only functions
+# Functions only
+npm run firebase:deploy:functions
 
-# Deploy only Firestore rules
-firebase deploy --only firestore:rules
+# Single function (video call token endpoint)
+npm run firebase:deploy:videoCallSession
 
-# Deploy only Storage rules
-firebase deploy --only storage:rules
-
-# Deploy multiple services
-firebase deploy --only hosting,functions,firestore:rules
+# Firestore indexes
+npm run firebase:deploy:indexes
 ```
 
-## Automated Deployment (CI/CD)
+## Manual Deployment (Fallback)
 
-Deployments are automated via GitHub Actions:
-
-- **Sandbox**: Automatically deploys on push to `main` or `develop` branches
-- **Production**: Deploy manually via GitHub Actions UI or create a release tag
-
-See [CI_CD_SETUP.md](./CI_CD_SETUP.md) for setup instructions.
-
-## Firebase Functions Secrets
-
-Functions secrets are managed separately for each environment using Firebase Secret Manager.
-
-### Set Secrets for Sandbox
+### Sandbox
 
 ```bash
 firebase use sandbox
-firebase functions:secrets:set GOOGLE_SERVICE_ACCOUNT_EMAIL
-firebase functions:secrets:set GOOGLE_SERVICE_ACCOUNT_KEY
-firebase functions:secrets:set MAILTRAP_API_TOKEN
-firebase functions:secrets:set MAILTRAP_USE_SANDBOX
-firebase functions:secrets:set MAILTRAP_INBOX_ID
-firebase functions:secrets:set MAILTRAP_FROM_EMAIL
-firebase functions:secrets:set MAILTRAP_REPLY_TO_EMAIL
-firebase functions:secrets:set VITE_APP_URL
+npm run build:sandbox
+firebase deploy
 ```
 
-### Set Secrets for Production
+### Production
 
 ```bash
 firebase use production
-firebase functions:secrets:set GOOGLE_SERVICE_ACCOUNT_EMAIL
-firebase functions:secrets:set GOOGLE_SERVICE_ACCOUNT_KEY
-firebase functions:secrets:set MAILTRAP_API_TOKEN
-firebase functions:secrets:set MAILTRAP_USE_SANDBOX
-firebase functions:secrets:set MAILTRAP_INBOX_ID
-firebase functions:secrets:set MAILTRAP_FROM_EMAIL
-firebase functions:secrets:set MAILTRAP_REPLY_TO_EMAIL
-firebase functions:secrets:set VITE_APP_URL
+npm run build:production
+firebase deploy
 ```
 
-## Environment Variables Reference
+## Functions Secrets
 
-### Required Variables
+Set Firebase Functions secrets per environment with `firebase functions:secrets:set` after selecting the project alias.
 
-All environments require these variables (with environment-specific values):
+Commonly used secrets include:
 
-- `VITE_GOOGLE_CLIENT_ID` - Google OAuth Client ID
-- `VITE_FIREBASE_API_KEY` - Firebase API Key
-- `VITE_FIREBASE_AUTH_DOMAIN` - Firebase Auth Domain
-- `VITE_FIREBASE_PROJECT_ID` - Firebase Project ID
-- `VITE_FIREBASE_STORAGE_BUCKET` - Firebase Storage Bucket
-- `VITE_FIREBASE_MESSAGING_SENDER_ID` - Firebase Messaging Sender ID
-- `VITE_FIREBASE_APP_ID` - Firebase App ID
-- `VITE_FIREBASE_VAPID_KEY` - Firebase VAPID Key (for push notifications)
-- `VITE_FUNCTIONS_URL` - Cloud Functions URL
-- `VITE_APP_URL` - Application URL
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_SERVICE_ACCOUNT_KEY`
+- `VIDEO_SDK_SECRET`
+- `MAILERSEND_API_TOKEN` (or Mailtrap values when explicitly using Mailtrap mode)
+- `MAILERSEND_FROM_EMAIL`
+- `MAILERSEND_REPLY_TO_EMAIL`
+- `VITE_APP_URL`
 
-### Optional Variables
+The functions code supports both MailerSend and Mailtrap providers via environment-driven configuration.
 
-- `VITE_MAILTRAP_API_TOKEN` - Mailtrap API token
-- `VITE_MAILTRAP_USE_SANDBOX` - Use Mailtrap sandbox mode (true/false)
-- `VITE_MAILTRAP_INBOX_ID` - Mailtrap inbox ID
-- `VITE_MAILTRAP_FROM_EMAIL` - From email address
-- `VITE_MAILTRAP_REPLY_TO_EMAIL` - Reply-to email address
-- `VITE_GIPHY_API_KEY` - GIPHY API key for GIF picker
-- `FLOWGLAD_SECRET_KEY` - Flowglad secret key
-- `FLOWGLAD_WEBHOOK_SECRET` - Flowglad webhook secret
-- `FLOWGLAD_PRICE_*` - Flowglad price IDs
+## CI Notes
+
+Current CI (`.github/workflows/ci.yml`) runs:
+
+- root install (`npm ci`)
+- functions install (`cd functions && npm ci`)
+- `npm run lint`
+- `npm run build`
+- `cd functions && npm run build`
+
+If builds pass in CI but deployment fails, validate Firebase permissions, secrets, and active project alias.
 
 ## Troubleshooting
 
-### Build Fails
+### Build or Type Errors
 
-1. Check Node.js version: `node --version` (should be 20+)
-2. Clear node_modules and reinstall: `rm -rf node_modules && npm ci`
-3. Check environment variables are set correctly
-4. Verify `.firebaserc` is configured correctly
+1. Confirm Node version: `node --version`
+2. Reinstall dependencies:
+   - `npm ci`
+   - `cd functions && npm ci && cd ..`
+3. Verify required env values are present
 
-### Deployment Fails
+### Deploy Failures
 
-1. Verify Firebase authentication: `firebase login`
-2. Check correct project is selected: `firebase use`
-3. Verify you have deployment permissions for the project
-4. Check Firebase project exists and services are enabled
+1. Verify login: `firebase login`
+2. Verify active alias: `firebase use`
+3. Verify target project services (Functions, Hosting, Firestore) are enabled
+4. Check Firebase Console deployment logs
 
-### Functions Deployment Fails
+### Functions-Specific Failures
 
-1. Verify functions build succeeds: `cd functions && npm run build`
-2. Check Firebase Functions secrets are set correctly
-3. Verify service account has necessary permissions
-4. Check Firebase Functions billing is enabled
-
-### Environment Variables Not Loading
-
-1. Verify `.env.*` files exist and are in the correct location
-2. Check file naming matches environment (`.env.sandbox`, `.env.production`)
-3. Verify variables have `VITE_` prefix for client-side access
-4. Restart development server after changing `.env` files
-
-## Best Practices
-
-1. **Always test in sandbox first** before deploying to production
-2. **Use separate OAuth clients** for sandbox and production
-3. **Keep secrets secure** - never commit `.env` files or `.firebaserc`
-4. **Verify deployments** by checking the deployed URLs after deployment
-5. **Monitor deployments** via Firebase Console and GitHub Actions
-6. **Use environment-specific service accounts** for better security
-7. **Document any manual changes** made directly in Firebase Console
-
-## Rollback Procedure
-
-If a deployment causes issues:
-
-1. **Hosting Rollback**: Use Firebase Console > Hosting > Releases to rollback
-2. **Functions Rollback**: Redeploy previous version from git history
-3. **Rules Rollback**: Redeploy previous rules from git history
-
-```bash
-# Rollback to a specific commit
-git checkout <previous-commit-hash>
-npm run build:sandbox  # or build:production
-firebase deploy
-git checkout main  # or your working branch
-```
-
-## Support
-
-For deployment issues:
-1. Check GitHub Actions logs for CI/CD deployments
-2. Check Firebase Console for deployment status
-3. Review application logs in Firebase Console
-4. Contact the development team
+1. Build functions locally: `cd functions && npm run build`
+2. Verify required secrets for the function path
+3. Confirm billing/quota status in GCP/Firebase project

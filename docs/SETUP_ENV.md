@@ -1,87 +1,97 @@
-# Setup Environment Variables
+# Environment Setup
 
-## ✅ OAuth Client ID Already Set!
+Use this guide with `env.local.example`, `.env.sandbox.example`, and `.env.production.example`.
 
-Your OAuth Client ID: `493534533344-e2mcmbht3802t1fhdmtq9rgrf0ljc1qe.apps.googleusercontent.com`
-
-## Step 1: Create `.firebaserc` File
-
-**Important:** `.firebaserc` is not committed to version control to prevent accidental deployments to the wrong Firebase project.
-
-Copy the example file:
+## 1) Configure Firebase aliases
 
 ```bash
 cp .firebaserc.example .firebaserc
 ```
 
-Then edit `.firebaserc` and replace `your-firebase-project-id` with your actual Firebase project ID (e.g., `meant2grow-dev` for development, or your production project ID).
+Default alias mapping in this repo:
 
-## Step 2: Create `.env.local` File
+- `default`: `meant2grow-dev`
+- `sandbox`: `meant2grow-dev`
+- `production`: `meant2grow-prod`
 
-Copy the example file:
+## 2) Create local and deployment env files
 
 ```bash
 cp env.local.example .env.local
+cp .env.sandbox.example .env.sandbox
+cp .env.production.example .env.production
 ```
 
-Or create `.env.local` manually with this content:
+## 3) Required client-side environment variables
 
-```env
-# Google OAuth Client ID
-VITE_GOOGLE_CLIENT_ID=493534533344-e2mcmbht3802t1fhdmtq9rgrf0ljc1qe.apps.googleusercontent.com
+These values must be present (with environment-specific values):
 
-# Firebase Config (Get these from Firebase Console)
-VITE_FIREBASE_API_KEY=YOUR_API_KEY_HERE
-VITE_FIREBASE_AUTH_DOMAIN=meant2grow-dev.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=meant2grow-dev
-VITE_FIREBASE_STORAGE_BUCKET=meant2grow-dev.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID_HERE
-VITE_FIREBASE_APP_ID=YOUR_APP_ID_HERE
+- `VITE_GOOGLE_CLIENT_ID`
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+- `VITE_FUNCTIONS_URL` (or rely on project-id derived default)
+- `VITE_APP_URL`
 
-# Functions URL
-VITE_FUNCTIONS_URL=https://us-central1-meant2grow-dev.cloudfunctions.net
+Optional but commonly used:
+
+- `VITE_FIREBASE_VAPID_KEY`
+- `VITE_GIPHY_API_KEY`
+- `VITE_MAILERSEND_API_TOKEN`
+- `VITE_MAILERSEND_FROM_EMAIL`
+- `VITE_MAILERSEND_REPLY_TO_EMAIL`
+
+## 4) Billing and Flowglad variables
+
+When using Flowglad features, configure:
+
+- `FLOWGLAD_SECRET_KEY`
+- `FLOWGLAD_WEBHOOK_SECRET`
+- `FLOWGLAD_PRICE_STARTER_MONTHLY`
+- `FLOWGLAD_PRICE_STARTER_YEARLY`
+- `FLOWGLAD_PRICE_PRO_MONTHLY`
+- `FLOWGLAD_PRICE_PRO_YEARLY`
+- `FLOWGLAD_PRICE_BUSINESS_MONTHLY`
+- `FLOWGLAD_PRICE_BUSINESS_YEARLY`
+
+## 5) Firebase Functions environment/secrets
+
+Functions use Firebase-managed env/secrets, including:
+
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_SERVICE_ACCOUNT_KEY`
+- `VIDEO_SDK_SECRET`
+- `MAILERSEND_API_TOKEN` (or Mailtrap values when explicitly configured)
+- `MAILERSEND_FROM_EMAIL`
+- `MAILERSEND_REPLY_TO_EMAIL`
+- `VITE_APP_URL`
+
+Set them with:
+
+```bash
+firebase use sandbox   # or production
+firebase functions:secrets:set <SECRET_NAME>
 ```
 
-## Step 3: Get Firebase Config Values
+## 6) Verify environment configuration
 
-1. **Open Firebase Console:**
-   https://console.firebase.google.com/project/meant2grow-dev/settings/general
+1. Run `npm run dev` and confirm app loads.
+2. Verify auth and Firestore requests use the expected project.
+3. If local function calls fail, verify `VITE_FUNCTIONS_URL` and proxy behavior in `vite.config.ts`.
 
-2. **Scroll to "Your apps" section**
+## Common Issues
 
-3. **If no web app exists:**
-   - Click "Add app" (or `</>` icon)
-   - Choose "Web"
-   - Register app (nickname optional)
-   - Click "Register app"
+- Wrong Firebase project: check `VITE_FIREBASE_PROJECT_ID` and current `firebase use`.
+- Missing OAuth config: verify `VITE_GOOGLE_CLIENT_ID`.
+- Missing function secrets: check Firebase Functions logs and set required secrets.
+- Env changes not reflected: restart the dev server after updating env files.
 
-4. **Copy these values from the config:**
-   - `apiKey` → Replace `YOUR_API_KEY_HERE` in `.env.local`
-   - `messagingSenderId` → Replace `YOUR_SENDER_ID_HERE` in `.env.local`
-   - `appId` → Replace `YOUR_APP_ID_HERE` in `.env.local`
+## Related Docs
 
-## Step 4: Verify `.env.local`
-
-Your `.env.local` should look like this (with real values):
-
-```env
-VITE_GOOGLE_CLIENT_ID=493534533344-e2mcmbht3802t1fhdmtq9rgrf0ljc1qe.apps.googleusercontent.com
-VITE_FIREBASE_API_KEY=AIzaSyC...your-actual-key
-VITE_FIREBASE_AUTH_DOMAIN=meant2grow-dev.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=meant2grow-dev
-VITE_FIREBASE_STORAGE_BUCKET=meant2grow-dev.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=493534533344
-VITE_FIREBASE_APP_ID=1:493534533344:web:...your-actual-app-id
-VITE_FUNCTIONS_URL=https://us-central1-meant2grow-dev.cloudfunctions.net
-```
-
-## Next Steps
-
-After `.env.local` is complete:
-1. Enable Firestore
-2. Create service account for Meet API
-3. Set Firebase Functions secrets
-4. Deploy!
-
-See `DEPLOY_NOW.md` for complete instructions.
+- `DEPLOYMENT.md`
+- `CI_CD_SETUP.md`
+- `FLOWGLAD_INTEGRATION_GUIDE.md`
 

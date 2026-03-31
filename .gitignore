@@ -71,3 +71,6 @@ types.js.map
 
 # Production service account keys (pattern covers all meant2grow-prod-*.json files)
 meant2grow-prod-*.json
+
+# Local deployment reference
+DEPLOYMENT.md
