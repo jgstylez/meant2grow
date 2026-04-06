@@ -4,6 +4,7 @@ import { ArrowLeft, Lock, CheckCircle, AlertCircle, Eye, EyeOff } from "lucide-r
 import { Logo } from "./Logo";
 import { getErrorMessage } from "../utils/errors";
 import { logger } from "../services/logger";
+import { getCloudFunctionUrl } from "../services/cloudFunctionsUrl";
 
 interface ResetPasswordProps {
   onNavigate: (page: string) => void;
@@ -77,8 +78,7 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, onBack, token
       }
 
       // Call Firebase Cloud Function to reset password
-      const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://us-central1-meant2grow-dev.cloudfunctions.net';
-      const response = await fetch(`${functionsUrl}/resetPassword`, {
+      const response = await fetch(getCloudFunctionUrl("resetPassword"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

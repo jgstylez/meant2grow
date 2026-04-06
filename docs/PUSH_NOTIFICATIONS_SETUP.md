@@ -1,202 +1,145 @@
-# Push Notifications Setup Guide
+# Push Notifications and PWA Setup
 
-This guide explains how to set up push notifications for Meant2Grow using Firebase Cloud Messaging (FCM) and Progressive Web App (PWA) technology.
+This guide explains how web push works for Meant2Grow (Firebase Cloud Messaging + PWA), what to configure, and how to verify delivery after users install the app to their home screen.
 
 ## Overview
 
-Meant2Grow now supports push notifications on mobile devices without requiring a native app. Users can install the web app to their home screen and receive push notifications for:
-- New messages
-- Meeting reminders
-- Match notifications
-- Goal completions
-- System notifications
+- **PWA**: `vite-plugin-pwa` uses **`injectManifest`** with source `src/firebase-messaging-sw.js`. The built file is emitted at **`/firebase-messaging-sw.js`** on the deployed site (not a hand-placed file under `public/`).
+- **Registration**: `index.tsx` registers that URL in **production** only (`import.meta.env.PROD`). Vite dev disables the workbox service worker so local dev does not register push (avoids MIME / SW errors).
+- **FCM**: After login, `useFCM` → `initializeFCM` requests **notification permission**, obtains a token, and saves it. Cloud Functions read **`users/{userId}.fcmToken`** to send pushes (see `sendFCMPushNotification` in `functions/src/index.ts`). The client also maintains a **`devices`** array on the user document for multi-device tracking (`services/deviceTracking.ts`).
+
+## End-to-end flow (mobile install → push)
+
+1. User opens the **HTTPS** app (required for service workers and push).
+2. User **installs** the PWA (Android/Chrome: install prompt; iOS/Safari: Share → Add to Home Screen).
+3. User **logs in** (or is already logged in). `useFCM` runs with the Firestore user id used for storage (`fcmStorageUserId` in `App.tsx`).
+4. The browser prompts for **notification permission** (if not already granted or denied). User must tap **Allow** for pushes to work.
+5. The service worker at `/firebase-messaging-sw.js` is active; `getToken` runs with the **Web Push certificate (VAPID)** key and the active `ServiceWorkerRegistration`.
+6. The token is written to Firestore (`fcmToken` + device entry). When a notification is created server-side, the **FCM** path sends the push to that token.
+7. **After install**, the browser may fire `appinstalled`; the app listens and **re-initializes FCM** so the token matches the installed app context when relevant. Users should still **open the installed icon** at least once (especially on iOS) and grant permission when prompted.
+
+### iOS (Safari 16.4+)
+
+- Push for web requires **Add to Home Screen** and opening from the **home screen icon** (standalone). In-browser Safari alone does not get the same push behavior.
+- Permission often must be requested in **user interaction** context; the app requests it after login via `Notification.requestPermission()`.
+
+### Install banner (Android vs iOS)
+
+On **mobile width** (≤768px) and when the user is **signed in**, `PWAInstallBanner` nudges install. Copy is **platform-specific**:
+
+| Platform | What users see |
+|----------|----------------|
+| **iPhone / iPad (Safari)** | Steps: **Share** → **Add to Home Screen** → **Add** → open from the home screen and allow notifications. iOS has **no** system “install app” API; the banner cannot open that flow automatically. |
+| **Android (Chrome and compatible browsers)** | **Install** / **Install Now** when the browser offers an install prompt; otherwise **⋮** → **Install app** or **Add to Home screen**, then open the installed app and allow notifications. |
+
+Dismiss (✕) hides the banner for the session; Android may show a separate **Install** chip when `beforeinstallprompt` is available.
+
+### Local development
+
+- **`isLocalDevelopment()`** (Vite dev **or** `localhost` / `127.0.0.1`): FCM initialization is **skipped** and `isNotificationSupported()` is **false** so push is not exercised locally. Test on a **deployed** HTTPS host or tunnel with a production build.
 
 ## Prerequisites
 
-1. Firebase project with Cloud Messaging enabled
-2. Web app registered in Firebase Console
-3. HTTPS domain (required for service workers and push notifications)
+1. Firebase project with **Cloud Messaging** enabled  
+2. Web app registered in Firebase Console  
+3. **HTTPS** (or `localhost` for non-push dev)  
+4. **Web Push certificates** (VAPID key) in env — see below  
 
-## Setup Steps
+## Configuration
 
-### 1. Generate VAPID Key Pair
+### 1. VAPID key (Web Push certificates)
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Select your project
-3. Navigate to **Project Settings** > **Cloud Messaging**
-4. Scroll to **Web Push certificates** section
-5. Click **Generate key pair**
-6. Copy the generated key
+1. [Firebase Console](https://console.firebase.google.com/) → your project  
+2. **Project settings** → **Cloud Messaging** → **Web Push certificates**  
+3. **Generate key pair** and copy the key  
 
-### 2. Add VAPID Key to Environment Variables
+### 2. Environment variable
 
-Add the VAPID key to your `.env.local` file:
+In `.env.local` (and CI/hosting env for builds):
 
 ```env
 VITE_FIREBASE_VAPID_KEY=your_generated_vapid_key_here
 ```
 
-### 3. Create App Icons
+Also ensure Firebase web config vars used by Vite (`VITE_FIREBASE_*`) match the same project as this VAPID key.
 
-Create two icon files in the `public` folder:
+### 3. Icons
 
-- `icon-192.png` - 192x192 pixels
-- `icon-512.png` - 512x512 pixels
+Place **`/icon-192.png`** and **`/icon-512.png`** in `public/` (referenced by `public/manifest.json`). See `public/README_ICONS.md` or use [pwa-asset-generator](https://github.com/onderceylan/pwa-asset-generator).
 
-**Recommended: Use [PWA Asset Generator](https://github.com/onderceylan/pwa-asset-generator)**
+### 4. Deploy Functions and Hosting
 
-The easiest way is to use the pwa-asset-generator tool:
-
-```bash
-# Install globally (optional)
-npm install -g pwa-asset-generator
-
-# Generate icons from your logo
-npx pwa-asset-generator logo.svg ./public --icon-only --background "#10b981"
-```
-
-Or if you have a PNG/JPEG logo:
+Push sending is implemented in Cloud Functions (e.g. `sendFCMPushNotification` using `users/{userId}.fcmToken`):
 
 ```bash
-npx pwa-asset-generator logo.png ./public --icon-only --background "#10b981" --manifest ./public/manifest.json
-```
-
-This will automatically:
-- Generate both required icon sizes
-- Use your brand color (#10b981) as background
-- Update manifest.json with the icon paths
-
-See `public/README_ICONS.md` for detailed instructions and advanced options.
-
-**Manual Creation**: If you prefer to create icons manually, ensure they are:
-- PNG format
-- Exactly 192x192 and 512x512 pixels
-- Square format with your logo centered
-- High contrast for visibility on various backgrounds
-
-### 4. Deploy Firebase Functions
-
-The push notification functionality requires a Firestore trigger that sends FCM notifications when notifications are created:
-
-```bash
-cd functions
-npm run build
-cd ..
+cd functions && npm run build && cd ..
 firebase deploy --only functions
-```
-
-### 5. Build and Deploy Frontend
-
-```bash
 npm run build
 firebase deploy --only hosting
 ```
 
-## How It Works
+## How it works (reference)
 
-### Client-Side Flow
+### Client
 
-1. **User visits app** → Service worker is registered
-2. **User logs in** → FCM token is requested and stored in Firestore
-3. **Notification permission** → Browser prompts user (if not already granted)
-4. **Token stored** → FCM token is saved to `users/{userId}/fcmToken` in Firestore
+| Step | Behavior |
+|------|----------|
+| Install UI | `PWAInstallBanner` shows on mobile for signed-in users: **iOS** = Share → Add to Home Screen; **Android** = install prompt or Chrome menu fallback (see table above). |
+| SW | `index.tsx` registers `/firebase-messaging-sw.js` in production; SW precaches assets and handles **background** FCM via `onBackgroundMessage` in `src/firebase-messaging-sw.js`. |
+| Login | `useFCM` calls `initializeFCM` → `requestNotificationPermission` → `getToken` → `saveFCMToken`. |
+| Install | `window` `appinstalled` triggers a **second** `initializeFCM` pass to refresh registration after PWA install. |
+| Foreground | `setupForegroundMessageHandler` shows a `Notification` when the app is open and permission is granted. |
 
-### Server-Side Flow
+### Server
 
-1. **Notification created** → Any code that creates a notification (chat messages, matches, meetings, etc.)
-2. **Firestore trigger** → `onNotificationCreated` trigger fires automatically
-3. **FCM message sent** → Function retrieves user's FCM token and sends push notification
-4. **User receives notification** → Even if app is closed, user sees native push notification
+- Notification creation triggers logic that calls **`sendFCMPushNotification`**, which reads **`fcmToken`** from the user document.  
+- Invalid tokens may be removed from `fcmToken` on send errors (see Functions code).  
 
-### Foreground Notifications
+### Firestore shape
 
-When the app is open and a notification arrives:
-- The `onMessage` handler receives the notification
-- A browser notification is shown (if permission granted)
-- User can click to navigate to the relevant page
-
-### Background Notifications
-
-When the app is closed:
-- Service worker receives the notification
-- Native push notification is displayed
-- User can click to open the app
+- **`users/{userId}.fcmToken`**: string — **used by Cloud Functions** for sending.  
+- **`users/{userId}.devices`**: array of device records (tokens, metadata) — client-managed for multiple devices.  
 
 ## Testing
 
-### 1. Test Service Worker Registration
+### Automated tests
 
-1. Open browser DevTools
-2. Go to **Application** > **Service Workers**
-3. Verify `firebase-messaging-sw.js` is registered
+- Run `npm test` for unit/component tests (including auth-adjacent UI). Push itself is not simulated in CI; validate on a device.
 
-### 2. Test FCM Token
+### Manual checks
 
-1. Open browser DevTools Console
-2. Log in to the app
-3. Check console for FCM token (should be logged)
-4. Verify token is saved in Firestore under `users/{userId}/fcmToken`
-
-### 3. Test Push Notification
-
-1. Send a message to another user (or create a match/meeting)
-2. Verify notification is created in Firestore
-3. Check Firebase Functions logs for FCM send confirmation
-4. Verify push notification appears on device
-
-### 4. Test PWA Installation
-
-1. On mobile device, visit your app
-2. Browser should show "Add to Home Screen" prompt
-3. After installation, app should open in standalone mode
-4. Verify push notifications still work
+1. **Service worker** (Chrome DevTools → Application → Service Workers): `firebase-messaging-sw.js` **activated** on your HTTPS origin.  
+2. **Permission**: Site settings → Notifications → **Allow**.  
+3. **Token**: After login, confirm `fcmToken` on `users/{uid}` in Firestore (and `devices` if populated).  
+4. **Send path**: Trigger a real notification (e.g. chat) and watch **Functions logs** for FCM send lines.  
+5. **PWA**: Install the app, open from the **home screen icon**, confirm permission and that pushes arrive in **background** and **foreground**.  
 
 ## Troubleshooting
 
-### Notifications Not Appearing
+| Symptom | Things to check |
+|--------|------------------|
+| No token | HTTPS, not localhost-only; `VITE_FIREBASE_VAPID_KEY` set in **build** env; SW active; permission not **blocked**. |
+| SW missing | Production build deployed; `index.tsx` only registers when `import.meta.env.PROD` is true. |
+| Works in browser tab but not installed PWA | iOS: open from **home screen**; ensure iOS **16.4+**; re-check permission after install. |
+| `invalid-registration-token` | Token expired or app uninstalled; user logs in again; Functions may clear `fcmToken`. |
+| Push never sent | User doc missing `fcmToken`; Functions logs; FCM enabled for project. |
 
-1. **Check notification permission**: Ensure user granted permission
-2. **Check FCM token**: Verify token exists in Firestore
-3. **Check Functions logs**: Look for errors in Firebase Functions logs
-4. **Check service worker**: Ensure service worker is registered and active
+## Security
 
-### Service Worker Not Registering
+- Do not commit VAPID or API secrets.  
+- Users must **opt in** to notifications (browser permission).  
+- Enforce Firestore rules so only the owning user can write their tokens.  
 
-1. **Check HTTPS**: Service workers require HTTPS (or localhost)
-2. **Check file location**: `firebase-messaging-sw.js` must be in root of `public` folder
-3. **Check build**: Ensure service worker is copied to `dist` folder during build
+## Related code
 
-### FCM Token Not Generated
+- `src/firebase-messaging-sw.js` — workbox precache + background FCM  
+- `index.tsx` — SW registration (production)  
+- `services/messaging.ts` — permission, token, Firestore save  
+- `hooks/useFCM.ts` — lifecycle + `appinstalled`  
+- `functions/src/index.ts` — `sendFCMPushNotification`  
 
-1. **Check VAPID key**: Ensure VAPID key is set in environment variables
-2. **Check Firebase config**: Verify all Firebase config values are correct
-3. **Check browser support**: Ensure browser supports FCM (Chrome, Edge, Firefox, Safari 16.4+)
+## Additional resources
 
-### Invalid Token Errors
-
-If you see "invalid-registration-token" errors:
-- The token may have expired
-- The function automatically removes invalid tokens
-- User needs to log in again to generate a new token
-
-## Browser Support
-
-- ✅ **Chrome/Edge** (Android & Desktop): Full support
-- ✅ **Firefox** (Android & Desktop): Full support
-- ✅ **Safari** (iOS 16.4+): Full support (requires user interaction for permission)
-- ✅ **Safari** (macOS): Full support
-- ❌ **Safari** (iOS < 16.4): Not supported
-
-## Security Considerations
-
-1. **VAPID Key**: Keep your VAPID key secure (don't commit to git)
-2. **Token Storage**: FCM tokens are stored in Firestore with proper security rules
-3. **Permission**: Users must explicitly grant notification permission
-4. **HTTPS**: Push notifications require HTTPS (enforced by browsers)
-
-## Additional Resources
-
-- [Firebase Cloud Messaging Documentation](https://firebase.google.com/docs/cloud-messaging)
-- [Web Push Notifications Guide](https://web.dev/push-notifications-overview/)
-- [PWA Best Practices](https://web.dev/pwa-checklist/)
-
+- [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging)  
+- [Web push overview](https://web.dev/push-notifications-overview/)  
+- [PWA checklist](https://web.dev/pwa-checklist/)  

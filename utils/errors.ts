@@ -127,11 +127,12 @@ export interface FirebaseError extends Error {
  * Type guard for Firebase errors
  */
 export function isFirebaseError(error: unknown): error is FirebaseError {
-    return (
-        isError(error) &&
-        'code' in error &&
-        typeof (error as { code: unknown }).code === 'string' &&
-        (error as { code: string }).code.startsWith('auth/') ||
-        (error as { code: string }).code.startsWith('firestore/')
-    );
+    if (!isError(error) || !('code' in error)) {
+        return false;
+    }
+    const code = (error as { code: unknown }).code;
+    if (typeof code !== 'string') {
+        return false;
+    }
+    return code.startsWith('auth/') || code.startsWith('firestore/');
 }

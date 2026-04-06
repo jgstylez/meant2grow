@@ -11,6 +11,10 @@ const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || '';
 /**
  * Ensure service worker is registered before getting FCM token
  * Required for iOS push notifications
+ *
+ * Uses `navigator.serviceWorker.ready` (scope `/` from `index.tsx`), not
+ * `getRegistration('/firebase-messaging-sw.js')` — the latter is not a valid
+ * client URL for the Web API and can fail to return the registration.
  */
 async function ensureServiceWorkerRegistered(): Promise<boolean> {
   if (!('serviceWorker' in navigator)) {
@@ -18,15 +22,8 @@ async function ensureServiceWorkerRegistered(): Promise<boolean> {
   }
 
   try {
-    // Check if service worker is already registered
-    const registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
-    if (registration && registration.active) {
-      return true;
-    }
-
-    // Wait for service worker to be ready
-    await navigator.serviceWorker.ready;
-    return true;
+    const registration = await navigator.serviceWorker.ready;
+    return !!(registration.active || registration.installing || registration.waiting);
   } catch (error) {
     console.warn('Service worker not ready:', error);
     return false;
@@ -73,11 +70,9 @@ export async function requestNotificationPermission(): Promise<string | null> {
       tokenOptions.vapidKey = VAPID_KEY;
     }
 
-    // Get service worker registration for iOS compatibility
-    const registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
-    if (registration) {
-      tokenOptions.serviceWorkerRegistration = registration;
-    }
+    // Pass active registration (same scope as `/firebase-messaging-sw.js` in index.tsx)
+    const registration = await navigator.serviceWorker.ready;
+    tokenOptions.serviceWorkerRegistration = registration;
 
     const token = await getToken(messaging, tokenOptions);
 

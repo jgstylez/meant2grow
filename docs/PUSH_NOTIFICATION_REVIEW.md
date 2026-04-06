@@ -1,5 +1,7 @@
 # Push Notification Review - iOS & Android Support
 
+> **Operational setup and verification:** For current build paths, env vars, install → permission → token flow, and troubleshooting, use **`PUSH_NOTIFICATIONS_SETUP.md`**. This file is a historical review snapshot.
+
 ## Review Date
 December 2024
 
@@ -138,10 +140,9 @@ if ('serviceWorker' in navigator) {
 ## Platform-Specific Considerations
 
 ### iOS (Safari 16.4+)
-1. **PWA Installation Required**
-   - Users must install app to home screen
-   - Push notifications only work in standalone mode
-   - Banner guides users through installation
+1. **PWA installation (required for web push)**
+   - Push only works in **standalone** (open the app from the **Home Screen** icon, not inside the Safari tab).
+   - **Install banner** (`components/PWAInstallBanner.tsx`, shown on small screens when logged in): instructs **Safari** users to tap **Share** (toolbar) → **Add to Home Screen** → **Add**, then open the new icon and **Allow** notifications. iOS does **not** allow a programmatic install dialog.
 
 2. **Service Worker Timing**
    - Service worker must be registered before FCM init
@@ -153,18 +154,19 @@ if ('serviceWorker' in navigator) {
    - Proper alert structure required
    - Badge and sound support
 
-### Android (Chrome/Edge/Firefox)
-1. **VAPID Key Required**
-   - Must be configured in environment variables
-   - Used for token generation
-   - Required for web push protocol
+### Android (Chrome / Edge / Firefox)
+1. **PWA installation**
+   - **Install banner**: when the browser supports it, **Install** / **Install Now** uses the native **Add to Home screen** / install prompt (`beforeinstallprompt`). If the prompt is unavailable, the banner tells users to use the **Chrome menu (⋮)** → **Install app** or **Add to Home screen**, then open the installed app and allow notifications.
 
-2. **Service Worker Support**
+2. **VAPID key**
+   - Must be set in environment variables for token generation (web push).
+
+3. **Service Worker Support**
    - All modern Android browsers support SW
    - Background notifications work reliably
    - Foreground notifications handled by app
 
-3. **Android-Specific Options**
+4. **Android-Specific Options**
    - High priority for better delivery
    - Notification channel support
    - Sound and vibration support

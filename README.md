@@ -42,6 +42,8 @@ The Vite dev server proxies `/api/functions/*` to your configured Cloud Function
 
 - `npm run lint`: Lint frontend and shared TS files
 - `npm run lint:fix`: Apply safe lint auto-fixes
+- `npm test`: Run Vitest unit and component tests once
+- `npm run test:watch`: Vitest in watch mode
 - `npm run build`: Production build
 - `npm run build:sandbox`: Sandbox build path (uses `NODE_ENV=sandbox`)
 - `npm run build:production`: Production build path
@@ -60,6 +62,10 @@ Primary deployment model is Firebase Hosting + Firebase Functions:
 
 Project aliases are configured in `.firebaserc` (`sandbox` and `production`).
 
+## PWA and push notifications
+
+The web app is installable (`public/manifest.json`, `vite-plugin-pwa` with `src/firebase-messaging-sw.js`). **Push** uses Firebase Cloud Messaging with a **VAPID** key, notification **permission**, and a production **service worker**. Local Vite dev intentionally skips SW/FCM; test on a deployed HTTPS host. See **`docs/PUSH_NOTIFICATIONS_SETUP.md`**.
+
 ## Documentation
 
 Start here:
@@ -68,6 +74,7 @@ Start here:
 - `docs/SETUP_ENV.md` (environment setup)
 - `docs/DEPLOYMENT.md` (deployment guide)
 - `docs/CI_CD_SETUP.md` (CI/CD setup)
+- `docs/PUSH_NOTIFICATIONS_SETUP.md` (PWA + FCM)
 
 ## Security Note
 

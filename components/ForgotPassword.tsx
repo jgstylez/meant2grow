@@ -5,6 +5,7 @@ import { Logo } from "./Logo";
 import { findUserByEmail } from "../services/database";
 import { getErrorMessage } from "../utils/errors";
 import { logger } from "../services/logger";
+import { getCloudFunctionUrl } from "../services/cloudFunctionsUrl";
 
 interface ForgotPasswordProps {
   onNavigate: (page: string) => void;
@@ -48,8 +49,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onNavigate: _onNavigate
       }
 
       // Call Firebase Cloud Function to send password reset email
-      const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://us-central1-meant2grow-dev.cloudfunctions.net';
-      const response = await fetch(`${functionsUrl}/forgotPassword`, {
+      const response = await fetch(getCloudFunctionUrl("forgotPassword"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),

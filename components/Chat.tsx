@@ -2028,7 +2028,9 @@ const Chat: React.FC<ChatProps> = ({
         }
       } else {
         // Group message - notify all group members except sender
-        const group = MOCK_GROUPS.find((g) => g.id === activeChatId);
+        const group =
+          MOCK_GROUPS.find((g) => g.id === activeChatId) ||
+          chatGroups.find((g) => g.id === activeChatId);
         if (group) {
           const membersToNotify = group.members.filter(
             (memberId) => memberId !== currentUser.id

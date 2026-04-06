@@ -75,6 +75,7 @@ import { useGoalActions } from "./hooks/useGoalActions";
 import { useFCM } from "./hooks/useFCM";
 import { getFCMStorageUserId } from "./utils/fcmOwner";
 import { consumeVideoCallReturnPage } from "./utils/videoCallNavigation";
+import { getCloudFunctionUrl } from "./services/cloudFunctionsUrl";
 import { getErrorMessage, getErrorCode, formatError } from "./utils/errors";
 import { logger } from "./services/logger";
 import { signInToFirebaseAuth, getIdToken, signOut as signOutGoogle } from "./services/googleAuth";
@@ -1274,23 +1275,9 @@ const App: React.FC = () => {
       }
 
       if (createdInvitation && createdInvitation.invitationLink) {
-        // Send invitation email via Cloud Function
+        // Send invitation email via Cloud Function (same URL rules as videoCallSession: Vite proxy in dev, or emulator when VITE_FUNCTIONS_USE_EMULATOR=true)
         try {
-          const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'meant2grow-dev';
-          const functionsBase = import.meta.env.VITE_FUNCTIONS_URL
-            ? import.meta.env.VITE_FUNCTIONS_URL.replace(/\/$/, '')
-            : (import.meta.env.DEV
-              ? `http://localhost:5001/${projectId}/us-central1`
-              : `https://us-central1-${projectId}.cloudfunctions.net`);
-          const functionsUrl = `${functionsBase}/sendInvitationEmail`;
-
-          // #region agent log
-          try {
-            const baseForUrl = functionsBase.includes('://') ? functionsBase : `https://${functionsBase}`;
-            const u = new URL(baseForUrl);
-            fetch('http://127.0.0.1:7243/ingest/ddbd7d9b-fa55-49dd-a6eb-074ba22eeba5', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '47f738' }, body: JSON.stringify({ sessionId: '47f738', location: 'App.tsx:inviteEmail', message: 'invitation CF target', hypothesisId: 'H5', data: { functionsHost: u.hostname, viteDev: !!import.meta.env.DEV, hasViteFunctionsUrl: !!import.meta.env.VITE_FUNCTIONS_URL }, timestamp: Date.now() }) }).catch(() => {});
-          } catch { /* ignore */ }
-          // #endregion
+          const functionsUrl = getCloudFunctionUrl("sendInvitationEmail");
 
           const response = await fetch(functionsUrl, {
             method: 'POST',

@@ -77,6 +77,44 @@ export function useFCM(fcmStorageUserId: string | null) {
     init();
   }, [fcmStorageUserId, state.isSupported]); // Removed state.permission - it's updated during init, not a trigger
 
+  // After "Add to Home Screen" / install, browsers fire `appinstalled`. Re-run FCM so the token
+  // is bound to the installed PWA context (especially important on mobile once user opens the icon).
+  useEffect(() => {
+    if (!fcmStorageUserId || !state.isSupported) {
+      return;
+    }
+
+    const onAppInstalled = () => {
+      void (async () => {
+        if (getNotificationPermission() === 'denied') {
+          return;
+        }
+        setState((prev) => ({ ...prev, isInitializing: true, error: null }));
+        try {
+          const result = await initializeFCM(fcmStorageUserId);
+          const updatedPermission = getNotificationPermission();
+          setState((prev) => ({
+            ...prev,
+            token: result?.token || null,
+            isInitializing: false,
+            permission: updatedPermission,
+          }));
+        } catch (error: unknown) {
+          const updatedPermission = getNotificationPermission();
+          setState((prev) => ({
+            ...prev,
+            isInitializing: false,
+            error: getErrorMessage(error) || 'Failed to refresh notifications after install',
+            permission: updatedPermission,
+          }));
+        }
+      })();
+    };
+
+    window.addEventListener('appinstalled', onAppInstalled);
+    return () => window.removeEventListener('appinstalled', onAppInstalled);
+  }, [fcmStorageUserId, state.isSupported]);
+
   // Set up token refresh handler
   useEffect(() => {
     if (!fcmStorageUserId || !state.isSupported || !state.token) {

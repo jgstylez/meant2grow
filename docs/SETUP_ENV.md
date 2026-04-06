@@ -38,7 +38,7 @@ These values must be present (with environment-specific values):
 
 Optional but commonly used:
 
-- `VITE_FIREBASE_VAPID_KEY`
+- `VITE_FIREBASE_VAPID_KEY` (**required for web push** on deployed HTTPS; generate in Firebase Console → Cloud Messaging → Web Push certificates; see `docs/PUSH_NOTIFICATIONS_SETUP.md`)
 - `VITE_GIPHY_API_KEY`
 - `VITE_MAILERSEND_API_TOKEN`
 - `VITE_MAILERSEND_FROM_EMAIL`

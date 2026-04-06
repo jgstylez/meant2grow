@@ -4,14 +4,14 @@ This file is the starting point for current project documentation.
 
 ## Current Core Docs
 
-- `../README.md`: Project overview, local development, and key scripts.
+- `../README.md`: Project overview, local development, tests (`npm test`), and key scripts.
 - `DEPLOYMENT.md`: Firebase-first deployment workflow for sandbox and production.
 - `SETUP_ENV.md`: Environment file setup for local, sandbox, and production.
 - `CI_CD_SETUP.md`: GitHub Actions and deployment automation setup.
 - `FLOWGLAD_INTEGRATION_GUIDE.md`: Flowglad billing integration details.
 - `FIRESTORE_INDEXES.md`: Firestore index requirements and deployment.
 - `FIRESTORE_ACCESS.md`: Firestore access patterns and usage notes.
-- `PUSH_NOTIFICATIONS_SETUP.md`: Push notification setup and required config.
+- `PUSH_NOTIFICATIONS_SETUP.md`: PWA service worker, FCM (VAPID), install → permission → token flow, and verification.
 
 ## Runbooks / Operational Guides
 

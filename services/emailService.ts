@@ -1,6 +1,7 @@
 // Don't import MailerSend at top level - use dynamic import instead
 import { User, Organization, Role, Match, Goal } from "../types";
 import { logger } from "./logger";
+import { getCloudFunctionUrl } from "./cloudFunctionsUrl";
 
 // Lazy initialization of MailerSend client (only in server environments)
 // Note: This is primarily for server-side rendering scenarios.
@@ -634,8 +635,7 @@ export const emailService = {
     adminUserId?: string,
     organizationId?: string
   ) => {
-    const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL || 'https://us-central1-meant2grow-dev.cloudfunctions.net';
-    const response = await fetch(`${functionsUrl}/sendAdminEmail`, {
+    const response = await fetch(getCloudFunctionUrl("sendAdminEmail"), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
