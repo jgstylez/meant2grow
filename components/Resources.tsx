@@ -17,6 +17,7 @@ import { TrainingVideoView } from './resources/TrainingVideoView';
 import { TemplateList } from './resources/TemplateList';
 import { GuideList } from './resources/GuideList';
 import { VideoList } from './resources/VideoList';
+import { ResourceSectionEmptyState } from './resources/ResourceSectionEmptyState';
 
 interface ResourcesProps {
   user: User;
@@ -72,9 +73,9 @@ const Resources: React.FC<ResourcesProps> = ({
   const [templateContent, setTemplateContent] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
 
-  // Recommended resources state
+  // Recommended resources state (async Gemini fetch — only applies to Recommended Reading)
   const [resources, setResources] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [recommendedLoading, setRecommendedLoading] = useState(false);
 
   // Permission checks
   const isPlatformOperator = user.role === Role.PLATFORM_OPERATOR;
@@ -84,7 +85,7 @@ const Resources: React.FC<ResourcesProps> = ({
   // Load recommended reading resources from Gemini
   useEffect(() => {
     const loadRecommended = async () => {
-      setLoading(true);
+      setRecommendedLoading(true);
       try {
         const res = await getRecommendedResources(user);
         // Combine custom resources with AI recommendations
@@ -93,7 +94,7 @@ const Resources: React.FC<ResourcesProps> = ({
       } catch (error) {
         console.error('Error loading recommended resources:', error);
       } finally {
-        setLoading(false);
+        setRecommendedLoading(false);
       }
     };
     loadRecommended();
@@ -127,6 +128,48 @@ const Resources: React.FC<ResourcesProps> = ({
     if (resourceFilter === 'platform') return trainingVideos.filter(v => v.isPlatform);
     if (resourceFilter === 'organization') return trainingVideos.filter(v => !v.isPlatform);
     return trainingVideos;
+  };
+
+  const filteredLibraryEmptyCopy = (
+    kind: 'templates' | 'guides' | 'videos'
+  ): { title: string; description: string } => {
+    const byKind = {
+      templates: {
+        titleAll: 'No templates yet',
+        titlePlatform: 'No platform templates',
+        titleOrg: 'No organization templates',
+        noun: 'templates',
+      },
+      guides: {
+        titleAll: 'No discussion guides yet',
+        titlePlatform: 'No platform discussion guides',
+        titleOrg: 'No organization discussion guides',
+        noun: 'discussion guides',
+      },
+      videos: {
+        titleAll: 'No training videos yet',
+        titlePlatform: 'No platform training videos',
+        titleOrg: 'No organization training videos',
+        noun: 'training videos',
+      },
+    }[kind];
+
+    if (resourceFilter === 'platform') {
+      return {
+        title: byKind.titlePlatform,
+        description: `There are no platform-wide ${byKind.noun} to show. Try switching the filter to see organization items or all resources.`,
+      };
+    }
+    if (resourceFilter === 'organization') {
+      return {
+        title: byKind.titleOrg,
+        description: `Your organization has not added ${byKind.noun} yet.`,
+      };
+    }
+    return {
+      title: byKind.titleAll,
+      description: `There are no ${byKind.noun} in the library yet.`,
+    };
   };
 
   // --- RENDERERS ---
@@ -205,16 +248,37 @@ const Resources: React.FC<ResourcesProps> = ({
           title="Recommended Reading"
           icon={<BookOpen className="w-6 h-6 text-indigo-500" />}
         />
-        {loading ? (
-          <div className="p-12 text-center text-slate-500">Loading recommendations...</div>
-        ) : (
+        {recommendedLoading ? (
+          <div className="p-12 text-center text-slate-500 dark:text-slate-400">Loading recommendations...</div>
+        ) : resources.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {resources.length > 0 ? resources.map((res, i) => (
+            {resources.map((res, i) => (
               <ResourceCard key={i} resource={res} />
-            )) : (
-              <p className="text-slate-500 col-span-full">No recommendations found at this time.</p>
-            )}
+            ))}
           </div>
+        ) : (
+          <ResourceSectionEmptyState
+            icon={BookOpen}
+            iconClassName="text-indigo-500 dark:text-indigo-400"
+            iconWrapClassName="bg-indigo-50 dark:bg-indigo-950/50"
+            title="No reading recommendations yet"
+            description={
+              canManage
+                ? 'Curated picks and custom links will appear here. Add organization resources in the library manager, or check back when suggestions are ready.'
+                : 'Nothing is listed yet. Check back later, or ask your administrator if your organization shares custom reading links.'
+            }
+            action={
+              canManage
+                ? {
+                    label: 'Manage library',
+                    onClick: () => {
+                      setManageTab('resources');
+                      setView('manage');
+                    },
+                  }
+                : undefined
+            }
+          />
         )}
       </div>
     );
@@ -235,10 +299,26 @@ const Resources: React.FC<ResourcesProps> = ({
           currentFilter={resourceFilter}
           onFilterChange={setResourceFilter}
         />
-        {loading ? (
-          <div className="p-12 text-center text-slate-500">Loading templates...</div>
-        ) : filteredTemplates.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">No templates found.</div>
+        {filteredTemplates.length === 0 ? (
+          <ResourceSectionEmptyState
+            icon={File}
+            iconClassName="text-emerald-500 dark:text-emerald-400"
+            iconWrapClassName="bg-emerald-50 dark:bg-emerald-950/50"
+            {...filteredLibraryEmptyCopy('templates')}
+            action={
+              canManage
+                ? {
+                    label: 'Manage templates',
+                    onClick: () => {
+                      setManageTab('templates');
+                      setView('manage');
+                    },
+                    className:
+                      'mt-6 inline-flex items-center justify-center rounded-lg bg-emerald-600 dark:bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 dark:hover:bg-emerald-400 transition-colors',
+                  }
+                : undefined
+            }
+          />
         ) : (
           <TemplateList templates={filteredTemplates} onSelect={setActiveTemplate} />
         )}
@@ -263,10 +343,26 @@ const Resources: React.FC<ResourcesProps> = ({
           onFilterChange={setResourceFilter}
           activeColorClass="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
         />
-        {loading ? (
-          <div className="p-12 text-center text-slate-500">Loading guides...</div>
-        ) : filteredGuides.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">No discussion guides found.</div>
+        {filteredGuides.length === 0 ? (
+          <ResourceSectionEmptyState
+            icon={Book}
+            iconClassName="text-blue-500 dark:text-blue-400"
+            iconWrapClassName="bg-blue-50 dark:bg-blue-950/50"
+            {...filteredLibraryEmptyCopy('guides')}
+            action={
+              canManage
+                ? {
+                    label: 'Manage guides',
+                    onClick: () => {
+                      setManageTab('guides');
+                      setView('manage');
+                    },
+                    className:
+                      'mt-6 inline-flex items-center justify-center rounded-lg bg-blue-600 dark:bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-400 transition-colors',
+                  }
+                : undefined
+            }
+          />
         ) : (
           <GuideList guides={filteredGuides} onSelect={setActiveGuide} />
         )}
@@ -291,10 +387,26 @@ const Resources: React.FC<ResourcesProps> = ({
           onFilterChange={setResourceFilter}
           activeColorClass="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
         />
-        {loading ? (
-          <div className="p-12 text-center text-slate-500">Loading videos...</div>
-        ) : filteredVideos.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">No videos found.</div>
+        {filteredVideos.length === 0 ? (
+          <ResourceSectionEmptyState
+            icon={PlayCircle}
+            iconClassName="text-amber-500 dark:text-amber-400"
+            iconWrapClassName="bg-amber-50 dark:bg-amber-950/50"
+            {...filteredLibraryEmptyCopy('videos')}
+            action={
+              canManage
+                ? {
+                    label: 'Manage videos',
+                    onClick: () => {
+                      setManageTab('videos');
+                      setView('manage');
+                    },
+                    className:
+                      'mt-6 inline-flex items-center justify-center rounded-lg bg-amber-600 dark:bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 dark:hover:bg-amber-400 transition-colors',
+                  }
+                : undefined
+            }
+          />
         ) : (
           <VideoList videos={filteredVideos} onSelect={setActiveVideo} />
         )}

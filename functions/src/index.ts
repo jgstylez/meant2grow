@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions/v2/https";
 import { logger } from "firebase-functions/v2";
-import * as functionsV1 from "firebase-functions/v1";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineString, defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import { google } from "googleapis";
@@ -81,6 +82,11 @@ const LIGHT_HTTP_RUNTIME = {
   cpu: 0.08333333333333333,
   concurrency: 1,
   maxInstances: 10,
+};
+
+const BACKGROUND_V2_RUNTIME = {
+  region: "us-central1" as const,
+  ...LIGHT_HTTP_RUNTIME,
 };
 
 // Helper function to get email service instance with current config values
@@ -1209,9 +1215,14 @@ export const resetPassword = functions.onRequest(
 );
 
 // Trigger when a new user is created
-export const onUserCreated = functionsV1.firestore
-  .document("users/{userId}")
-  .onCreate(async (snap, _context) => {
+export const onUserCreated = onDocumentCreated(
+  {
+    document: "users/{userId}",
+    ...BACKGROUND_V2_RUNTIME,
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
     try {
       const userData = snap.data();
       const user: User = {
@@ -1249,13 +1260,19 @@ export const onUserCreated = functionsV1.firestore
     } catch (error: unknown) {
       console.error("Error in onUserCreated trigger:", formatError(error));
     }
-  });
+  }
+);
 
 // Firestore triggers for email notifications
 // Trigger when a match is created
-export const onMatchCreated = functionsV1.firestore
-  .document("matches/{matchId}")
-  .onCreate(async (snap, _context) => {
+export const onMatchCreated = onDocumentCreated(
+  {
+    document: "matches/{matchId}",
+    ...BACKGROUND_V2_RUNTIME,
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
     try {
       const matchData = snap.data();
       const match: Match = {
@@ -1319,13 +1336,19 @@ export const onMatchCreated = functionsV1.firestore
     } catch (error: unknown) {
       console.error("Error in onMatchCreated trigger:", formatError(error));
     }
-  });
+  }
+);
 
 // Trigger when a goal is updated to "Completed"
-export const onGoalCompleted = functionsV1.firestore
-  .document("goals/{goalId}")
-  .onUpdate(async (change, _context) => {
+export const onGoalCompleted = onDocumentUpdated(
+  {
+    document: "goals/{goalId}",
+    ...BACKGROUND_V2_RUNTIME,
+  },
+  async (event) => {
     try {
+      const change = event.data;
+      if (!change) return;
       const beforeData = change.before.data();
       const afterData = change.after.data();
 
@@ -1381,16 +1404,20 @@ export const onGoalCompleted = functionsV1.firestore
     } catch (error: unknown) {
       console.error("Error in onGoalCompleted trigger:", formatError(error));
     }
-  });
+  }
+);
 
 // Note: Payment processing is now handled by Flowglad
 // See /api/flowglad/checkout.ts, /api/flowglad/portal.ts, and /api/flowglad/webhook.ts
 
 // Scheduled function to check for expiring trials and send reminder emails
-export const checkExpiringTrials = functionsV1.pubsub
-  .schedule("every 24 hours")
-  .timeZone("America/New_York")
-  .onRun(async (_context) => {
+export const checkExpiringTrials = onSchedule(
+  {
+    schedule: "every 24 hours",
+    timeZone: "America/New_York",
+    ...BACKGROUND_V2_RUNTIME,
+  },
+  async (_event) => {
     try {
       const now = new Date();
 
@@ -1450,7 +1477,8 @@ export const checkExpiringTrials = functionsV1.pubsub
     } catch (error: unknown) {
       console.error("Error checking expiring trials:", formatError(error));
     }
-  });
+  }
+);
 
 // Google Calendar Sync Endpoint
 export const syncCalendarEvent = functions.onRequest(
@@ -1554,10 +1582,13 @@ export const syncCalendarEvent = functions.onRequest(
 );
 
 // Scheduled function to check for upcoming meetings and send reminders
-export const checkMeetingReminders = functionsV1.pubsub
-  .schedule("every 1 hours")
-  .timeZone("America/New_York")
-  .onRun(async (_context) => {
+export const checkMeetingReminders = onSchedule(
+  {
+    schedule: "every 1 hours",
+    timeZone: "America/New_York",
+    ...BACKGROUND_V2_RUNTIME,
+  },
+  async (_event) => {
     try {
       const now = new Date();
       // const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // Unused
@@ -1603,7 +1634,8 @@ export const checkMeetingReminders = functionsV1.pubsub
     } catch (error: unknown) {
       console.error("Error checking meeting reminders:", formatError(error));
     }
-  });
+  }
+);
 
 // Microsoft Outlook Calendar Sync Endpoint
 export const syncOutlookCalendar = functions.onRequest(
@@ -2072,9 +2104,14 @@ export const sendInvitationEmail = functions.onRequest(
 );
 
 // Firestore trigger: Send FCM push notification when a notification is created
-export const onNotificationCreated = functionsV1.firestore
-  .document("notifications/{notificationId}")
-  .onCreate(async (snap, _context) => {
+export const onNotificationCreated = onDocumentCreated(
+  {
+    document: "notifications/{notificationId}",
+    ...BACKGROUND_V2_RUNTIME,
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
     try {
       const notificationData = snap.data();
       const notificationId = snap.id;
@@ -2094,7 +2131,8 @@ export const onNotificationCreated = functionsV1.firestore
     } catch (error: unknown) {
       console.error("Error in onNotificationCreated trigger:", formatError(error));
     }
-  });
+  }
+);
 
 // Helper function to send reminders to all participants
 async function sendMeetingReminders(
