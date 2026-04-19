@@ -1,8 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, Save, Edit, Trash2 } from 'lucide-react';
 import { TrainingVideo } from '../../types';
 import { CARD_CLASS, INPUT_CLASS, BUTTON_PRIMARY } from '../../styles/common';
+import {
+    extractStartTimeFromVideoUrl,
+    isSupportedTrainingVideoUrl,
+    resolveThumbnailFromVideoUrl,
+    TRAINING_VIDEO_THUMB_PLACEHOLDER,
+} from '../../utils/trainingVideoFromUrl';
 
 interface ManageVideosProps {
     trainingVideos: TrainingVideo[];
@@ -27,41 +33,53 @@ export const ManageVideos: React.FC<ManageVideosProps> = ({
         description: '',
         thumbnail: '',
         videoUrl: '',
-        isPlatform: false
     });
     const [editingVideo, setEditingVideo] = useState<TrainingVideo | null>(null);
 
     const [urlError, setUrlError] = useState<string | null>(null);
 
-    const validateVideoUrl = (url: string): boolean => {
-        if (!url) return true; // Optional field
-        const patterns = [
-            /youtube\.com/, /youtu\.be/,
-            /vimeo\.com/,
-            /wistia\.(com|net)/,
-            /theblacktube\.com/, /blacktube\.com/
-        ];
-        return patterns.some(pattern => pattern.test(url.toLowerCase()));
-    };
+    useEffect(() => {
+        const url = (newVideo.videoUrl || '').trim();
+        if (!url || !isSupportedTrainingVideoUrl(url)) {
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            const thumb = await resolveThumbnailFromVideoUrl(url);
+            if (cancelled) return;
+            setNewVideo(prev => ({
+                ...prev,
+                thumbnail: thumb || TRAINING_VIDEO_THUMB_PLACEHOLDER,
+            }));
+        })();
+        return () => { cancelled = true; };
+    }, [newVideo.videoUrl]);
 
     const handleSaveVideo = async () => {
-        if (!newVideo.title || !newVideo.duration || !newVideo.description || !newVideo.thumbnail) return;
+        const url = (newVideo.videoUrl || '').trim();
+        if (!newVideo.title?.trim() || !newVideo.description?.trim() || !url) return;
 
-        if (newVideo.videoUrl && !validateVideoUrl(newVideo.videoUrl)) {
+        if (!isSupportedTrainingVideoUrl(url)) {
             setUrlError("Invalid video provider. Please use YouTube, Vimeo, Wistia, or The BlackTube.");
             return;
         }
         setUrlError(null);
 
+        const startFromUrl = extractStartTimeFromVideoUrl(url);
+        const thumb =
+            (newVideo.thumbnail || '').trim() ||
+            (await resolveThumbnailFromVideoUrl(url)) ||
+            TRAINING_VIDEO_THUMB_PLACEHOLDER;
+
         const finalVideoData: Omit<TrainingVideo, 'id' | 'createdAt'> = {
-            title: newVideo.title!,
-            duration: newVideo.duration!,
-            description: newVideo.description!,
-            thumbnail: newVideo.thumbnail!,
-            videoUrl: newVideo.videoUrl,
+            title: newVideo.title!.trim(),
+            duration: startFromUrl ?? '',
+            description: newVideo.description!.trim(),
+            thumbnail: thumb,
+            videoUrl: url,
             transcript: newVideo.transcript,
-            isPlatform: canManagePlatform && (newVideo.isPlatform || false),
-            organizationId: (canManagePlatform && newVideo.isPlatform) ? undefined : userOrganizationId
+            isPlatform: canManagePlatform,
+            organizationId: canManagePlatform ? undefined : userOrganizationId,
         };
 
         if (editingVideo) {
@@ -81,14 +99,22 @@ export const ManageVideos: React.FC<ManageVideosProps> = ({
             description: '',
             thumbnail: '',
             videoUrl: '',
-            isPlatform: false
         });
     };
 
     const handleEdit = (video: TrainingVideo) => {
         setEditingVideo(video);
-        setNewVideo({ ...video });
+        setNewVideo({
+            ...video,
+            videoUrl: video.videoUrl ?? '',
+            duration: video.duration ?? '',
+            thumbnail: video.thumbnail ?? '',
+        });
     };
+
+    const urlTrimmed = (newVideo.videoUrl || '').trim();
+    const startPreview = urlTrimmed ? extractStartTimeFromVideoUrl(urlTrimmed) : null;
+    const thumbPreview = (newVideo.thumbnail || '').trim();
 
     return (
         <div className="space-y-6">
@@ -107,50 +133,45 @@ export const ManageVideos: React.FC<ManageVideosProps> = ({
                             onChange={e => setNewVideo({ ...newVideo, title: e.target.value })}
                         />
                     </div>
-                    <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Duration</label>
-                        <input
-                            className={INPUT_CLASS}
-                            placeholder="e.g. 12:45"
-                            value={newVideo.duration}
-                            onChange={e => setNewVideo({ ...newVideo, duration: e.target.value })}
-                        />
-                    </div>
-                    {canManagePlatform && (
-                        <div>
-                            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Scope</label>
-                            <select
-                                className={INPUT_CLASS}
-                                value={newVideo.isPlatform ? 'platform' : 'organization'}
-                                onChange={e => setNewVideo({ ...newVideo, isPlatform: e.target.value === 'platform' })}
-                            >
-                                <option value="organization">Our Organization Only</option>
-                                <option value="platform">Platform Wide (All Orgs)</option>
-                            </select>
-                        </div>
-                    )}
                     <div className="col-span-2">
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Thumbnail URL</label>
-                        <input
-                            className={INPUT_CLASS}
-                            placeholder="https://images.unsplash.com/..."
-                            value={newVideo.thumbnail}
-                            onChange={e => setNewVideo({ ...newVideo, thumbnail: e.target.value })}
-                        />
-                    </div>
-                    <div className="col-span-2">
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Video URL (optional)</label>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Video URL</label>
                         <input
                             className={`${INPUT_CLASS} ${urlError ? 'border-red-500 focus:ring-red-500' : ''}`}
                             placeholder="https://youtube.com/..."
                             value={newVideo.videoUrl}
                             onChange={e => {
-                                setNewVideo({ ...newVideo, videoUrl: e.target.value });
+                                const url = e.target.value;
+                                const trimmed = url.trim();
+                                const start = trimmed ? extractStartTimeFromVideoUrl(trimmed) : null;
+                                setNewVideo(prev => ({
+                                    ...prev,
+                                    videoUrl: url,
+                                    duration: start ?? '',
+                                    thumbnail: trimmed ? prev.thumbnail : '',
+                                }));
                                 if (urlError) setUrlError(null);
                             }}
                         />
                         {urlError && <p className="text-[10px] text-red-500 mt-1">{urlError}</p>}
-                        <p className="text-[10px] text-slate-400 mt-1 italic">Supported: YouTube, Vimeo, Wistia, The BlackTube</p>
+                        <p className="text-[10px] text-slate-400 mt-1 italic">Supported: YouTube, Vimeo, Wistia, The BlackTube. Thumbnail and start time (YouTube <code className="text-slate-500 dark:text-slate-400">t=</code> / <code className="text-slate-500 dark:text-slate-400">start=</code>) come from the host.</p>
+                        {urlTrimmed && isSupportedTrainingVideoUrl(urlTrimmed) && (
+                            <div className="mt-3 flex flex-col sm:flex-row sm:items-start gap-3">
+                                <div className="w-full sm:w-40 aspect-video rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-700 flex-shrink-0 border border-slate-200 dark:border-slate-600">
+                                    {thumbPreview ? (
+                                        <img src={thumbPreview} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-500 px-2 text-center">Loading preview…</div>
+                                    )}
+                                </div>
+                                <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                                    {startPreview ? (
+                                        <p><span className="font-medium text-slate-700 dark:text-slate-300">Starts at</span> {startPreview} (from link)</p>
+                                    ) : (
+                                        <p className="text-slate-500 dark:text-slate-500">No start time in this link (optional on YouTube).</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <div className="col-span-2">
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
@@ -174,7 +195,7 @@ export const ManageVideos: React.FC<ManageVideosProps> = ({
                     )}
                     <button
                         onClick={handleSaveVideo}
-                        disabled={!newVideo.title || !newVideo.duration || !newVideo.description || !newVideo.thumbnail}
+                        disabled={!newVideo.title?.trim() || !newVideo.description?.trim() || !urlTrimmed}
                         className={BUTTON_PRIMARY}
                     >
                         <Save className="w-4 h-4 mr-2" /> {editingVideo ? 'Update Video' : 'Create Video'}
@@ -203,7 +224,9 @@ export const ManageVideos: React.FC<ManageVideosProps> = ({
                                         )}
                                     </div>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{video.description}</p>
-                                    <p className="text-xs text-slate-400 mt-1">{video.duration}</p>
+                                    {video.duration ? (
+                                        <p className="text-xs text-slate-400 mt-1">Starts at {video.duration}</p>
+                                    ) : null}
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                     <button

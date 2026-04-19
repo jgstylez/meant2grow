@@ -35,9 +35,11 @@ export const VideoList: React.FC<VideoListProps> = ({ videos, onSelect }) => {
                                 <PlayCircle className="w-6 h-6 text-amber-600 fill-current" />
                             </div>
                         </div>
-                        <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-mono">
-                            {video.duration}
-                        </span>
+                        {video.duration ? (
+                            <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded font-mono">
+                                {video.duration}
+                            </span>
+                        ) : null}
                     </div>
                     <div className="p-5">
                         <h3 className="font-bold text-slate-900 dark:text-white mb-2">{video.title}</h3>

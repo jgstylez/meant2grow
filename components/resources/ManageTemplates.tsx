@@ -30,7 +30,6 @@ export const ManageTemplates: React.FC<ManageTemplatesProps> = ({
         size: '',
         description: '',
         content: '',
-        isPlatform: false
     });
     const [editingTemplate, setEditingTemplate] = useState<CareerTemplate | null>(null);
 
@@ -43,8 +42,8 @@ export const ManageTemplates: React.FC<ManageTemplatesProps> = ({
             size: newTemplate.size || '0 KB',
             description: newTemplate.description!,
             content: newTemplate.content || '',
-            isPlatform: canManagePlatform && (newTemplate.isPlatform || false),
-            organizationId: (canManagePlatform && newTemplate.isPlatform) ? undefined : userOrganizationId
+            isPlatform: canManagePlatform,
+            organizationId: canManagePlatform ? undefined : userOrganizationId,
         };
 
         if (editingTemplate) {
@@ -64,7 +63,6 @@ export const ManageTemplates: React.FC<ManageTemplatesProps> = ({
             size: '',
             description: '',
             content: '',
-            isPlatform: false
         });
     };
 
@@ -112,19 +110,6 @@ export const ManageTemplates: React.FC<ManageTemplatesProps> = ({
                             onChange={e => setNewTemplate({ ...newTemplate, size: e.target.value })}
                         />
                     </div>
-                    {canManagePlatform && (
-                        <div className="col-span-2">
-                            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Scope</label>
-                            <select
-                                className={INPUT_CLASS}
-                                value={newTemplate.isPlatform ? 'platform' : 'organization'}
-                                onChange={e => setNewTemplate({ ...newTemplate, isPlatform: e.target.value === 'platform' })}
-                            >
-                                <option value="organization">Our Organization Only</option>
-                                <option value="platform">Platform Wide (All Orgs)</option>
-                            </select>
-                        </div>
-                    )}
                     <div className="col-span-2">
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
                         <textarea

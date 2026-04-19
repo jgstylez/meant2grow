@@ -39,7 +39,6 @@ export const ManageGuides: React.FC<ManageGuidesProps> = ({
         content: '',
         author: userName,
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        isPlatform: false
     });
     const [editingGuide, setEditingGuide] = useState<DiscussionGuide | null>(null);
 
@@ -53,8 +52,8 @@ export const ManageGuides: React.FC<ManageGuidesProps> = ({
             content: newGuide.content || '',
             author: newGuide.author || userName,
             date: newGuide.date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            isPlatform: canManagePlatform && (newGuide.isPlatform || false),
-            organizationId: (canManagePlatform && newGuide.isPlatform) ? undefined : userOrganizationId
+            isPlatform: canManagePlatform,
+            organizationId: canManagePlatform ? undefined : userOrganizationId,
         };
 
         if (editingGuide) {
@@ -75,7 +74,6 @@ export const ManageGuides: React.FC<ManageGuidesProps> = ({
             content: '',
             author: userName,
             date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            isPlatform: false
         });
     };
 
@@ -96,19 +94,6 @@ export const ManageGuides: React.FC<ManageGuidesProps> = ({
                             onChange={e => setNewGuide({ ...newGuide, title: e.target.value })}
                         />
                     </div>
-                    {canManagePlatform && (
-                        <div>
-                            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Scope</label>
-                            <select
-                                className={INPUT_CLASS}
-                                value={newGuide.isPlatform ? 'platform' : 'organization'}
-                                onChange={e => setNewGuide({ ...newGuide, isPlatform: e.target.value === 'platform' })}
-                            >
-                                <option value="organization">Our Organization Only</option>
-                                <option value="platform">Platform Wide (All Orgs)</option>
-                            </select>
-                        </div>
-                    )}
                     <div className="col-span-2">
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
                         <textarea

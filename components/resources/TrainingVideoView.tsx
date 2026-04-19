@@ -45,7 +45,9 @@ export const TrainingVideoView: React.FC<TrainingVideoViewProps> = ({
                                     <div key={v.id || i} onClick={() => onSelectVideo(v)} className="flex gap-3 cursor-pointer group">
                                         <div className="w-24 h-16 bg-slate-200 rounded-lg overflow-hidden flex-shrink-0 relative">
                                             <img src={v.thumbnail} className="w-full h-full object-cover" alt="" />
-                                            <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded">{v.duration}</div>
+                                            {v.duration ? (
+                                                <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded">{v.duration}</div>
+                                            ) : null}
                                         </div>
                                         <div>
                                             <p className="text-sm font-semibold text-slate-800 dark:text-white group-hover:text-emerald-600 line-clamp-2">{v.title}</p>

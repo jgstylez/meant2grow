@@ -64,6 +64,22 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
     const canManagePlatform = isPlatformOperator;
     const canManageOrg = isOrgAdmin || isPlatformOperator;
 
+    const manageableScoped = <T extends { isPlatform: boolean; organizationId?: string }>(
+        items: T[]
+    ): T[] =>
+        canManagePlatform
+            ? items.filter((x) => x.isPlatform)
+            : items.filter(
+                  (x) =>
+                      !x.isPlatform &&
+                      !!user.organizationId &&
+                      x.organizationId === user.organizationId
+              );
+
+    const manageableDiscussionGuides = manageableScoped(discussionGuides);
+    const manageableCareerTemplates = manageableScoped(careerTemplates);
+    const manageableTrainingVideos = manageableScoped(trainingVideos);
+
     if (!canManageOrg && !canManagePlatform) return null;
 
     return (
@@ -155,7 +171,7 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
 
                 {manageTab === 'guides' && canManageOrg && (
                     <ManageGuides
-                        discussionGuides={discussionGuides}
+                        discussionGuides={manageableDiscussionGuides}
                         onAdd={onAddDiscussionGuide}
                         onUpdate={onUpdateDiscussionGuide}
                         onDelete={onDeleteDiscussionGuide}
@@ -167,7 +183,7 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
 
                 {manageTab === 'templates' && canManageOrg && (
                     <ManageTemplates
-                        careerTemplates={careerTemplates}
+                        careerTemplates={manageableCareerTemplates}
                         onAdd={onAddCareerTemplate}
                         onUpdate={onUpdateCareerTemplate}
                         onDelete={onDeleteCareerTemplate}
@@ -179,7 +195,7 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
 
                 {manageTab === 'videos' && canManageOrg && (
                     <ManageVideos
-                        trainingVideos={trainingVideos}
+                        trainingVideos={manageableTrainingVideos}
                         onAdd={onAddTrainingVideo}
                         onUpdate={onUpdateTrainingVideo}
                         onDelete={onDeleteTrainingVideo}

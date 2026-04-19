@@ -19,6 +19,13 @@ export const ResourceLibraryHome: React.FC<ResourceLibraryHomeProps> = ({ user, 
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Resource Library</h1>
                     <p className="text-slate-500 dark:text-slate-400">Curated tools, templates, and reading to support your professional journey.</p>
+                    {canManage && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-xl">
+                            {isPlatformOperator
+                                ? 'From Manage Library, discussion guides, career templates, and training videos you add are platform-wide. Organization admins only manage items for their own organization.'
+                                : 'From Manage Library, discussion guides, career templates, and training videos you add are for your organization only.'}
+                        </p>
+                    )}
                 </div>
                 {canManage && (
                     <button
