@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import { INPUT_CLASS, BUTTON_PRIMARY } from "../styles/common";
 import { ArrowLeft, Lock, CheckCircle, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Logo } from "./Logo";
+import { confirmPasswordReset } from "firebase/auth";
 import { getErrorMessage } from "../utils/errors";
 import { logger } from "../services/logger";
+import { auth } from "../services/firebase";
 import { getCloudFunctionUrl } from "../services/cloudFunctionsUrl";
 
 interface ResetPasswordProps {
@@ -22,21 +24,53 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, onBack, token
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [, setIsValidatingToken] = useState(true);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  /** Firebase Auth password-reset link (`oobCode`); preferred over legacy Firestore token flow */
+  const [firebaseOobCode, setFirebaseOobCode] = useState<string | null>(null);
 
-  // Get token from URL if not provided as prop
+  // Validate URL: Firebase Auth (`oobCode`) or legacy custom token (`token` + reset-password marker)
   useEffect(() => {
-    if (!token) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlToken = urlParams.get("token");
-      if (!urlToken) {
-        setTokenError("Invalid or missing reset token. Please request a new password reset link.");
-        setIsValidatingToken(false);
-      } else {
-        setIsValidatingToken(false);
-      }
-    } else {
+    const urlParams = new URLSearchParams(window.location.search);
+    const oobCode = urlParams.get("oobCode");
+    const mode = urlParams.get("mode");
+    const urlToken = token || urlParams.get("token");
+    const hasResetMarker =
+      urlParams.has("reset-password") ||
+      window.location.hash.includes("reset-password") ||
+      window.location.pathname.includes("/reset-password");
+
+    if (oobCode && (mode === "resetPassword" || mode === null)) {
+      setFirebaseOobCode(oobCode);
+      setTokenError(null);
       setIsValidatingToken(false);
+      return;
     }
+
+    if (oobCode && mode === "verifyEmail") {
+      setTokenError(
+        "This link is for verifying your email, not resetting your password.",
+      );
+      setIsValidatingToken(false);
+      return;
+    }
+
+    if (urlToken && hasResetMarker) {
+      setFirebaseOobCode(null);
+      setTokenError(null);
+      setIsValidatingToken(false);
+      return;
+    }
+
+    if (token) {
+      setFirebaseOobCode(null);
+      setTokenError(null);
+      setIsValidatingToken(false);
+      return;
+    }
+
+    setTokenError(
+      "Invalid or missing reset link. Please request a new password reset from the sign-in page.",
+    );
+    setIsValidatingToken(false);
   }, [token]);
 
   const validatePassword = (pwd: string): string | null => {
@@ -72,17 +106,25 @@ const ResetPassword: React.FC<ResetPasswordProps> = ({ onNavigate, onBack, token
         throw new Error(passwordError);
       }
 
-      const resetToken = token || new URLSearchParams(window.location.search).get("token");
-      if (!resetToken) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const oobCode = firebaseOobCode ?? urlParams.get("oobCode");
+      const legacyToken = token || urlParams.get("token");
+
+      if (oobCode) {
+        await confirmPasswordReset(auth, oobCode, password);
+        setSuccess(true);
+        return;
+      }
+
+      if (!legacyToken) {
         throw new Error("Invalid reset token");
       }
 
-      // Call Firebase Cloud Function to reset password
       const response = await fetch(getCloudFunctionUrl("resetPassword"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          token: resetToken,
+          token: legacyToken,
           password: password,
         }),
       });

@@ -18,6 +18,11 @@ import {
   QueryDocumentSnapshot,
   Unsubscribe,
   increment,
+  type DocumentData,
+  type FirestoreError,
+  type Query,
+  type DocumentReference,
+  type UpdateData,
 } from "firebase/firestore";
 import { Role } from "../types";
 
@@ -134,71 +139,79 @@ const FIRESTORE_INDEX_HINT =
  * Note: This function is currently unused but kept for future use
  */
 function _safeOnSnapshot(
-  queryOrDoc: Parameters<typeof onSnapshot>[0],
+  queryOrDoc: Query<DocumentData> | DocumentReference<DocumentData>,
   onNext: (snapshot: QuerySnapshot | DocumentSnapshot) => void,
   onError?: (error: Error) => void
 ): Unsubscribe {
   let unsubscribe: Unsubscribe | null = null;
   let isUnsubscribed = false;
 
-  try {
-    unsubscribe = onSnapshot(
-      queryOrDoc,
-      (snapshot: QuerySnapshot | DocumentSnapshot) => {
-        if (isUnsubscribed) return;
+  const nextCb = (snapshot: QuerySnapshot | DocumentSnapshot) => {
+    if (isUnsubscribed) return;
+    try {
+      onNext(snapshot);
+    } catch (error) {
+      logger.error("Error in onSnapshot next callback", error);
+      if (onError) {
+        onError(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+  };
+
+  const errorCb = (error: FirestoreError) => {
+    if (isUnsubscribed) return;
+
+    // Check if this is an internal assertion error
+    if (isInternalAssertionError(error)) {
+      logger.error(
+        "Firestore internal assertion error detected - likely missing composite index",
+        {
+          error: getErrorMessage(error),
+          code: getErrorCode(error),
+          suggestion:
+            "This query requires a composite index. Check the Firebase console for index creation links.",
+        }
+      );
+
+      // Immediately unsubscribe to prevent further state corruption
+      if (unsubscribe) {
         try {
-          onNext(snapshot);
-        } catch (error) {
-          logger.error("Error in onSnapshot next callback", error);
-          if (onError) {
-            onError(error instanceof Error ? error : new Error(String(error)));
-          }
-        }
-      },
-      (error: Error) => {
-        if (isUnsubscribed) return;
-
-        // Check if this is an internal assertion error
-        if (isInternalAssertionError(error)) {
-          logger.error(
-            "Firestore internal assertion error detected - likely missing composite index",
-            {
-              error: getErrorMessage(error),
-              code: getErrorCode(error),
-              suggestion:
-                "This query requires a composite index. Check the Firebase console for index creation links.",
-            }
-          );
-
-          // Immediately unsubscribe to prevent further state corruption
-          if (unsubscribe) {
-            try {
-              unsubscribe();
-              isUnsubscribed = true;
-            } catch (cleanupError) {
-              logger.error("Error cleaning up after assertion error", cleanupError);
-            }
-          }
-
-          // Call error callback with a more user-friendly error
-          if (onError) {
-            const friendlyError = new Error(
-              "Query requires a composite index. Please check the Firebase console for index creation."
-            );
-            (friendlyError as any).code = "failed-precondition";
-            (friendlyError as any).originalError = error;
-            onError(friendlyError);
-          }
-          return;
-        }
-
-        // Handle other errors normally
-        logger.error("Error in onSnapshot listener", error);
-        if (onError) {
-          onError(error);
+          unsubscribe();
+          isUnsubscribed = true;
+        } catch (cleanupError) {
+          logger.error("Error cleaning up after assertion error", cleanupError);
         }
       }
-    );
+
+      // Call error callback with a more user-friendly error
+      if (onError) {
+        const friendlyError = new Error(
+          "Query requires a composite index. Please check the Firebase console for index creation."
+        );
+        (friendlyError as { code?: string }).code = "failed-precondition";
+        (friendlyError as { originalError?: FirestoreError }).originalError =
+          error;
+        onError(friendlyError);
+      }
+      return;
+    }
+
+    // Handle other errors normally
+    logger.error("Error in onSnapshot listener", error);
+    if (onError) {
+      onError(error);
+    }
+  };
+
+  try {
+    unsubscribe =
+      queryOrDoc.type === "document"
+        ? onSnapshot(
+            queryOrDoc as DocumentReference<DocumentData>,
+            nextCb,
+            errorCb
+          )
+        : onSnapshot(queryOrDoc as Query<DocumentData>, nextCb, errorCb);
   } catch (error) {
     logger.error("Error creating onSnapshot listener", error);
     if (onError) {
@@ -405,9 +418,10 @@ export const getUserByEmail = async (
   email: string,
   organizationId: string
 ): Promise<User | null> => {
+  const normalizedEmail = email.trim().toLowerCase();
   const q = query(
     collection(db, "users"),
-    where("email", "==", email),
+    where("email", "==", normalizedEmail),
     where("organizationId", "==", organizationId)
   );
   const snapshot = await getDocs(q);
@@ -430,9 +444,10 @@ export const findUserByEmail = async (
   if (organizationId) {
     return getUserByEmail(email, organizationId);
   }
+  const normalizedEmail = email.trim().toLowerCase();
   const q = query(
     collection(db, "users"),
-    where("email", "==", email),
+    where("email", "==", normalizedEmail),
     firestoreLimit(1)
   );
   const snapshot = await getDocs(q);
@@ -504,7 +519,8 @@ export const updateUserProfileForSession = async (
   if (Object.keys(clean).length === 0) {
     return;
   }
-  await updateDoc(doc(db, "users", sessionUser.id), clean);
+  const patch = clean as UpdateData<DocumentData>;
+  await updateDoc(doc(db, "users", sessionUser.id), patch);
   const link = sessionUser.firebaseAuthUid;
   if (!link || link === sessionUser.id) {
     return;
@@ -512,7 +528,7 @@ export const updateUserProfileForSession = async (
   const mirrorRef = doc(db, "users", link);
   const mirrorSnap = await getDoc(mirrorRef);
   if (mirrorSnap.exists()) {
-    await updateDoc(mirrorRef, clean);
+    await updateDoc(mirrorRef, patch);
   }
 };
 
@@ -1290,7 +1306,7 @@ export const createBlogPost = async (
 export const getBlogPosts = async (
   publishedOnly: boolean = false
 ): Promise<BlogPost[]> => {
-  let q: ReturnType<typeof query>;
+  let q: Query<DocumentData>;
   
   if (publishedOnly) {
     q = query(
@@ -1630,7 +1646,7 @@ export const getAllCalendarEvents = async (
   try {
     // Try with orderBy, but fallback to no orderBy if index missing
     // Note: where clauses must come before orderBy clauses
-    let q: ReturnType<typeof query>;
+    let q: Query<DocumentData>;
     
     if (startDate) {
       q = query(
@@ -1668,11 +1684,14 @@ export const getAllCalendarEvents = async (
       }
     }
 
-    let events = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: convertTimestamp(doc.data().createdAt),
-    })) as CalendarEvent[];
+    let events = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data() as Record<string, unknown>;
+      return {
+        id: docSnap.id,
+        ...data,
+        createdAt: convertTimestamp(data.createdAt),
+      } as CalendarEvent;
+    });
 
     // Sort in memory only if we had to skip orderBy
     if (snapshot.docs.length > 0 && !hasOrderBy) {
@@ -2274,7 +2293,7 @@ export const subscribeToBlogPosts = (
   callback: (posts: BlogPost[]) => void,
   publishedOnly: boolean = false
 ): Unsubscribe => {
-  let q: ReturnType<typeof query>;
+  let q: Query<DocumentData>;
   
   if (publishedOnly) {
     q = query(
@@ -2316,7 +2335,7 @@ export const subscribeToDiscussionGuides = (
     orderBy("createdAt", "desc")
   );
 
-  let orgQuery: ReturnType<typeof query> | null = null;
+  let orgQuery: Query<DocumentData> | null = null;
   if (organizationId) {
     orgQuery = query(
       collection(db, "discussionGuides"),
@@ -2410,7 +2429,7 @@ export const subscribeToCareerTemplates = (
     orderBy("createdAt", "desc")
   );
 
-  let orgQuery: ReturnType<typeof query> | null = null;
+  let orgQuery: Query<DocumentData> | null = null;
   if (organizationId) {
     orgQuery = query(
       collection(db, "careerTemplates"),
@@ -2504,7 +2523,7 @@ export const subscribeToTrainingVideos = (
     orderBy("createdAt", "desc")
   );
 
-  let orgQuery: ReturnType<typeof query> | null = null;
+  let orgQuery: Query<DocumentData> | null = null;
   if (organizationId) {
     orgQuery = query(
       collection(db, "trainingVideos"),
@@ -3324,9 +3343,10 @@ export const subscribeToDMMessages = (
         logger.error("Error cleaning up first listener", cleanupError);
       }
     }
-    if (unsubscribe2) {
+    const maybeUnsub2 = unsubscribe2 as Unsubscribe | null;
+    if (maybeUnsub2) {
       try {
-        unsubscribe2();
+        maybeUnsub2();
       } catch (cleanupError) {
         logger.error("Error cleaning up second listener", cleanupError);
       }

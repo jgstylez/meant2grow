@@ -202,6 +202,9 @@ async function generateMigrationReport(_dryRun: boolean, _sendResetEmails: boole
         firebaseAuthUid = userData.firebaseAuthUid;
         // Verify the Firebase Auth account actually exists
         try {
+          if (!firebaseAuthUid) {
+            throw new Error("Expected firebaseAuthUid when hasFirebaseAuthUid");
+          }
           await auth.getUser(firebaseAuthUid);
           report.usersAlreadyMigrated++;
         } catch (error: any) {

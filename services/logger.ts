@@ -19,6 +19,25 @@ type LogData =
   | null
   | undefined;
 
+function normalizeLogData(data: unknown): LogData | undefined {
+  if (data === undefined) return undefined;
+  if (data === null) return null;
+  if (typeof data === "string" || typeof data === "number" || typeof data === "boolean") {
+    return data;
+  }
+  if (data instanceof Error) {
+    return {
+      message: data.message,
+      stack: data.stack,
+      name: data.name,
+    };
+  }
+  if (typeof data === "object") {
+    return data as Record<string, unknown>;
+  }
+  return { value: String(data) };
+}
+
 class Logger {
   private isProduction: boolean;
 
@@ -106,10 +125,10 @@ class Logger {
     }
   }
 
-  warn(message: string, data?: LogData) {
+  warn(message: string, data?: unknown) {
     try {
       // Don't await - fire and forget to avoid blocking
-      this.log(LogLevel.WARN, message, data).catch(() => {
+      this.log(LogLevel.WARN, message, normalizeLogData(data)).catch(() => {
         // Silently fail - logging should never break the app
       });
     } catch {
@@ -120,16 +139,7 @@ class Logger {
 
   error(message: string, error?: unknown) {
     try {
-      const errorData: LogData =
-        error instanceof Error
-          ? {
-              message: error.message,
-              stack: error.stack,
-              name: error.name,
-            }
-          : typeof error === "object" && error !== null
-          ? (error as Record<string, unknown>)
-          : { error: String(error) };
+      const errorData = normalizeLogData(error);
 
       // Don't await - fire and forget to avoid blocking
       this.log(LogLevel.ERROR, message, errorData).catch(() => {

@@ -40,9 +40,6 @@ jobs:
           VITE_FIREBASE_VAPID_KEY: ${{ secrets.SANDBOX_FIREBASE_VAPID_KEY }}
           VITE_FUNCTIONS_URL: ${{ secrets.SANDBOX_FUNCTIONS_URL }}
           VITE_APP_URL: ${{ secrets.SANDBOX_APP_URL }}
-          VITE_MAILERSEND_API_TOKEN: ${{ secrets.SANDBOX_MAILERSEND_API_TOKEN }}
-          VITE_MAILERSEND_FROM_EMAIL: ${{ secrets.SANDBOX_MAILERSEND_FROM_EMAIL }}
-          VITE_MAILERSEND_REPLY_TO_EMAIL: ${{ secrets.SANDBOX_MAILERSEND_REPLY_TO_EMAIL }}
           VITE_GIPHY_API_KEY: ${{ secrets.SANDBOX_GIPHY_API_KEY }}
       
       - name: Build functions

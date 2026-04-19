@@ -1,25 +1,24 @@
 import { EmailProvider, EmailProviderConfig, EmailProviderName } from "./types";
 import { createMailerSendProvider } from "./providers/mailersendProvider";
-import { createMailtrapProvider } from "./providers/mailtrapProvider";
+import { createResendProvider } from "./providers/resendProvider";
 
 /**
  * Creates the configured email provider.
- * Set EMAIL_PROVIDER to "mailersend" or "mailtrap" to switch.
- * Default: mailersend
+ * Set EMAIL_PROVIDER to "resend" (default) or "mailersend".
  */
 export function createEmailProvider(
   providerName: EmailProviderName,
   config: EmailProviderConfig
 ): EmailProvider {
   switch (providerName) {
+    case "resend":
+      return createResendProvider(config);
     case "mailersend":
       return createMailerSendProvider(config);
-    case "mailtrap":
-      return createMailtrapProvider(config);
     default:
       console.warn(
-        `⚠️ Unknown EMAIL_PROVIDER "${providerName}", defaulting to mailersend`
+        `⚠️ Unknown EMAIL_PROVIDER "${providerName}", defaulting to resend`
       );
-      return createMailerSendProvider(config);
+      return createResendProvider(config);
   }
 }

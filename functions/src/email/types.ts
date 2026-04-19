@@ -1,6 +1,6 @@
 /**
  * Shared types for email provider abstraction.
- * Switch providers via EMAIL_PROVIDER env (mailersend | mailtrap).
+ * Switch providers via EMAIL_PROVIDER env (resend | mailersend).
  */
 
 export interface SendEmailOptions {
@@ -23,4 +23,4 @@ export interface EmailProvider {
   send(options: SendEmailOptions): Promise<{ success: boolean; messageId?: string }>;
 }
 
-export type EmailProviderName = "mailersend" | "mailtrap";
+export type EmailProviderName = "resend" | "mailersend";

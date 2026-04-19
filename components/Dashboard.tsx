@@ -67,6 +67,7 @@ import {
   TrendingUp,
   BookOpen,
   Pencil,
+  Clock,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -510,10 +511,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                                         {item}
                                       </span>
                                     ))}
-                                  {(showParticipantsModal === "mentors"
+                                  {((showParticipantsModal === "mentors"
                                     ? participant.skills
                                     : participant.goals
-                                  )?.length > 3 && (
+                                  )?.length ?? 0) > 3 && (
                                     <span className="text-xs px-2 py-0.5 text-slate-500 dark:text-slate-400">
                                       +
                                       {(showParticipantsModal === "mentors"
@@ -604,7 +605,8 @@ const Dashboard: React.FC<DashboardProps> = ({
 
           const result: PaginatedResult<User> = await getAllUsersPaginated({
             pageSize: usersPerPage,
-            lastDoc: usersPage === 1 ? undefined : usersLastDoc,
+            lastDoc:
+              usersPage === 1 ? undefined : (usersLastDoc ?? undefined),
             filters,
           });
 
@@ -1765,7 +1767,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                           cy="50%"
                           labelLine={false}
                           label={({ name, percent }) =>
-                            `${name}: ${(percent * 100).toFixed(0)}%`
+                            `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`
                           }
                           outerRadius={45}
                           fill="#8884d8"
@@ -3146,7 +3148,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                     if (hasParticipants) {
                       // If participants array exists, user MUST be in it (or be the creator)
-                      const isInParticipants = e.participants.includes(user.id);
+                      const isInParticipants = e.participants!.includes(user.id);
                       const isCreator = e.createdBy === user.id;
                       if (!isInParticipants && !isCreator) return false;
                     } else {
@@ -3214,7 +3216,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     e.participants && e.participants.length > 0;
 
                   if (hasParticipants) {
-                    const isInParticipants = e.participants.includes(user.id);
+                    const isInParticipants = e.participants!.includes(user.id);
                     const isCreator = e.createdBy === user.id;
                     if (!isInParticipants && !isCreator) return false;
                   } else {
@@ -3293,6 +3295,16 @@ const Dashboard: React.FC<DashboardProps> = ({
       : null;
     const partner = users.find((u) => u.id === partnerId);
 
+    const ratingToCurrentMentor =
+      partnerId != null
+        ? ratings.find(
+            (r) =>
+              r.fromUserId === user.id &&
+              r.toUserId === partnerId &&
+              r.organizationId === user.organizationId,
+          )
+        : undefined;
+
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
         {renderRatingModal()}
@@ -3348,12 +3360,38 @@ const Dashboard: React.FC<DashboardProps> = ({
                 >
                   <Calendar className="w-4 h-4 mr-2" /> Schedule
                 </button>
-                <button
-                  onClick={() => setRatingTarget(partner)}
-                  className="bg-emerald-800/50 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-800/70 transition-colors flex items-center justify-center"
-                >
-                  <Star className="w-4 h-4 mr-2" /> Rate Mentor
-                </button>
+                {ratingToCurrentMentor ? (
+                  <div
+                    role="status"
+                    className="bg-emerald-800/40 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 border border-white/25 text-center leading-snug"
+                  >
+                    {ratingToCurrentMentor.isApproved ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 shrink-0 opacity-90" />
+                        <span>
+                          You rated {partner.name.split(" ")[0]} ·{" "}
+                          {ratingToCurrentMentor.score}/5
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Clock className="w-4 h-4 shrink-0 opacity-90" />
+                        <span>
+                          Feedback submitted — pending approval for{" "}
+                          {partner.name.split(" ")[0]}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setRatingTarget(partner)}
+                    className="bg-emerald-800/50 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-800/70 transition-colors flex items-center justify-center"
+                  >
+                    <Star className="w-4 h-4 mr-2" /> Rate Mentor
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -3373,7 +3411,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
 
             <div className="flex justify-between items-center mb-4 relative z-10">
-              <h3 className="font-bold text-white text-lg">My Focus</h3>
+              <h3 className="font-bold text-white text-lg">My Goals</h3>
               <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                 <Target className="w-5 h-5 text-white" />
               </div>

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Diagnostic script to check match email notification setup
-# Checks: Cloud Functions deployment, Mailtrap config, and Firestore trigger logs
+# Checks: Cloud Functions deployment, Resend/MailerSend config, and Firestore trigger logs
 
 set -e
 
@@ -31,43 +31,21 @@ else
 fi
 echo ""
 
-# 2. Check Mailtrap Configuration
-echo "📧 2. Checking Mailtrap Email Service Configuration"
-echo "--------------------------------------------------"
+# 2. Check transactional email configuration (Resend / MailerSend)
+echo "📧 2. Checking Email Service Configuration (Resend / MailerSend)"
+echo "--------------------------------------------------------------"
 
-# Check if Mailtrap env vars are set in Secret Manager
-echo "Checking Google Cloud Secret Manager for Mailtrap secrets..."
-if gcloud secrets list --project=$PROJECT_ID 2>/dev/null | grep -qi "MAILTRAP"; then
-    echo -e "${GREEN}✅ Mailtrap secrets found in Secret Manager${NC}"
-    gcloud secrets list --project=$PROJECT_ID 2>/dev/null | grep -i "MAILTRAP" || true
+echo "Checking Google Cloud Secret Manager for email-related secrets..."
+if gcloud secrets list --project=$PROJECT_ID 2>/dev/null | grep -qiE "RESEND|MAILERSEND"; then
+    echo -e "${GREEN}✅ Found RESEND or MAILERSEND-related secrets${NC}"
+    gcloud secrets list --project=$PROJECT_ID 2>/dev/null | grep -iE "RESEND|MAILERSEND" || true
 else
-    echo -e "${YELLOW}⚠️  No Mailtrap secrets found in Secret Manager${NC}"
-    echo ""
-    echo "The functions code uses process.env.MAILTRAP_API_TOKEN, which means"
-    echo "these need to be set as runtime environment variables."
-    echo ""
-    echo "Required environment variables:"
-    echo "  - MAILTRAP_API_TOKEN"
-    echo "  - MAILTRAP_USE_SANDBOX (true/false)"
-    echo "  - MAILTRAP_INBOX_ID (optional, for sandbox mode)"
-    echo "  - MAILTRAP_FROM_EMAIL"
-    echo "  - MAILTRAP_REPLY_TO_EMAIL"
-    echo "  - VITE_APP_URL (or it will default to https://meant2grow.com)"
-    echo ""
-    echo "To set these, you can:"
-    echo "  1. Use Firebase Console: Functions > Configuration > Environment Variables"
-    echo "  2. Or use gcloud commands (see below)"
+    echo -e "${YELLOW}⚠️  No RESEND/MAILERSEND secrets found in Secret Manager (params may still be set in Firebase Console)${NC}"
 fi
 echo ""
 
-# Check if functions are using defineString/defineSecret for Mailtrap
-echo "Checking if Mailtrap is configured via defineString/defineSecret..."
-if grep -q "defineString.*MAILTRAP\|defineSecret.*MAILTRAP" functions/src/index.ts 2>/dev/null; then
-    echo -e "${GREEN}✅ Mailtrap configured via defineString/defineSecret${NC}"
-else
-    echo -e "${YELLOW}⚠️  Mailtrap not configured via defineString/defineSecret${NC}"
-    echo "The code uses process.env directly, which requires runtime environment variables."
-fi
+echo "Functions use defineString for RESEND_API_KEY, MAILERSEND_API_TOKEN, MAILERSEND_FROM_EMAIL, MAILERSEND_REPLY_TO_EMAIL, VITE_APP_URL."
+echo "Set these in Firebase Console → Functions → your project → Configuration (or via firebase functions:config / params as documented)."
 echo ""
 
 # 3. Check Firestore Trigger Logs
@@ -107,6 +85,13 @@ else
 fi
 echo ""
 
+if grep -q "RESEND_API_KEY" functions/src/index.ts 2>/dev/null; then
+    echo -e "${GREEN}✅ Resend (RESEND_API_KEY) referenced in functions${NC}"
+else
+    echo -e "${YELLOW}⚠️  RESEND_API_KEY not found in functions/src/index.ts${NC}"
+fi
+echo ""
+
 # 5. Summary and Recommendations
 echo "📝 Summary and Recommendations"
 echo "==============================="
@@ -121,36 +106,8 @@ else
     echo "   Run: cd functions && npm run build && cd .. && firebase deploy --only functions"
 fi
 
-# Check Mailtrap config
-HAS_MAILTRAP_SECRET=$(gcloud secrets list --project=$PROJECT_ID 2>/dev/null | grep -ci "MAILTRAP" || echo "0")
-if [ "$HAS_MAILTRAP_SECRET" -gt 0 ]; then
-    echo -e "${GREEN}✅ Mailtrap secrets configured${NC}"
-else
-    echo -e "${YELLOW}⚠️  Mailtrap environment variables need to be configured${NC}"
-    echo ""
-    echo "To configure Mailtrap for Cloud Functions:"
-    echo ""
-    echo "Option 1: Using Firebase Console (Recommended)"
-    echo "  1. Go to: https://console.firebase.google.com/project/$PROJECT_ID/functions/config"
-    echo "  2. Click 'Add variable' for each:"
-    echo "     - MAILTRAP_API_TOKEN"
-    echo "     - MAILTRAP_USE_SANDBOX (set to 'true' for testing)"
-    echo "     - MAILTRAP_INBOX_ID (if using sandbox)"
-    echo "     - MAILTRAP_FROM_EMAIL"
-    echo "     - MAILTRAP_REPLY_TO_EMAIL"
-    echo "     - VITE_APP_URL"
-    echo ""
-    echo "Option 2: Using gcloud CLI"
-    echo "  gcloud functions deploy onMatchCreated \\"
-    echo "    --update-env-vars MAILTRAP_API_TOKEN=your_token,MAILTRAP_USE_SANDBOX=true \\"
-    echo "    --project=$PROJECT_ID"
-    echo ""
-    echo "Option 3: Update code to use defineString (better approach)"
-    echo "  Modify functions/src/index.ts to use defineString for Mailtrap config"
-fi
-
 echo ""
 echo "📚 Documentation:"
-echo "  - Mailtrap Setup: docs/MAILTRAP_SETUP.md"
-echo "  - Firebase Deployment: docs/FIREBASE_DEPLOYMENT.md"
+echo "  - functions/src/email/README.md"
+echo "  - docs/FIREBASE_DEPLOYMENT.md (if present)"
 echo ""

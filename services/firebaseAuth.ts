@@ -7,11 +7,43 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider,
   deleteUser as firebaseDeleteUser,
+  type ActionCodeSettings,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { updateUser, getUser } from './database';
 import { logger } from './logger';
+
+/**
+ * Continue URL embedded in Firebase Auth password-reset emails.
+ * The domain must be listed under Firebase Console → Authentication → Settings → Authorized domains.
+ */
+export function getPasswordResetContinueUrl(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/?reset-password=1`;
+  }
+  const env = import.meta.env.VITE_APP_URL;
+  if (typeof env === 'string' && env.trim()) {
+    return `${env.replace(/\/$/, '')}/?reset-password=1`;
+  }
+  return '';
+}
+
+function passwordResetActionCodeSettings(): ActionCodeSettings {
+  const url = getPasswordResetContinueUrl();
+  return {
+    handleCodeInApp: false,
+    ...(url ? { url } : {}),
+  } as ActionCodeSettings;
+}
+
+/**
+ * Sends a password-reset email through Firebase Auth (delivery uses SMTP / templates configured in Firebase).
+ */
+export async function sendFirebasePasswordResetEmail(email: string): Promise<void> {
+  const normalized = email.trim().toLowerCase();
+  await firebaseSendPasswordResetEmail(auth, normalized, passwordResetActionCodeSettings());
+}
 
 /** Thrown when email/password cannot be used because the Firebase user has no password provider (e.g. Google-only). */
 export class AuthLinkFailureError extends Error {
@@ -208,7 +240,7 @@ export const ensureFirebaseAuthAccount = async (
                 });
                 
                 try {
-                  await firebaseSendPasswordResetEmail(auth, email);
+                  await sendFirebasePasswordResetEmail(email);
                   logger.info('Password reset email sent due to authentication issue', { email });
                 } catch (resetError: any) {
                   logger.error('Failed to send password reset email', resetError);
@@ -220,7 +252,7 @@ export const ensureFirebaseAuthAccount = async (
                   errorCode: signInError.code,
                 });
                 try {
-                  await firebaseSendPasswordResetEmail(auth, email);
+                  await sendFirebasePasswordResetEmail(email);
                   logger.info('Password reset email sent as fallback', { email });
                 } catch (resetError: any) {
                   logger.error('Failed to send password reset email', resetError);
@@ -262,7 +294,7 @@ export const ensureFirebaseAuthAccount = async (
         });
         
         try {
-          await firebaseSendPasswordResetEmail(auth, email);
+          await sendFirebasePasswordResetEmail(email);
           logger.info('Password reset email sent', { email });
         } catch (resetError: any) {
           logger.error('Failed to send password reset email', resetError);
@@ -332,7 +364,7 @@ export const ensureFirebaseAuthAccount = async (
           
           // Send password reset email
           try {
-            await firebaseSendPasswordResetEmail(auth, email);
+            await sendFirebasePasswordResetEmail(email);
             logger.info('Password reset email sent due to incorrect password', { email });
           } catch (resetError: any) {
             logger.error('Failed to send password reset email', resetError);
@@ -389,7 +421,7 @@ export const ensureFirebaseAuthAccount = async (
         // If we used a temporary password, send password reset email
         if (password.startsWith('temp-')) {
           try {
-            await firebaseSendPasswordResetEmail(auth, email);
+            await sendFirebasePasswordResetEmail(email);
             logger.info('Password reset email sent for newly migrated user', { email });
           } catch (resetError: any) {
             logger.error('Failed to send password reset email after migration', resetError);
@@ -470,7 +502,7 @@ export const ensureFirebaseAuthAccount = async (
                 });
                 
                 try {
-                  await firebaseSendPasswordResetEmail(auth, email);
+                  await sendFirebasePasswordResetEmail(email);
                   logger.info('Password reset email sent due to authentication issue', { email });
                 } catch (resetError: any) {
                   logger.error('Failed to send password reset email', resetError);
@@ -482,7 +514,7 @@ export const ensureFirebaseAuthAccount = async (
                   errorCode: signInError.code,
                 });
                 try {
-                  await firebaseSendPasswordResetEmail(auth, email);
+                  await sendFirebasePasswordResetEmail(email);
                   logger.info('Password reset email sent as fallback', { email });
                 } catch (resetError: any) {
                   logger.error('Failed to send password reset email', resetError);
@@ -496,7 +528,7 @@ export const ensureFirebaseAuthAccount = async (
             // No password or temporary password - send password reset email
             logger.info('Email already in use but no valid password provided, sending password reset email', { email });
             try {
-              await firebaseSendPasswordResetEmail(auth, email);
+              await sendFirebasePasswordResetEmail(email);
               logger.info('Password reset email sent', { email });
             } catch (resetError: any) {
               logger.error('Failed to send password reset email', resetError);

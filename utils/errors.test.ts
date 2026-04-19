@@ -75,11 +75,11 @@ describe("formatError", () => {
 describe("isFirebaseError", () => {
   it("returns true for auth/ and firestore/ prefixed codes", () => {
     const authErr = new Error("x");
-    (authErr as { code: string }).code = "auth/wrong-password";
+    (authErr as unknown as { code: string }).code = "auth/wrong-password";
     expect(isFirebaseError(authErr)).toBe(true);
 
     const fsErr = new Error("y");
-    (fsErr as { code: string }).code = "firestore/not-found";
+    (fsErr as unknown as { code: string }).code = "firestore/not-found";
     expect(isFirebaseError(fsErr)).toBe(true);
   });
 

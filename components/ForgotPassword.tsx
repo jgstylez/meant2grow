@@ -2,10 +2,9 @@ import React, { useState } from "react";
 import { INPUT_CLASS, BUTTON_PRIMARY } from "../styles/common";
 import { ArrowLeft, Mail, CheckCircle, AlertCircle } from "lucide-react";
 import { Logo } from "./Logo";
-import { findUserByEmail } from "../services/database";
 import { getErrorMessage } from "../utils/errors";
 import { logger } from "../services/logger";
-import { getCloudFunctionUrl } from "../services/cloudFunctionsUrl";
+import { sendFirebasePasswordResetEmail } from "../services/firebaseAuth";
 
 interface ForgotPasswordProps {
   onNavigate: (page: string) => void;
@@ -25,47 +24,40 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onNavigate: _onNavigate
     setSuccess(false);
 
     try {
-      if (!email.trim()) {
+      const trimmed = email.trim();
+      if (!trimmed) {
         throw new Error("Please enter your email address");
       }
 
-      // Check if user exists
-      let user;
-      try {
-        user = await findUserByEmail(email.trim());
-      } catch (dbError: unknown) {
-        // Database error - don't reveal if email exists for security
-        logger.error("Database error checking user", dbError);
-        setSuccess(true);
-        setIsLoading(false);
-        return;
-      }
+      // Must match server + Firestore (lowercase). Do not gate on client Firestore lookup:
+      // unauthenticated queries can miss due to casing vs stored email, which skipped the reset call entirely.
+      const normalizedEmail = trimmed.toLowerCase();
 
-      if (!user) {
-        // Don't reveal if email exists for security - show success anyway
-        setSuccess(true);
-        setIsLoading(false);
-        return;
-      }
-
-      // Call Firebase Cloud Function to send password reset email
-      const response = await fetch(getCloudFunctionUrl("forgotPassword"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to send reset email");
-      }
+      await sendFirebasePasswordResetEmail(normalizedEmail);
 
       setSuccess(true);
     } catch (err: unknown) {
       logger.error("Password reset error", err);
-      // Show error for validation errors and API failures
-      // (We've already confirmed user exists at this point, so showing error is safe)
-      setError(getErrorMessage(err) || "An error occurred. Please try again.");
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? String((err as { code: unknown }).code)
+          : "";
+      if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Please try again later.");
+      } else if (code === "auth/invalid-email") {
+        setError("Enter a valid email address.");
+      } else if (
+        code === "auth/unauthorized-continue-uri" ||
+        code === "auth/invalid-continue-uri"
+      ) {
+        setError(
+          "Password reset could not be sent. Ensure this site’s domain is listed under Firebase Authentication → Settings → Authorized domains.",
+        );
+      } else {
+        setError(
+          getErrorMessage(err) || "An error occurred. Please try again.",
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -127,7 +119,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onNavigate: _onNavigate
                     Check your email
                   </p>
                   <p className="text-sm text-emerald-700">
-                    If an account exists with {email}, we've sent a password reset link to your email address.
+                    If an account exists with {email.trim().toLowerCase()}, we've sent a password reset link to your email address.
                     Please check your inbox and follow the instructions to reset your password.
                   </p>
                   <p className="text-xs text-emerald-600 mt-2">

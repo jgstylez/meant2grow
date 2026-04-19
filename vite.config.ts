@@ -40,13 +40,13 @@ export default defineConfig(({ mode, command }) => {
     env = {
       ...baseEnv,
       ...sandboxEnv,
-      ...process.env, // CI/CD environment variables take precedence
+      ...(process.env as Record<string, string>), // CI/CD overrides
     };
   } else {
     // For production/development, use Vite's standard loadEnv
     env = {
       ...loadEnv(mode, process.cwd(), ""),
-      ...process.env, // CI/CD environment variables take precedence
+      ...(process.env as Record<string, string>),
     };
   }
 
@@ -128,11 +128,6 @@ export default defineConfig(({ mode, command }) => {
       // Increase chunk size warning limit
       chunkSizeWarningLimit: 600,
       rollupOptions: {
-        external: [
-          // mailersend is only used server-side via dynamic imports
-          // Externalize it to prevent build errors
-          "mailersend",
-        ],
         output: {
           manualChunks: {
             // React and core dependencies

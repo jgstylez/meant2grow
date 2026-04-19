@@ -2,12 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ForgotPassword from "./ForgotPassword";
-import { findUserByEmail } from "../services/database";
-import { Role, type User } from "../types";
-
-vi.mock("../services/database", () => ({
-  findUserByEmail: vi.fn(),
-}));
+import { sendFirebasePasswordResetEmail } from "../services/firebaseAuth";
 
 vi.mock("../services/logger", () => ({
   logger: {
@@ -18,11 +13,11 @@ vi.mock("../services/logger", () => ({
   },
 }));
 
-vi.mock("../services/cloudFunctionsUrl", () => ({
-  getCloudFunctionUrl: vi.fn(() => "https://example.test/forgotPassword"),
+vi.mock("../services/firebaseAuth", () => ({
+  sendFirebasePasswordResetEmail: vi.fn(),
 }));
 
-const mockFindUserByEmail = vi.mocked(findUserByEmail);
+const mockSendFirebasePasswordResetEmail = vi.mocked(sendFirebasePasswordResetEmail);
 
 /** RTL + jsdom can surface duplicate nodes for the same visible field; use the first match. */
 function emailField() {
@@ -33,27 +28,10 @@ function sendResetButton() {
   return screen.getAllByRole("button", { name: /send reset link/i })[0];
 }
 
-const minimalUser: User = {
-  id: "user-1",
-  name: "Test User",
-  email: "found@example.com",
-  organizationId: "org-1",
-  role: Role.MENTOR,
-  title: "",
-  company: "",
-  bio: "",
-  skills: [],
-  avatar: "",
-  createdAt: "",
-};
-
-describe("ForgotPassword", () => {
-  const fetchMock = vi.fn();
-
+describe("Forgot password — Firebase Auth (sendPasswordResetEmail)", () => {
   beforeEach(() => {
-    fetchMock.mockReset();
-    vi.stubGlobal("fetch", fetchMock);
-    mockFindUserByEmail.mockReset();
+    mockSendFirebasePasswordResetEmail.mockReset();
+    mockSendFirebasePasswordResetEmail.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -71,11 +49,10 @@ describe("ForgotPassword", () => {
         screen.getByText(/please enter your email address/i),
       ).toBeInTheDocument();
     });
-    expect(mockFindUserByEmail).not.toHaveBeenCalled();
+    expect(mockSendFirebasePasswordResetEmail).not.toHaveBeenCalled();
   });
 
-  it("shows success without calling fetch when email is not registered", async () => {
-    mockFindUserByEmail.mockResolvedValue(null);
+  it("calls Firebase Auth sendPasswordResetEmail and shows success", async () => {
     const user = userEvent.setup();
     render(<ForgotPassword onNavigate={vi.fn()} onBack={vi.fn()} />);
 
@@ -85,42 +62,31 @@ describe("ForgotPassword", () => {
     await waitFor(() => {
       expect(screen.getAllByText(/check your email/i)[0]).toBeInTheDocument();
     });
-    expect(mockFindUserByEmail).toHaveBeenCalledWith("missing@example.com");
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("calls forgot-password function and shows success when user exists and API succeeds", async () => {
-    mockFindUserByEmail.mockResolvedValue(minimalUser);
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({}),
-    });
-
-    const user = userEvent.setup();
-    render(<ForgotPassword onNavigate={vi.fn()} onBack={vi.fn()} />);
-
-    await user.type(emailField(), "found@example.com");
-    await user.click(sendResetButton());
-
-    await waitFor(() => {
-      expect(screen.getAllByText(/check your email/i)[0]).toBeInTheDocument();
-    });
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://example.test/forgotPassword",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ email: "found@example.com" }),
-      }),
+    expect(mockSendFirebasePasswordResetEmail).toHaveBeenCalledWith(
+      "missing@example.com",
     );
   });
 
-  it("shows API error when user exists but forgot-password returns non-OK", async () => {
-    mockFindUserByEmail.mockResolvedValue(minimalUser);
-    fetchMock.mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: async () => ({ error: "Rate limited" }),
+  it("normalizes email to lowercase before sending", async () => {
+    const user = userEvent.setup();
+    render(<ForgotPassword onNavigate={vi.fn()} onBack={vi.fn()} />);
+
+    await user.type(emailField(), "Found@Example.COM");
+    await user.click(sendResetButton());
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/check your email/i)[0]).toBeInTheDocument();
+    });
+
+    expect(mockSendFirebasePasswordResetEmail).toHaveBeenCalledWith(
+      "found@example.com",
+    );
+  });
+
+  it("shows API error when Firebase rejects", async () => {
+    mockSendFirebasePasswordResetEmail.mockRejectedValue({
+      code: "auth/too-many-requests",
+      message: "Throttled",
     });
 
     const user = userEvent.setup();
@@ -130,22 +96,7 @@ describe("ForgotPassword", () => {
     await user.click(sendResetButton());
 
     await waitFor(() => {
-      expect(screen.getAllByText(/rate limited/i)[0]).toBeInTheDocument();
+      expect(screen.getAllByText(/too many attempts/i)[0]).toBeInTheDocument();
     });
-  });
-
-  it("shows success when lookup throws (does not reveal system errors)", async () => {
-    mockFindUserByEmail.mockRejectedValue(new Error("Firestore unavailable"));
-
-    const user = userEvent.setup();
-    render(<ForgotPassword onNavigate={vi.fn()} onBack={vi.fn()} />);
-
-    await user.type(emailField(), "any@example.com");
-    await user.click(sendResetButton());
-
-    await waitFor(() => {
-      expect(screen.getAllByText(/check your email/i)[0]).toBeInTheDocument();
-    });
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

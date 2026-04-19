@@ -43,7 +43,7 @@ export const usePagination = <T extends User | Match>(
         let result: PaginatedResult<T>;
         const options: PaginationOptions = {
           pageSize,
-          lastDoc: append ? lastDoc : undefined,
+          lastDoc: append && lastDoc ? lastDoc : undefined,
         };
 
         if (type === "users") {

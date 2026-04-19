@@ -47,6 +47,5 @@ jobs:
         run: npm run build
         working-directory: ./functions
       
-      - name: Run tests (if any)
-        run: echo "Tests skipped - add test script when ready"
-        continue-on-error: true
+      - name: Run tests
+        run: npm test

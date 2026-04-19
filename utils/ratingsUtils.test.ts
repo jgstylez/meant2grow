@@ -10,15 +10,13 @@ import {
 
 function rating(partial: Partial<Rating> & Pick<Rating, "id" | "score">): Rating {
   return {
+    ...partial,
     organizationId: partial.organizationId ?? "org-1",
     fromUserId: partial.fromUserId ?? "from-1",
     toUserId: partial.toUserId ?? "to-1",
     comment: partial.comment ?? "",
     date: partial.date ?? "2026-01-01",
-    id: partial.id,
-    score: partial.score,
     isApproved: partial.isApproved ?? true,
-    ...partial,
   };
 }
 

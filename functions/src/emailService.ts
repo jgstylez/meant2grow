@@ -5,9 +5,11 @@ import type { EmailProviderConfig, EmailProviderName } from "./email/types";
 /** Re-export for consumers */
 export type { EmailProviderConfig } from "./email/types";
 
-/** Email service config - provider-agnostic. Switch via EMAIL_PROVIDER (mailersend | mailtrap). */
+/** Email service config - provider-agnostic. Switch via EMAIL_PROVIDER (resend | mailersend). */
 export interface EmailServiceConfig extends EmailProviderConfig {
   provider?: EmailProviderName;
+  /** When primary provider is Resend, optional MailerSend token for automatic fallback on failure */
+  backupMailersendApiToken?: string;
 }
 
 // Email Templates factory - creates templates with appUrl baked in
@@ -582,16 +584,45 @@ Questions? Reply to this email and we'll be happy to help.
 
 // Factory function to create email service with configuration
 export const createEmailService = (config: EmailServiceConfig) => {
-  const providerName = config.provider || "mailersend";
-  const provider = createEmailProvider(providerName, {
+  const providerName = config.provider || "resend";
+  const primary = createEmailProvider(providerName, {
     apiToken: config.apiToken,
     fromEmail: config.fromEmail,
     replyToEmail: config.replyToEmail,
     appUrl: config.appUrl,
   });
+  const backupToken = (config.backupMailersendApiToken || "").trim();
+  const backup =
+    providerName === "resend" && backupToken
+      ? createEmailProvider("mailersend", {
+          apiToken: backupToken,
+          fromEmail: config.fromEmail,
+          replyToEmail: config.replyToEmail,
+          appUrl: config.appUrl,
+        })
+      : null;
 
-  const sendEmail = (options: { to: { email: string; name?: string }[]; subject: string; html: string; text: string; category?: string }) =>
-    provider.send(options);
+  const sendEmail = async (options: {
+    to: { email: string; name?: string }[];
+    subject: string;
+    html: string;
+    text: string;
+    category?: string;
+  }) => {
+    try {
+      await primary.send(options);
+    } catch (primaryErr) {
+      if (backup) {
+        console.warn(
+          `⚠️ Primary email provider (${primary.name}) failed; retrying via MailerSend backup`,
+          primaryErr
+        );
+        await backup.send(options);
+      } else {
+        throw primaryErr;
+      }
+    }
+  };
 
   const templates = createTemplates(config.appUrl);
 

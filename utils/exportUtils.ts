@@ -217,25 +217,25 @@ export const exportToPDF = async (
 
     // Headers
     doc.setFontSize(10);
-    doc.setFont(undefined, "bold");
+    doc.setFont("helvetica", "bold");
     headers.forEach((header, i) => {
       doc.text(header.substring(0, 20), margin + i * colWidth, y);
     });
     y += rowHeight;
 
     // Rows
-    doc.setFont(undefined, "normal");
+    doc.setFont("helvetica", "normal");
     rows.forEach((row, rowIndex) => {
       if (rowIndex > 0 && rowIndex % maxRowsPerPage === 0) {
         doc.addPage();
         y = 20;
         // Redraw headers
-        doc.setFont(undefined, "bold");
+        doc.setFont("helvetica", "bold");
         headers.forEach((header, i) => {
           doc.text(header.substring(0, 20), margin + i * colWidth, y);
         });
         y += rowHeight;
-        doc.setFont(undefined, "normal");
+        doc.setFont("helvetica", "normal");
       }
 
       row.forEach((cell, i) => {

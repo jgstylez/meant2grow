@@ -1766,12 +1766,6 @@ const EditUserForm: React.FC<EditUserFormProps> = ({
       return;
     }
 
-    // Check if email is the same as current
-    if (user.email.toLowerCase() === trimmedEmail) {
-      setEmailError('This is already the current email address');
-      return;
-    }
-
     // Filter out empty strings and convert them to undefined for optional fields
     const updates: Partial<User> = {
       name: formData.name.trim() || undefined,

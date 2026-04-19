@@ -23,6 +23,39 @@ function parseFunctionsError(response: Response, raw: string): string {
   return `Request failed (${response.status})`;
 }
 
+/** When status is 2xx but body is not our session JSON (e.g. SPA HTML from wrong base URL). */
+function videoSessionUnexpectedBodyError(
+  response: Response,
+  raw: string,
+  data: Record<string, unknown>
+): Error {
+  const fromApi =
+    (typeof data.message === "string" && data.message) ||
+    (typeof data.error === "string" && data.error) ||
+    "";
+
+  const trimmedStart = raw.trim().slice(0, 400);
+  const contentType = response.headers.get("content-type") || "";
+  const looksHtml =
+    contentType.includes("text/html") ||
+    /^<!DOCTYPE/i.test(trimmedStart) ||
+    /^<html/i.test(trimmedStart);
+
+  const jsonParseFailedOrEmpty =
+    Object.keys(data).length === 0 && raw.trim().length > 0;
+
+  let hint = "";
+  if (looksHtml || jsonParseFailedOrEmpty) {
+    hint =
+      " The response was not JSON from videoCallSession (common cause: VITE_FUNCTIONS_URL points at Firebase Hosting or another site, so you get index.html with HTTP 200). Use https://us-central1-<PROJECT_ID>.cloudfunctions.net.";
+  }
+
+  return new Error(
+    fromApi ||
+      `Invalid response from video service (missing meetingId, token, or participantId).${hint}`
+  );
+}
+
 /**
  * Mint a VideoSDK room + token (new call) or join token for an existing room id.
  */
@@ -87,11 +120,7 @@ export async function requestVideoCallSession(
   }
 
   if (!data.meetingId || !data.token || !data.participantId) {
-    throw new Error(
-      data.message ||
-        data.error ||
-        "Invalid response from video service (missing meetingId, token, or participantId)"
-    );
+    throw videoSessionUnexpectedBodyError(response, raw, data as Record<string, unknown>);
   }
 
   const out = {

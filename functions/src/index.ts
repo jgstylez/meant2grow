@@ -37,21 +37,21 @@ const videoSdkApiKey = defineString("VIDEO_SDK_API_KEY", {
 
 const videoSdkSecret = defineSecret("VIDEO_SDK_SECRET");
 
-// Email provider: "mailersend" (default) or "mailtrap". Switch here to change provider.
+// Email provider: "resend" (default) or "mailersend".
 const emailProvider = defineString("EMAIL_PROVIDER", {
-  description: "Email provider: mailersend or mailtrap",
-  default: "mailersend",
+  description: "Email provider: resend (default) or mailersend",
+  default: "resend",
 });
 
-// MailerSend (used when EMAIL_PROVIDER=mailersend)
-const mailerSendApiToken = defineString("MAILERSEND_API_TOKEN", {
-  description: "MailerSend API token (required when using mailersend)",
+const resendApiKey = defineString("RESEND_API_KEY", {
+  description: "Resend API key (re_...); primary when EMAIL_PROVIDER=resend",
   default: "",
 });
 
-// Mailtrap (used when EMAIL_PROVIDER=mailtrap)
-const mailtrapApiToken = defineString("MAILTRAP_API_TOKEN", {
-  description: "Mailtrap API token (required when using mailtrap)",
+// MailerSend: required when EMAIL_PROVIDER=mailersend; optional fallback when using Resend
+const mailerSendApiToken = defineString("MAILERSEND_API_TOKEN", {
+  description:
+    "MailerSend API token (required for mailersend-only mode; optional backup with Resend)",
   default: "",
 });
 
@@ -85,19 +85,48 @@ const LIGHT_HTTP_RUNTIME = {
 
 // Helper function to get email service instance with current config values
 const getEmailService = () => {
-  const providerName = (emailProvider.value() || "mailersend") as "mailersend" | "mailtrap";
-  const rawToken =
-    providerName === "mailtrap"
-      ? mailtrapApiToken.value()
-      : mailerSendApiToken.value();
-  const apiToken = (rawToken || "").trim();
+  const raw = (emailProvider.value() || "resend").toLowerCase();
+  if (raw === "mailtrap") {
+    console.warn(
+      '⚠️ EMAIL_PROVIDER=mailtrap is removed; use "resend" (default) or "mailersend". Using MailerSend for this deploy.'
+    );
+  }
+  const mode: "resend" | "mailersend" =
+    raw === "mailersend" || raw === "mailtrap" ? "mailersend" : "resend";
+  const resendKey = (resendApiKey.value() || "").trim();
+  const mailersendKey = (mailerSendApiToken.value() || "").trim();
   const fromEmail = emailFrom.value();
   const replyToEmail = emailReplyTo.value();
   const appUrlValue = appUrl.value();
 
+  let providerName: "resend" | "mailersend";
+  let apiToken: string;
+  let backupMailersendApiToken: string | undefined;
+
+  if (mode === "mailersend") {
+    providerName = "mailersend";
+    apiToken = mailersendKey;
+    backupMailersendApiToken = undefined;
+  } else if (resendKey) {
+    providerName = "resend";
+    apiToken = resendKey;
+    backupMailersendApiToken = mailersendKey || undefined;
+  } else if (mailersendKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not set; sending via MailerSend only (set RESEND_API_KEY to use Resend as primary)."
+    );
+    providerName = "mailersend";
+    apiToken = mailersendKey;
+    backupMailersendApiToken = undefined;
+  } else {
+    providerName = "resend";
+    apiToken = "";
+    backupMailersendApiToken = undefined;
+  }
+
   if (!apiToken) {
     console.warn(
-      `⚠️ ${providerName.toUpperCase()}_API_TOKEN not configured. Email sending will fail.`
+      "⚠️ No email API token configured (RESEND_API_KEY or MAILERSEND_API_TOKEN). Email sending will fail."
     );
   }
   if (!fromEmail) {
@@ -109,6 +138,7 @@ const getEmailService = () => {
 
   console.log("📧 Email service configuration:", {
     provider: providerName,
+    hasMailersendBackup: !!backupMailersendApiToken,
     hasApiToken: !!apiToken,
     apiTokenLength: apiToken?.length || 0,
     fromEmail: fromEmail || "NOT SET",
@@ -119,6 +149,7 @@ const getEmailService = () => {
   return createEmailService({
     provider: providerName,
     apiToken: apiToken || "",
+    backupMailersendApiToken,
     fromEmail: fromEmail || "",
     replyToEmail: replyToEmail || "support@meant2grow.com",
     appUrl: appUrlValue || "https://meant2grow.com",
@@ -977,7 +1008,9 @@ export const forgotPassword = functions.onRequest(
         console.log(`🔗 Password reset URL for ${normalizedEmail}: ${resetUrl}`);
         // Log email service configuration status
         console.log("📧 Email service configuration check:", {
-          hasApiToken: !!mailerSendApiToken.value(),
+          emailProvider: emailProvider.value(),
+          hasResendKey: !!(resendApiKey.value() || "").trim(),
+          hasMailersendToken: !!(mailerSendApiToken.value() || "").trim(),
           fromEmail: emailFrom.value(),
           replyToEmail: emailReplyTo.value(),
           appUrl: appUrl.value(),
@@ -1973,12 +2006,11 @@ export const sendInvitationEmail = functions.onRequest(
 
       // #region agent log
       {
-        const providerNameDiag = (emailProvider.value() || "mailersend") as string;
-        const rawTok =
-          providerNameDiag === "mailtrap"
-            ? mailtrapApiToken.value()
-            : mailerSendApiToken.value();
-        const tok = (rawTok || "").trim();
+        const providerNameDiag = (emailProvider.value() || "resend") as string;
+        const resTok = (resendApiKey.value() || "").trim();
+        const msTok = (mailerSendApiToken.value() || "").trim();
+        const primaryTok =
+          providerNameDiag === "mailersend" ? msTok : resTok || msTok;
         agentDebugLog({
           location: "index.ts:sendInvitationEmail",
           message: "runtime email params snapshot",
@@ -1988,9 +2020,9 @@ export const sendInvitationEmail = functions.onRequest(
             functionsEmulator: process.env.FUNCTIONS_EMULATOR === "true",
             cloudRunOrJob: !!(process.env.K_SERVICE || process.env.CLOUD_RUN_JOB),
             providerName: providerNameDiag,
-            tokenLength: tok.length,
-            rawTokenLength: (rawTok || "").length,
-            trimRemovedChars: (rawTok || "").length - tok.length,
+            resendKeyLength: resTok.length,
+            mailersendTokenLength: msTok.length,
+            primaryTokenLength: primaryTok.length,
           },
         });
       }

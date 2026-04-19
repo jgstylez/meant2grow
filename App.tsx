@@ -79,7 +79,7 @@ import { getCloudFunctionUrl } from "./services/cloudFunctionsUrl";
 import { getErrorMessage, getErrorCode, formatError } from "./utils/errors";
 import { logger } from "./services/logger";
 import { signInToFirebaseAuth, getIdToken, signOut as signOutGoogle } from "./services/googleAuth";
-import { auth } from "./services/firebase";
+import { auth as firebaseAuth } from "./services/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 
 // Loading component for Suspense fallback
@@ -128,12 +128,17 @@ const getInitialAuthState = () => {
     const inviteToken = urlParams.get("invite");
     const orgCode = urlParams.get("orgCode");
     const resetToken = urlParams.get("token");
+    const oobCode = urlParams.get("oobCode");
+    const mode = urlParams.get("mode");
     const pathname = window.location.pathname;
     const hash = window.location.hash;
 
-    // Check if we're on reset-password route
-    // Look for reset-password in search params, hash, or pathname, and a token
-    if (resetToken && (
+    // Firebase Auth password-reset link (oobCode); continue URL must match ActionCodeSettings
+    if (oobCode && (mode === "resetPassword" || mode === null)) {
+      initialPublicRoute = "reset-password";
+    }
+    // Legacy custom token flow: reset-password marker + token
+    else if (resetToken && (
       urlParams.has("reset-password") ||
       hash.includes("reset-password") ||
       pathname.includes("/reset-password")
@@ -183,7 +188,11 @@ const App: React.FC = () => {
     if (typeof window !== "undefined" && publicRoute === "landing") {
       const urlParams = new URLSearchParams(window.location.search);
       const resetToken = urlParams.get("token");
-      if (resetToken && (urlParams.has("reset-password") || window.location.hash.includes("reset-password"))) {
+      const oobCode = urlParams.get("oobCode");
+      const mode = urlParams.get("mode");
+      if (oobCode && (mode === "resetPassword" || mode === null)) {
+        setPublicRoute("reset-password");
+      } else if (resetToken && (urlParams.has("reset-password") || window.location.hash.includes("reset-password"))) {
         setPublicRoute("reset-password");
       }
     }
@@ -416,7 +425,7 @@ const App: React.FC = () => {
 
   // Set up Firebase Auth state listener to handle auth state changes and token refresh
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       if (firebaseUser) {
         logger.debug('Firebase Auth state changed: user authenticated', {
           uid: firebaseUser.uid,
@@ -451,10 +460,10 @@ const App: React.FC = () => {
   useEffect(() => {
     const restoreFirebaseAuth = async () => {
       // Check if Firebase Auth already has a user (from persistence)
-      if (auth.currentUser) {
+      if (firebaseAuth.currentUser) {
         logger.info('Firebase Auth already authenticated', {
-          uid: auth.currentUser.uid,
-          email: auth.currentUser.email,
+          uid: firebaseAuth.currentUser.uid,
+          email: firebaseAuth.currentUser.email,
         });
         return;
       }
@@ -496,11 +505,11 @@ const App: React.FC = () => {
         // User is authenticated and has a Google ID token
         // Sign in to Firebase Auth to enable Cloud Functions and Firestore rules
         try {
-          await signInToFirebaseAuth(idToken);
+          const signedInUser = await signInToFirebaseAuth(idToken);
           logger.info('Firebase Auth restored', {
             isImpersonating: isImpersonatingSession,
-            authenticatedUserId: auth.currentUser?.uid,
-            authenticatedUserEmail: auth.currentUser?.email,
+            authenticatedUserId: signedInUser.uid,
+            authenticatedUserEmail: signedInUser.email,
           });
         } catch (error: any) {
           const errorMessage = getErrorMessage(error);
@@ -970,7 +979,7 @@ const App: React.FC = () => {
       const formattedError = formatError(error);
 
       // Log detailed error info for debugging permission issues
-      const authUser = auth.currentUser;
+      const authUser = firebaseAuth.currentUser;
       logger.error("Error creating match", {
         ...formattedError,
         organizationId,
@@ -1733,6 +1742,9 @@ const App: React.FC = () => {
           );
         }
         if (currentPage.startsWith("settings")) {
+          if (!currentUser) {
+            return <LoadingSpinner message="Loading settings..." />;
+          }
           const tab = currentPage.split(":")[1];
           // Redirect old platform-admin route to new page (handled via useEffect)
           if (tab === 'platform-admin') {
@@ -1748,7 +1760,7 @@ const App: React.FC = () => {
                   fcmStorageUserId={fcmStorageUserId}
                   onUpdateUser={handleUpdateUser}
                   initialTab={tab || "profile"}
-                  organizationId={organizationId}
+                  organizationId={organizationId ?? undefined}
                   programSettings={programSettings}
                   matches={matches}
                   goals={goals}

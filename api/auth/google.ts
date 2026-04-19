@@ -155,7 +155,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (userDoc) {
         // Update existing user with Google ID if not set
-        if (!userDoc.data().googleId) {
+        const existingData = userDoc.data();
+        if (existingData && !existingData.googleId) {
           await userDoc.ref.update({ googleId });
           // Refresh the document snapshot to get updated data
           const updatedDoc = await userDoc.ref.get();
@@ -166,6 +167,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await invitationDoc.ref.update({ status: 'Accepted' });
 
         const userData = userDoc.data();
+        if (!userData) {
+          return res.status(500).json({ error: 'User document has no data' });
+        }
         return res.json({
           user: {
             id: userDoc.id,
@@ -343,7 +347,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (userDoc) {
         // Update existing user with Google ID if not set
-        if (!userDoc.data().googleId) {
+        const existingDataSignup = userDoc.data();
+        if (existingDataSignup && !existingDataSignup.googleId) {
           await userDoc.ref.update({ googleId });
           // Refresh the document snapshot to get updated data
           const updatedDoc = await userDoc.ref.get();
@@ -351,6 +356,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const userData = userDoc.data();
+        if (!userData) {
+          return res.status(500).json({ error: 'User document has no data' });
+        }
         // Properly structure the response with user object
         return res.json({
           user: {

@@ -7,7 +7,7 @@ Meant2Grow is a React + Firebase mentorship platform with role-based experiences
 - Frontend: React 19, TypeScript, Vite, Tailwind CSS, PWA support
 - Backend: Firebase Cloud Functions (Node 22) and optional Vercel API routes in `api/`
 - Data/Auth: Firestore, Firebase Auth, Firebase Storage
-- Integrations: Flowglad, Google OAuth, Google APIs, MailerSend
+- Integrations: Flowglad, Google OAuth, Google APIs, Resend (transactional email), MailerSend (fallback)
 
 ## Repository Structure
 
