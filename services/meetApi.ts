@@ -37,8 +37,17 @@ export const createMeetLink = async (
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to create Meet link');
+      let detail = `Failed to create Meet link (${response.status})`;
+      const bodyText = await response.text().catch(() => "");
+      if (bodyText) {
+        try {
+          const errBody = JSON.parse(bodyText) as { message?: string; error?: string };
+          detail = errBody.message || errBody.error || detail;
+        } catch {
+          detail = bodyText.slice(0, 500);
+        }
+      }
+      throw new Error(detail);
     }
 
     const data = await response.json();

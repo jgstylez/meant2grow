@@ -1,5 +1,6 @@
 // Microsoft Outlook Calendar API service using Microsoft Graph API
 import { CalendarEvent } from '../types';
+import { getCloudFunctionUrl } from './cloudFunctionsUrl';
 
 export interface OutlookCalendarCredentials {
   accessToken: string;
@@ -104,13 +105,7 @@ export const requestOutlookAccess = (): Promise<OutlookCalendarCredentials> => {
  * Exchange authorization code for access token (server-side)
  */
 export const exchangeOutlookCode = async (code: string): Promise<OutlookCalendarCredentials> => {
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/outlookAuth`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/outlookAuth'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/outlookAuth');
-
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('outlookAuth'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -256,14 +251,8 @@ export const createOutlookCalendarEvent = async (
   meetLink?: string
 ): Promise<string> => {
   const outlookEvent = convertToOutlookEvent(event, meetLink);
-  
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncOutlookCalendar`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncOutlookCalendar'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncOutlookCalendar');
 
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncOutlookCalendar'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -295,14 +284,8 @@ export const updateOutlookCalendarEvent = async (
 ): Promise<void> => {
   const outlookEvent = convertToOutlookEvent(event, meetLink);
   outlookEvent.id = outlookEventId;
-  
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncOutlookCalendar`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncOutlookCalendar'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncOutlookCalendar');
 
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncOutlookCalendar'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -327,13 +310,7 @@ export const deleteOutlookCalendarEvent = async (
   outlookEventId: string,
   credentials: OutlookCalendarCredentials
 ): Promise<void> => {
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncOutlookCalendar`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncOutlookCalendar'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncOutlookCalendar');
-
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncOutlookCalendar'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -364,13 +341,7 @@ export const syncFromOutlookCalendar = async (
   const startDateTime = startDate?.toISOString() || new Date().toISOString();
   const endDateTime = endDate?.toISOString();
 
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncOutlookCalendar`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncOutlookCalendar'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncOutlookCalendar');
-
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncOutlookCalendar'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

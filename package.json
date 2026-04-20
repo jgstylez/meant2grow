@@ -48,7 +48,7 @@
     "@videosdk.live/react-sdk": "^0.4.12",
     "firebase": "^12.8.0",
     "firebase-admin": "^13.6.0",
-    "firebase-functions": "^7.0.6",
+    "firebase-functions": "^7.2.5",
     "googleapis": "^168.0.0",
     "jspdf": "^2.5.2",
     "lucide-react": "^0.556.0",
@@ -89,5 +89,6 @@
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^3.2.4",
     "zod": "^4.3.6"
-  }
+  },
+  "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
 }

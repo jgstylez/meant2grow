@@ -1,5 +1,6 @@
 // Google Calendar API service for syncing events
 import { CalendarEvent } from '../types';
+import { getCloudFunctionUrl } from './cloudFunctionsUrl';
 
 export interface GoogleCalendarCredentials {
   accessToken: string;
@@ -221,14 +222,8 @@ export const createGoogleCalendarEvent = async (
   meetLink?: string
 ): Promise<string> => {
   const googleEvent = convertToGoogleEvent(event, meetLink);
-  
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncCalendarEvent`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncCalendarEvent'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncCalendarEvent');
 
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncCalendarEvent'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -260,14 +255,8 @@ export const updateGoogleCalendarEvent = async (
 ): Promise<void> => {
   const googleEvent = convertToGoogleEvent(event, meetLink);
   googleEvent.id = googleEventId;
-  
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncCalendarEvent`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncCalendarEvent'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncCalendarEvent');
 
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncCalendarEvent'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -292,13 +281,7 @@ export const deleteGoogleCalendarEvent = async (
   googleEventId: string,
   credentials: GoogleCalendarCredentials
 ): Promise<void> => {
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncCalendarEvent`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncCalendarEvent'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncCalendarEvent');
-
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncCalendarEvent'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -329,13 +312,7 @@ export const syncFromGoogleCalendar = async (
   const timeMin = startDate?.toISOString() || new Date().toISOString();
   const timeMax = endDate?.toISOString();
 
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncCalendarEvent`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncCalendarEvent'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncCalendarEvent');
-
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncCalendarEvent'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

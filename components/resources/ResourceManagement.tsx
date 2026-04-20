@@ -137,7 +137,7 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
                                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                                 }`}
                         >
-                            Career Templates
+                            Documents
                         </button>
                         <button
                             onClick={() => setManageTab('videos')}

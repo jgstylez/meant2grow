@@ -1,14 +1,22 @@
 /**
  * Base URL for Firebase HTTPS callable endpoints (same path pattern as Cloud Functions URLs).
  *
- * - **Vite dev:** Uses `/api/functions/*` so the browser talks same-origin; Vite proxies to
- *   `VITE_FUNCTIONS_URL` (avoids CORS when calling deployed functions from localhost).
+ * - **Vite dev on localhost only:** Uses `/api/functions/*` so the browser talks same-origin; Vite proxies to
+ *   Cloud Functions (avoids CORS when calling from `localhost` / `127.0.0.1`).
+ * - **Any other host (sandbox.meant2grow.com, preview on LAN IP, etc.):** Always uses
+ *   `https://us-central1-… .cloudfunctions.net/…`. Using `/api/functions/*` on Firebase Hosting returns
+ *   SPA `index.html` (200, `text/html`) and breaks JSON clients such as `videoCallSession`.
  * - **Dev + emulator:** Set `VITE_FUNCTIONS_USE_EMULATOR=true` to hit the local emulator instead.
- * - **Production build:** Uses `VITE_FUNCTIONS_URL` or derives from `VITE_FIREBASE_PROJECT_ID` (us-central1).
+ * - **Production builds:** Same `*.cloudfunctions.net` base; we do not use Hosting as the functions base.
  */
 export function getDefaultCloudFunctionsBaseUrl(): string {
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-dev";
   return `https://us-central1-${projectId}.cloudfunctions.net`;
+}
+
+/** Same base URL as {@link getCloudFunctionUrl} for non-dev builds. */
+export function getResolvedCloudFunctionsBaseUrl(): string {
+  return getDefaultCloudFunctionsBaseUrl();
 }
 
 export function getCloudFunctionUrl(functionName: string): string {
@@ -19,13 +27,22 @@ export function getCloudFunctionUrl(functionName: string): string {
     return `http://localhost:5001/${projectId}/us-central1/${name}`;
   }
 
-  if (import.meta.env.DEV) {
+  // Production / preview bundles: never use `/api/functions/*` (Hosting serves HTML for that path).
+  if (import.meta.env.PROD) {
+    const base = getDefaultCloudFunctionsBaseUrl().replace(/\/$/, "");
+    return `${base}/${name}`;
+  }
+
+  const useViteDevProxy =
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+  if (useViteDevProxy) {
     return `/api/functions/${name}`;
   }
 
-  const base = (
-    import.meta.env.VITE_FUNCTIONS_URL || getDefaultCloudFunctionsBaseUrl()
-  ).replace(/\/$/, "");
+  const base = getDefaultCloudFunctionsBaseUrl().replace(/\/$/, "");
 
   return `${base}/${name}`;
 }

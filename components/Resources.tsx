@@ -135,10 +135,10 @@ const Resources: React.FC<ResourcesProps> = ({
   ): { title: string; description: string } => {
     const byKind = {
       templates: {
-        titleAll: 'No templates yet',
-        titlePlatform: 'No platform templates',
-        titleOrg: 'No organization templates',
-        noun: 'templates',
+        titleAll: 'No documents yet',
+        titlePlatform: 'No platform documents',
+        titleOrg: 'No organization documents',
+        noun: 'documents',
       },
       guides: {
         titleAll: 'No discussion guides yet',
@@ -290,10 +290,10 @@ const Resources: React.FC<ResourcesProps> = ({
       <div className="space-y-6 animate-in slide-in-from-right-4 fade-in">
         <BackButton onClick={() => setView('home')} />
         <ResourceHeader
-          title="Career Templates"
+          title="Documents"
           icon={<File className="w-6 h-6 text-emerald-500" />}
           onManageClick={canManage ? () => { setView('manage'); setManageTab('templates'); } : undefined}
-          manageLabel="Manage Templates"
+          manageLabel="Manage documents"
         />
         <ResourceFilters
           currentFilter={resourceFilter}
@@ -308,7 +308,7 @@ const Resources: React.FC<ResourcesProps> = ({
             action={
               canManage
                 ? {
-                    label: 'Manage templates',
+                    label: 'Manage documents',
                     onClick: () => {
                       setManageTab('templates');
                       setView('manage');

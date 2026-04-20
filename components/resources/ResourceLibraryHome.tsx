@@ -22,8 +22,8 @@ export const ResourceLibraryHome: React.FC<ResourceLibraryHomeProps> = ({ user, 
                     {canManage && (
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-xl">
                             {isPlatformOperator
-                                ? 'From Manage Library, discussion guides, career templates, and training videos you add are platform-wide. Organization admins only manage items for their own organization.'
-                                : 'From Manage Library, discussion guides, career templates, and training videos you add are for your organization only.'}
+                                ? 'From Manage Library, discussion guides, documents, and training videos you add are platform-wide. Organization admins only manage items for their own organization.'
+                                : 'From Manage Library, discussion guides, documents, and training videos you add are for your organization only.'}
                         </p>
                     )}
                 </div>
@@ -58,9 +58,9 @@ export const ResourceLibraryHome: React.FC<ResourceLibraryHomeProps> = ({ user, 
                     className="group bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800 cursor-pointer shadow-sm hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-700 transition-all"
                 >
                     <File className="w-8 h-8 mb-4 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 p-1.5 rounded-lg" />
-                    <h3 className="font-bold text-slate-800 dark:text-white text-lg mb-2">Career Templates</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Goal setting worksheets, IDP forms, and evaluation templates.</p>
-                    <span className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold group-hover:underline">Browse Templates</span>
+                    <h3 className="font-bold text-slate-800 dark:text-white text-lg mb-2">Documents</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Upload and share PDFs, worksheets, IDPs, and other files your program uses.</p>
+                    <span className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold group-hover:underline">Browse documents</span>
                 </div>
 
                 <div

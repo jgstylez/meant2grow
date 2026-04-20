@@ -40,7 +40,7 @@ export const TemplateList: React.FC<TemplateListProps> = ({ templates, onSelect 
                             </div>
                         </div>
                         <button className="flex items-center px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:bg-white dark:group-hover:bg-slate-800 shadow-sm transition-all">
-                            View Details <ArrowRight className="w-4 h-4 ml-2" />
+                            Open <ArrowRight className="w-4 h-4 ml-2" />
                         </button>
                     </div>
                 ))}

@@ -172,7 +172,6 @@ Add these secrets with `SANDBOX_` prefix (get values from Firebase Console for `
 - `SANDBOX_FIREBASE_MESSAGING_SENDER_ID`
 - `SANDBOX_FIREBASE_APP_ID`
 - `SANDBOX_FIREBASE_VAPID_KEY`
-- `SANDBOX_FUNCTIONS_URL` (https://us-central1-meant2grow-dev.cloudfunctions.net)
 - `SANDBOX_APP_URL` (https://sandbox.meant2grow.com)
 - `SANDBOX_MAILTRAP_API_TOKEN` (optional)
 - `SANDBOX_MAILTRAP_INBOX_ID` (optional)
@@ -192,7 +191,6 @@ Add these secrets with `PROD_` prefix (get values from Firebase Console for `mea
 - `PROD_FIREBASE_MESSAGING_SENDER_ID`
 - `PROD_FIREBASE_APP_ID`
 - `PROD_FIREBASE_VAPID_KEY`
-- `PROD_FUNCTIONS_URL` (https://us-central1-meant2grow-prod.cloudfunctions.net)
 - `PROD_APP_URL` (https://meant2grow.com)
 - `PROD_MAILTRAP_API_TOKEN` (optional)
 - `PROD_MAILTRAP_INBOX_ID` (optional)

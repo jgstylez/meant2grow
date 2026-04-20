@@ -10,6 +10,17 @@ service firebase.storage {
       // In production, you may want to add additional checks via Cloud Functions
       allow read, write: if request.auth != null;
     }
+
+    // Library documents (platform + org-scoped uploads from Manage Library)
+    match /careerTemplates/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Public blog cover images (readable on marketing site; uploads restricted to signed-in users)
+    match /blogImages/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
     
     // Deny all other paths
     match /{allPaths=**} {

@@ -145,7 +145,9 @@ export interface CareerTemplate {
   type: string; // PDF, DOCX, etc.
   size: string;
   description: string;
-  content: string; // HTML content for editing
+  content: string; // HTML notes / legacy in-app body
+  fileUrl?: string;
+  originalFileName?: string;
   isPlatform: boolean; // true = platform-wide, false = organization-specific
   organizationId?: string; // Only present if isPlatform = false
   createdAt: string;

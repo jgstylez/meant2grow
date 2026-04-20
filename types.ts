@@ -156,7 +156,11 @@ export interface CareerTemplate {
   type: string; // PDF, DOCX, etc.
   size: string;
   description: string;
-  content: string; // HTML content for editing
+  content: string; // HTML notes / legacy in-app body
+  /** Firebase Storage download URL when the canonical document is an uploaded file */
+  fileUrl?: string;
+  /** Original filename from upload (for download naming) */
+  originalFileName?: string;
   isPlatform: boolean; // true = platform-wide, false = organization-specific
   organizationId?: string; // Only present if isPlatform = false
   createdAt: string;

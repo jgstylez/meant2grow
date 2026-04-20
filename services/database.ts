@@ -1260,8 +1260,11 @@ export const createResource = async (
   resourceData: Omit<Resource, "id" | "createdAt">
 ): Promise<string> => {
   const resourceRef = doc(collection(db, "resources"));
+  const cleanData = Object.fromEntries(
+    Object.entries(resourceData).filter(([, value]) => value !== undefined)
+  );
   await setDoc(resourceRef, {
-    ...resourceData,
+    ...cleanData,
     createdAt: Timestamp.now(),
   });
   return resourceRef.id;
@@ -1416,8 +1419,11 @@ export const createCareerTemplate = async (
   templateData: Omit<CareerTemplate, "id" | "createdAt">
 ): Promise<string> => {
   const templateRef = doc(collection(db, "careerTemplates"));
+  const cleanData = Object.fromEntries(
+    Object.entries(templateData).filter(([, value]) => value !== undefined)
+  );
   await setDoc(templateRef, {
-    ...templateData,
+    ...cleanData,
     createdAt: Timestamp.now(),
   });
   return templateRef.id;
@@ -1466,8 +1472,14 @@ export const updateCareerTemplate = async (
   templateId: string,
   updates: Partial<CareerTemplate>
 ): Promise<void> => {
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([, value]) => value !== undefined)
+  );
+  if (Object.keys(cleanUpdates).length === 0) {
+    return;
+  }
   const templateRef = doc(db, "careerTemplates", templateId);
-  await updateDoc(templateRef, updates);
+  await updateDoc(templateRef, cleanUpdates);
 };
 
 export const deleteCareerTemplate = async (
@@ -1483,8 +1495,11 @@ export const createTrainingVideo = async (
   videoData: Omit<TrainingVideo, "id" | "createdAt">
 ): Promise<string> => {
   const videoRef = doc(collection(db, "trainingVideos"));
+  const cleanData = Object.fromEntries(
+    Object.entries(videoData).filter(([, value]) => value !== undefined)
+  );
   await setDoc(videoRef, {
-    ...videoData,
+    ...cleanData,
     createdAt: Timestamp.now(),
   });
   return videoRef.id;
@@ -1533,8 +1548,14 @@ export const updateTrainingVideo = async (
   videoId: string,
   updates: Partial<TrainingVideo>
 ): Promise<void> => {
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([, value]) => value !== undefined)
+  );
+  if (Object.keys(cleanUpdates).length === 0) {
+    return;
+  }
   const videoRef = doc(db, "trainingVideos", videoId);
-  await updateDoc(videoRef, updates);
+  await updateDoc(videoRef, cleanUpdates);
 };
 
 export const deleteTrainingVideo = async (videoId: string): Promise<void> => {

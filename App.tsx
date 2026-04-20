@@ -1283,6 +1283,11 @@ const App: React.FC = () => {
         }
       }
 
+      if (createdInvitation?.status === "Accepted") {
+        addToast("This invitation has already been accepted.", "error");
+        return;
+      }
+
       if (createdInvitation && createdInvitation.invitationLink) {
         // Send invitation email via Cloud Function (same URL rules as videoCallSession: Vite proxy in dev, or emulator when VITE_FUNCTIONS_USE_EMULATOR=true)
         try {
@@ -1316,7 +1321,12 @@ const App: React.FC = () => {
             throw new Error(errorMessage);
           }
 
-          addToast(`Invitation email sent to ${inviteData.email}`, "success");
+          addToast(
+            inviteData.isResend
+              ? `Invitation resent to ${inviteData.email}`
+              : `Invitation email sent to ${inviteData.email}`,
+            "success"
+          );
         } catch (emailError) {
           logger.error("Error sending invitation email", emailError);
           // Fallback: copy link to clipboard if email fails
@@ -1535,6 +1545,7 @@ const App: React.FC = () => {
                       getErrorMessage(error) || "Failed to add resource",
                       "error"
                     );
+                    throw error;
                   }
                 }}
                 blogPosts={blogPosts}
@@ -1638,6 +1649,7 @@ const App: React.FC = () => {
                 onNavigate={setCurrentPage}
                 onSendInvite={handleSendInvite}
                 existingInvitations={invitations}
+                addToast={addToast}
                 organizationCode={organization?.organizationCode}
                 organizationId={organizationId || undefined}
                 onUpdateOrganizationCode={handleUpdateOrganizationCode}

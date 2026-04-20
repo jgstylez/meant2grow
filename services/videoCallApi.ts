@@ -47,7 +47,7 @@ function videoSessionUnexpectedBodyError(
   let hint = "";
   if (looksHtml || jsonParseFailedOrEmpty) {
     hint =
-      " The response was not JSON from videoCallSession (common cause: VITE_FUNCTIONS_URL points at Firebase Hosting or another site, so you get index.html with HTTP 200). Use https://us-central1-<PROJECT_ID>.cloudfunctions.net.";
+      " The response was not JSON from videoCallSession (common causes: request hit Firebase Hosting / SPA HTML instead of *.cloudfunctions.net; or a stale service worker cached a bad response). Hard-refresh, unregister the site service worker, redeploy hosting after `npm run build:sandbox`, and confirm the Network tab URL is https://us-central1-<PROJECT_ID>.cloudfunctions.net/videoCallSession.";
   }
 
   return new Error(
@@ -67,6 +67,7 @@ export async function requestVideoCallSession(
 
   const response = await fetch(url, {
     method: "POST",
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${idToken}`,

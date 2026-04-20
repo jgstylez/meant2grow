@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, Role, Invitation } from '../types';
 import { INPUT_CLASS, BUTTON_PRIMARY, CARD_CLASS } from '../styles/common';
 import { ArrowLeft, Send, Mail, UserPlus, Upload, FileText, CheckCircle, Clock, X, Eye, Copy, Check, Link as LinkIcon, ExternalLink, Pencil, Download } from 'lucide-react';
@@ -17,12 +17,16 @@ interface ReferralsProps {
   onNavigate: (page: string) => void;
   onSendInvite: (invite: any) => void;
   existingInvitations: Invitation[];
+  /** Used for duplicate-invite messaging and track-tab resend feedback */
+  addToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
   organizationCode?: string;
   organizationId?: string;
   onUpdateOrganizationCode?: (newCode: string) => Promise<void>;
 }
 
-const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendInvite, existingInvitations, organizationCode, organizationId, onUpdateOrganizationCode }) => {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendInvite, existingInvitations, addToast, organizationCode, organizationId, onUpdateOrganizationCode }) => {
   const [activeTab, setActiveTab] = useState<'invite' | 'bulk' | 'track'>('invite');
   const [showChangeCodeModal, setShowChangeCodeModal] = useState(false);
   const [newCodeInput, setNewCodeInput] = useState('');
@@ -48,6 +52,59 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
   });
   const [showPreview, setShowPreview] = useState(false);
 
+  /** Debounced email for duplicate checks against the same data as Track Invitations */
+  const [debouncedEmail, setDebouncedEmail] = useState('');
+  const [emailInvite, setEmailInvite] = useState<Invitation | null>(null);
+  const [emailInviteLoading, setEmailInviteLoading] = useState(false);
+  const [resendAcknowledged, setResendAcknowledged] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedEmail(formData.email.trim().toLowerCase()), 400);
+    return () => clearTimeout(t);
+  }, [formData.email]);
+
+  useEffect(() => {
+    setResendAcknowledged(false);
+  }, [debouncedEmail]);
+
+  useEffect(() => {
+    if (!debouncedEmail || !organizationId || !EMAIL_RE.test(debouncedEmail)) {
+      setEmailInvite(null);
+      setEmailInviteLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setEmailInviteLoading(true);
+    (async () => {
+      try {
+        const inv = await getInvitationByEmail(debouncedEmail, organizationId);
+        if (!cancelled) setEmailInvite(inv);
+      } catch {
+        if (!cancelled) setEmailInvite(null);
+      } finally {
+        if (!cancelled) setEmailInviteLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedEmail, organizationId]);
+
+  const isAcceptedInvite = emailInvite?.status === 'Accepted';
+  const isPendingOrExpiredDuplicate = useMemo(
+    () =>
+      !!emailInvite &&
+      (emailInvite.status === 'Pending' || emailInvite.status === 'Expired'),
+    [emailInvite]
+  );
+
+  const sendInviteDisabled =
+    !formData.email ||
+    !organizationId ||
+    emailInviteLoading ||
+    isAcceptedInvite ||
+    (isPendingOrExpiredDuplicate && !resendAcknowledged);
+
   // Bulk Upload State
   const [dragActive, setDragActive] = useState(false);
   const [bulkFile, setBulkFile] = useState<File | null>(null);
@@ -60,6 +117,29 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
     if (!formData.email) {
       console.error("Email is required");
       return;
+    }
+
+    if (organizationId) {
+      try {
+        const latest = await getInvitationByEmail(formData.email.toLowerCase(), organizationId);
+        if (latest?.status === 'Accepted') {
+          addToast?.('This email has already accepted an invitation.', 'error');
+          return;
+        }
+        if (
+          latest &&
+          (latest.status === 'Pending' || latest.status === 'Expired') &&
+          !resendAcknowledged
+        ) {
+          addToast?.(
+            'This email already has a pending invitation. Click "Send another email" above to resend.',
+            'info'
+          );
+          return;
+        }
+      } catch (e) {
+        console.error('Error checking invitation status:', e);
+      }
     }
 
     // Note: organizationId validation happens in App.tsx's handleSendInvite
@@ -260,6 +340,12 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
     try {
       // Check if there's already an existing invitation for this email
       const existingInvitation = await getInvitationByEmail(formData.email.toLowerCase(), organizationId);
+
+      if (existingInvitation?.status === 'Accepted') {
+        addToast?.('This email has already accepted an invitation.', 'error');
+        setIsGeneratingLink(false);
+        return;
+      }
       
       if (existingInvitation) {
         // Reuse existing invitation
@@ -329,6 +415,18 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
         console.error('Failed to copy link:', err);
       }
     }
+  };
+
+  const handleResendFromTrack = (inv: Invitation) => {
+    addToast?.('Resending invitation…', 'info');
+    void onSendInvite({
+      email: inv.email,
+      name: inv.name,
+      role: inv.role,
+      sentDate: new Date().toISOString(),
+      invitationId: inv.id,
+      isResend: true,
+    });
   };
 
   const validateOrgCode = (raw: string): string | null => {
@@ -410,7 +508,7 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
               </div>
               <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
                   <button onClick={() => setShowPreview(false)} className="px-4 py-2 text-slate-500 hover:text-slate-700 font-medium">Edit</button>
-                  <button onClick={handleSendInvite} disabled={!organizationId} className={BUTTON_PRIMARY}><Send className="w-4 h-4 mr-2" /> Send Invitation</button>
+                  <button onClick={handleSendInvite} disabled={sendInviteDisabled} className={BUTTON_PRIMARY}><Send className="w-4 h-4 mr-2" /> Send Invitation</button>
               </div>
           </div>
       </div>
@@ -646,6 +744,39 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                                 onChange={e => setFormData({...formData, personalNote: e.target.value})}
                               />
                           </div>
+
+                          {emailInviteLoading && formData.email.trim() && (
+                              <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">Checking invitation status…</p>
+                          )}
+
+                          {isAcceptedInvite && (
+                              <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200">
+                                  This person has already accepted their invitation. You cannot send another referral to this email address.
+                              </div>
+                          )}
+
+                          {isPendingOrExpiredDuplicate && !resendAcknowledged && (
+                              <div className="mb-6 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-900 dark:text-amber-100">
+                                  <p className="mb-3">
+                                      This email matches an invitation you already sent
+                                      {emailInvite?.sentDate ? ` (sent ${emailInvite.sentDate})` : ''}. It is still pending.
+                                      You can send another email to remind them.
+                                  </p>
+                                  <button
+                                      type="button"
+                                      onClick={() => setResendAcknowledged(true)}
+                                      className="text-sm font-semibold text-amber-800 dark:text-amber-100 underline hover:no-underline"
+                                  >
+                                      Send another email
+                                  </button>
+                              </div>
+                          )}
+
+                          {isPendingOrExpiredDuplicate && resendAcknowledged && (
+                              <div className="mb-6 p-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-sm text-emerald-800 dark:text-emerald-200">
+                                  You can send another invitation email using the buttons below.
+                              </div>
+                          )}
                           
                           {/* Generated Link Display */}
                           {generatedLink && (
@@ -688,16 +819,16 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                           <div className="flex items-center justify-end gap-3">
                               <button 
                                   onClick={handleGenerateLink} 
-                                  disabled={!formData.email || isGeneratingLink || !organizationId || !!generatedLink} 
+                                  disabled={!formData.email || isGeneratingLink || !organizationId || !!generatedLink || isAcceptedInvite || emailInviteLoading} 
                                   className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center disabled:opacity-50"
                               >
                                   <LinkIcon className="w-4 h-4 mr-2" /> 
                                   {isGeneratingLink ? 'Generating...' : generatedLink ? 'Link Generated' : 'Generate Link'}
                               </button>
-                              <button onClick={() => setShowPreview(true)} disabled={!formData.email || !organizationId} className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center disabled:opacity-50">
+                              <button onClick={() => setShowPreview(true)} disabled={!formData.email || !organizationId || emailInviteLoading} className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg flex items-center disabled:opacity-50">
                                   <Eye className="w-4 h-4 mr-2" /> Preview
                               </button>
-                              <button onClick={handleSendInvite} disabled={!formData.email || !organizationId} className={BUTTON_PRIMARY}>
+                              <button onClick={handleSendInvite} disabled={sendInviteDisabled} className={BUTTON_PRIMARY}>
                                   <Send className="w-4 h-4 mr-2" /> Send Invitation
                               </button>
                           </div>
@@ -879,8 +1010,14 @@ const Referrals: React.FC<ReferralsProps> = ({ currentUser, onNavigate, onSendIn
                                           )}
                                       </td>
                                       <td className="px-6 py-4 text-right">
-                                          {inv.status === 'Pending' && (
-                                              <button className="text-emerald-600 hover:text-emerald-700 text-xs font-medium hover:underline">Resend</button>
+                                          {(inv.status === 'Pending' || inv.status === 'Expired') && (
+                                              <button
+                                                  type="button"
+                                                  onClick={() => handleResendFromTrack(inv)}
+                                                  className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 text-xs font-medium hover:underline"
+                                              >
+                                                  Resend
+                                              </button>
                                           )}
                                       </td>
                                   </tr>

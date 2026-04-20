@@ -2,15 +2,10 @@
  * TOTP (Google Authenticator) 2FA service
  * Calls Firebase Cloud Functions for setup, verification, and disable
  */
-const getFunctionsUrl = (): string => {
-  const base = import.meta.env.VITE_FUNCTIONS_URL;
-  if (base) return base.replace(/\/$/, "");
-  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "meant2grow-dev";
-  return `https://us-central1-${projectId}.cloudfunctions.net`;
-};
+import { getCloudFunctionUrl } from "./cloudFunctionsUrl";
 
 export async function setupTotp(idToken: string): Promise<{ secret: string; otpauthUri: string }> {
-  const res = await fetch(`${getFunctionsUrl()}/setupTotp`, {
+  const res = await fetch(getCloudFunctionUrl("setupTotp"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ idToken }),
@@ -21,7 +16,7 @@ export async function setupTotp(idToken: string): Promise<{ secret: string; otpa
 }
 
 export async function verifyTotpSetup(idToken: string, code: string): Promise<void> {
-  const res = await fetch(`${getFunctionsUrl()}/verifyTotpSetup`, {
+  const res = await fetch(getCloudFunctionUrl("verifyTotpSetup"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ idToken, code }),
@@ -31,7 +26,7 @@ export async function verifyTotpSetup(idToken: string, code: string): Promise<vo
 }
 
 export async function verifyTotpLogin(code: string, idToken: string): Promise<void> {
-  const res = await fetch(`${getFunctionsUrl()}/verifyTotpLogin`, {
+  const res = await fetch(getCloudFunctionUrl("verifyTotpLogin"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code, idToken }),
@@ -41,7 +36,7 @@ export async function verifyTotpLogin(code: string, idToken: string): Promise<vo
 }
 
 export async function disableTotp(idToken: string, code: string): Promise<void> {
-  const res = await fetch(`${getFunctionsUrl()}/disableTotp`, {
+  const res = await fetch(getCloudFunctionUrl("disableTotp"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ idToken, code }),

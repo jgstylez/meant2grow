@@ -51,9 +51,23 @@ export default defineConfig(({ mode, command }) => {
   }
 
   const functionsProjectId = env.VITE_FIREBASE_PROJECT_ID || "meant2grow-dev";
-  const functionsProxyTarget = (
-    env.VITE_FUNCTIONS_URL || `https://us-central1-${functionsProjectId}.cloudfunctions.net`
-  ).replace(/\/$/, "");
+  const defaultFunctionsBase = `https://us-central1-${functionsProjectId}.cloudfunctions.net`;
+  /** Dev server only: where `/api/functions/*` is forwarded. Must not be Firebase Hosting/site URL — unknown paths return SPA HTML and break JSON (e.g. videoCallSession). */
+  const functionsProxyTarget = (() => {
+    const raw = (env.VITE_FUNCTIONS_URL || "").trim().replace(/\/$/, "");
+    if (!raw) return defaultFunctionsBase;
+    try {
+      const host = new URL(raw).hostname;
+      if (host.endsWith(".cloudfunctions.net")) return raw;
+      if (host === "localhost" || host === "127.0.0.1") return raw;
+    } catch {
+      /* ignore invalid URL */
+    }
+    console.warn(
+      `[vite] VITE_FUNCTIONS_URL (${raw}) is not a Cloud Functions host; proxying /api/functions to ${defaultFunctionsBase} instead.`,
+    );
+    return defaultFunctionsBase;
+  })();
 
   return {
     server: {
@@ -102,7 +116,7 @@ export default defineConfig(({ mode, command }) => {
         env.VITE_FIREBASE_AUTH_DOMAIN || "",
       ),
       "import.meta.env.VITE_FIREBASE_PROJECT_ID": JSON.stringify(
-        env.VITE_FIREBASE_PROJECT_ID || "",
+        env.VITE_FIREBASE_PROJECT_ID || "meant2grow-dev",
       ),
       "import.meta.env.VITE_FIREBASE_STORAGE_BUCKET": JSON.stringify(
         env.VITE_FIREBASE_STORAGE_BUCKET || "",
@@ -112,6 +126,11 @@ export default defineConfig(({ mode, command }) => {
       ),
       "import.meta.env.VITE_FIREBASE_APP_ID": JSON.stringify(
         env.VITE_FIREBASE_APP_ID || "",
+      ),
+      // Always derive HTTPS function base from project id (us-central1). No GitHub secret or
+      // .env value is required; setting VITE_FUNCTIONS_URL to a Hosting URL breaks videoCallSession.
+      "import.meta.env.VITE_FUNCTIONS_URL": JSON.stringify(
+        `https://us-central1-${functionsProjectId}.cloudfunctions.net`,
       ),
       "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),
       "import.meta.env.VITE_APP_ENV": JSON.stringify(appEnv),

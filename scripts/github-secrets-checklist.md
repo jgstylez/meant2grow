@@ -7,7 +7,7 @@ Use this checklist to ensure all required secrets are configured in GitHub.
 - [ ] `FIREBASE_TOKEN_SANDBOX` - Firebase CI token for sandbox project
 - [ ] `FIREBASE_TOKEN_PRODUCTION` - Firebase CI token for production project
 
-## Sandbox Environment Variables (15)
+## Sandbox Environment Variables (14)
 
 - [ ] `SANDBOX_GOOGLE_CLIENT_ID` - Google OAuth Client ID
 - [ ] `SANDBOX_FIREBASE_API_KEY` - Firebase API Key
@@ -17,14 +17,13 @@ Use this checklist to ensure all required secrets are configured in GitHub.
 - [ ] `SANDBOX_FIREBASE_MESSAGING_SENDER_ID` - Firebase Messaging Sender ID
 - [ ] `SANDBOX_FIREBASE_APP_ID` - Firebase App ID
 - [ ] `SANDBOX_FIREBASE_VAPID_KEY` - Firebase VAPID Key (for push notifications)
-- [ ] `SANDBOX_FUNCTIONS_URL` - Cloud Functions URL (e.g., `https://us-central1-meant2grow-dev.cloudfunctions.net`)
 - [ ] `SANDBOX_APP_URL` - Application URL (e.g., `https://sandbox.meant2grow.com`)
 - [ ] `SANDBOX_MAILERSEND_API_TOKEN` - MailerSend API Token
 - [ ] `SANDBOX_MAILERSEND_FROM_EMAIL` - From email address (e.g., `noreply@meant2grow.com`) - must be verified in MailerSend
 - [ ] `SANDBOX_MAILERSEND_REPLY_TO_EMAIL` - Reply-to email address (e.g., `support@meant2grow.com`)
 - [ ] `SANDBOX_GIPHY_API_KEY` - GIPHY API Key
 
-## Production Environment Variables (15)
+## Production Environment Variables (14)
 
 - [ ] `PROD_GOOGLE_CLIENT_ID` - Google OAuth Client ID
 - [ ] `PROD_FIREBASE_API_KEY` - Firebase API Key
@@ -34,14 +33,15 @@ Use this checklist to ensure all required secrets are configured in GitHub.
 - [ ] `PROD_FIREBASE_MESSAGING_SENDER_ID` - Firebase Messaging Sender ID
 - [ ] `PROD_FIREBASE_APP_ID` - Firebase App ID
 - [ ] `PROD_FIREBASE_VAPID_KEY` - Firebase VAPID Key (for push notifications)
-- [ ] `PROD_FUNCTIONS_URL` - Cloud Functions URL (e.g., `https://us-central1-meant2grow-prod.cloudfunctions.net`)
 - [ ] `PROD_APP_URL` - Application URL (e.g., `https://meant2grow.com`)
 - [ ] `PROD_MAILERSEND_API_TOKEN` - MailerSend API Token
 - [ ] `PROD_MAILERSEND_FROM_EMAIL` - From email address (e.g., `noreply@meant2grow.com`) - must be verified in MailerSend
 - [ ] `PROD_MAILERSEND_REPLY_TO_EMAIL` - Reply-to email address (e.g., `support@meant2grow.com`)
 - [ ] `PROD_GIPHY_API_KEY` - GIPHY API Key
 
-## Total: 32 secrets required
+## Total: 30 secrets required
+
+Cloud Functions HTTPS base URLs are not secrets: the build sets `https://us-central1-<Firebase project id>.cloudfunctions.net` from `SANDBOX_FIREBASE_PROJECT_ID` / `PROD_FIREBASE_PROJECT_ID`.
 
 ## Quick Setup Instructions
 

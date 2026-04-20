@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions/v2/https";
+import * as functionsV1 from "firebase-functions/v1";
 import { logger } from "firebase-functions/v2";
-import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
-import { onSchedule } from "firebase-functions/v2/scheduler";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { defineString, defineSecret } from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import { google } from "googleapis";
@@ -599,6 +599,9 @@ export const createMeetLink = functions.onRequest(
   {
     cors: true,
     region: "us-central1",
+    // Same as videoCallSession / sendInvitationEmail: browser calls cloudfunctions.net cross-origin;
+    // preflight must reach Cloud Run (public invoker). Auth is enforced via Firebase ID token below.
+    invoker: "public",
     secrets: [serviceAccountKey], // Reference the secret
   },
   async (req, res) => {
@@ -608,6 +611,26 @@ export const createMeetLink = functions.onRequest(
     }
 
     try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        res.status(401).json({ error: "Unauthorized", message: "Sign in required to create a meeting link." });
+        return;
+      }
+      const idToken = authHeader.slice(7);
+      if (!idToken || idToken === "simulated-token") {
+        res.status(401).json({ error: "Unauthorized", message: "Sign in required to create a meeting link." });
+        return;
+      }
+      try {
+        await admin.auth().verifyIdToken(idToken);
+      } catch {
+        res.status(401).json({
+          error: "Unauthorized",
+          message: "Invalid session. Please sign in again.",
+        });
+        return;
+      }
+
       const { endTime } = req.body;
 
       // Get service account credentials from params
@@ -793,6 +816,7 @@ export const sendAdminEmail = functions.onRequest(
   {
     cors: true,
     region: "us-central1",
+    invoker: "public",
     ...LIGHT_HTTP_RUNTIME,
   },
   async (req, res) => {
@@ -1214,6 +1238,7 @@ export const resetPassword = functions.onRequest(
   }
 );
 
+// 2nd gen (GCFv2): migrated with a new deploy; do not revert to v1 without deleting the v2 function first.
 // Trigger when a new user is created
 export const onUserCreated = onDocumentCreated(
   {
@@ -1264,20 +1289,21 @@ export const onUserCreated = onDocumentCreated(
 );
 
 // Firestore triggers for email notifications
+// 1st gen: legacy GCFv1 name in GCP; v2 in-place upgrade not supported.
 // Trigger when a match is created
-export const onMatchCreated = onDocumentCreated(
-  {
-    document: "matches/{matchId}",
-    ...BACKGROUND_V2_RUNTIME,
-  },
-  async (event) => {
-    const snap = event.data;
-    if (!snap) return;
+export const onMatchCreated = functionsV1
+  .runWith({
+    memory: "256MB",
+    maxInstances: BACKGROUND_V2_RUNTIME.maxInstances,
+  })
+  .region(BACKGROUND_V2_RUNTIME.region)
+  .firestore.document("matches/{matchId}")
+  .onCreate(async (snap, _context) => {
     try {
       const matchData = snap.data();
       const match: Match = {
         id: snap.id,
-        ...(matchData as Omit<Match, 'id'>),
+        ...(matchData as Omit<Match, "id">),
       };
 
       // Get mentor and mentee user data
@@ -1296,13 +1322,13 @@ export const onMatchCreated = onDocumentCreated(
 
       const mentor: User = {
         id: mentorDoc.id,
-        ...(mentorData as Omit<User, 'id' | 'createdAt'>),
+        ...(mentorData as Omit<User, "id" | "createdAt">),
         createdAt: mentorData?.createdAt?.toDate().toISOString() || new Date().toISOString(),
       };
 
       const mentee: User = {
         id: menteeDoc.id,
-        ...(menteeData as Omit<User, 'id' | 'createdAt'>),
+        ...(menteeData as Omit<User, "id" | "createdAt">),
         createdAt: menteeData?.createdAt?.toDate().toISOString() || new Date().toISOString(),
       };
 
@@ -1317,7 +1343,8 @@ export const onMatchCreated = onDocumentCreated(
       };
 
       // Send to mentor
-      getEmailService().sendMatchCreated(mentor, matchForEmail, mentor, mentee)
+      getEmailService()
+        .sendMatchCreated(mentor, matchForEmail, mentor, mentee)
         .then(() => {
           console.log(`✅ Match created email sent to mentor: ${mentor.email}`);
         })
@@ -1326,7 +1353,8 @@ export const onMatchCreated = onDocumentCreated(
         });
 
       // Send to mentee
-      getEmailService().sendMatchCreated(mentee, matchForEmail, mentor, mentee)
+      getEmailService()
+        .sendMatchCreated(mentee, matchForEmail, mentor, mentee)
         .then(() => {
           console.log(`✅ Match created email sent to mentee: ${mentee.email}`);
         })
@@ -1336,19 +1364,19 @@ export const onMatchCreated = onDocumentCreated(
     } catch (error: unknown) {
       console.error("Error in onMatchCreated trigger:", formatError(error));
     }
-  }
-);
+  });
 
+// 1st gen: legacy GCFv1 name in GCP; v2 in-place upgrade not supported.
 // Trigger when a goal is updated to "Completed"
-export const onGoalCompleted = onDocumentUpdated(
-  {
-    document: "goals/{goalId}",
-    ...BACKGROUND_V2_RUNTIME,
-  },
-  async (event) => {
+export const onGoalCompleted = functionsV1
+  .runWith({
+    memory: "256MB",
+    maxInstances: BACKGROUND_V2_RUNTIME.maxInstances,
+  })
+  .region(BACKGROUND_V2_RUNTIME.region)
+  .firestore.document("goals/{goalId}")
+  .onUpdate(async (change, _context) => {
     try {
-      const change = event.data;
-      if (!change) return;
       const beforeData = change.before.data();
       const afterData = change.after.data();
 
@@ -1372,13 +1400,14 @@ export const onGoalCompleted = onDocumentUpdated(
 
         const user: User = {
           id: userDoc.id,
-          ...(userData as Omit<User, 'id'>),
+          ...(userData as Omit<User, "id">),
           // Ensure createdAt is a string
-          createdAt: userData.createdAt instanceof admin.firestore.Timestamp
-            ? userData.createdAt.toDate().toISOString()
-            : typeof userData.createdAt === 'string'
-              ? userData.createdAt
-              : new Date().toISOString(),
+          createdAt:
+            userData.createdAt instanceof admin.firestore.Timestamp
+              ? userData.createdAt.toDate().toISOString()
+              : typeof userData.createdAt === "string"
+                ? userData.createdAt
+                : new Date().toISOString(),
         } as User;
 
         const goalForEmail = {
@@ -1393,7 +1422,8 @@ export const onGoalCompleted = onDocumentUpdated(
         };
 
         // Send goal completed email
-        getEmailService().sendGoalCompleted(user, goalForEmail)
+        getEmailService()
+          .sendGoalCompleted(user, goalForEmail)
           .then(() => {
             console.log(`✅ Goal completed email sent to ${user.email} for goal: ${goal.title}`);
           })
@@ -1404,20 +1434,22 @@ export const onGoalCompleted = onDocumentUpdated(
     } catch (error: unknown) {
       console.error("Error in onGoalCompleted trigger:", formatError(error));
     }
-  }
-);
+  });
 
 // Note: Payment processing is now handled by Flowglad
 // See /api/flowglad/checkout.ts, /api/flowglad/portal.ts, and /api/flowglad/webhook.ts
 
+// 1st gen: legacy GCFv1 scheduled function name in GCP.
 // Scheduled function to check for expiring trials and send reminder emails
-export const checkExpiringTrials = onSchedule(
-  {
-    schedule: "every 24 hours",
-    timeZone: "America/New_York",
-    ...BACKGROUND_V2_RUNTIME,
-  },
-  async (_event) => {
+export const checkExpiringTrials = functionsV1
+  .runWith({
+    memory: "256MB",
+    maxInstances: BACKGROUND_V2_RUNTIME.maxInstances,
+  })
+  .region(BACKGROUND_V2_RUNTIME.region)
+  .pubsub.schedule("every 24 hours")
+  .timeZone("America/New_York")
+  .onRun(async (_context) => {
     try {
       const now = new Date();
 
@@ -1451,20 +1483,23 @@ export const checkExpiringTrials = onSchedule(
             const adminUser = usersSnapshot.docs[0].data();
             const user: User = {
               id: usersSnapshot.docs[0].id,
-              ...(adminUser as Omit<User, 'id' | 'createdAt'>),
+              ...(adminUser as Omit<User, "id" | "createdAt">),
               createdAt: adminUser?.createdAt?.toDate().toISOString() || new Date().toISOString(),
             };
 
             const organization: Organization = {
               id: orgDoc.id,
-              ...(orgData as Omit<Organization, 'id' | 'createdAt'>),
+              ...(orgData as Omit<Organization, "id" | "createdAt">),
               createdAt: orgData?.createdAt?.toDate().toISOString() || new Date().toISOString(),
             };
 
             // Send trial ending email
-            getEmailService().sendTrialEnding(user, organization, daysRemaining)
+            getEmailService()
+              .sendTrialEnding(user, organization, daysRemaining)
               .then(() => {
-                console.log(`✅ Trial ending email sent to ${user.email} for org ${orgDoc.id} (${daysRemaining} days remaining)`);
+                console.log(
+                  `✅ Trial ending email sent to ${user.email} for org ${orgDoc.id} (${daysRemaining} days remaining)`
+                );
               })
               .catch((err) => {
                 console.error(`❌ Failed to send trial ending email for org ${orgDoc.id}:`, formatError(err));
@@ -1477,8 +1512,7 @@ export const checkExpiringTrials = onSchedule(
     } catch (error: unknown) {
       console.error("Error checking expiring trials:", formatError(error));
     }
-  }
-);
+  });
 
 // Google Calendar Sync Endpoint
 export const syncCalendarEvent = functions.onRequest(
@@ -1581,14 +1615,17 @@ export const syncCalendarEvent = functions.onRequest(
   }
 );
 
+// 1st gen: legacy GCFv1 scheduled function name in GCP.
 // Scheduled function to check for upcoming meetings and send reminders
-export const checkMeetingReminders = onSchedule(
-  {
-    schedule: "every 1 hours",
-    timeZone: "America/New_York",
-    ...BACKGROUND_V2_RUNTIME,
-  },
-  async (_event) => {
+export const checkMeetingReminders = functionsV1
+  .runWith({
+    memory: "256MB",
+    maxInstances: BACKGROUND_V2_RUNTIME.maxInstances,
+  })
+  .region(BACKGROUND_V2_RUNTIME.region)
+  .pubsub.schedule("every 1 hours")
+  .timeZone("America/New_York")
+  .onRun(async (_context) => {
     try {
       const now = new Date();
       // const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // Unused
@@ -1634,8 +1671,7 @@ export const checkMeetingReminders = onSchedule(
     } catch (error: unknown) {
       console.error("Error checking meeting reminders:", formatError(error));
     }
-  }
-);
+  });
 
 // Microsoft Outlook Calendar Sync Endpoint
 export const syncOutlookCalendar = functions.onRequest(
@@ -2008,11 +2044,12 @@ async function sendFCMPushNotification(
   }
 }
 
-// Send invitation email endpoint
+// Send invitation email endpoint (browser fetch from Referrals UI; invoker public for CORS preflight)
 export const sendInvitationEmail = functions.onRequest(
   {
     cors: true,
     region: "us-central1",
+    invoker: "public",
     ...LIGHT_HTTP_RUNTIME,
   },
   async (req, res) => {
@@ -2103,36 +2140,33 @@ export const sendInvitationEmail = functions.onRequest(
   }
 );
 
+// 1st gen: legacy GCFv1 name in GCP; v2 in-place upgrade not supported.
 // Firestore trigger: Send FCM push notification when a notification is created
-export const onNotificationCreated = onDocumentCreated(
-  {
-    document: "notifications/{notificationId}",
-    ...BACKGROUND_V2_RUNTIME,
-  },
-  async (event) => {
-    const snap = event.data;
-    if (!snap) return;
+export const onNotificationCreated = functionsV1
+  .runWith({
+    memory: "256MB",
+    maxInstances: BACKGROUND_V2_RUNTIME.maxInstances,
+  })
+  .region(BACKGROUND_V2_RUNTIME.region)
+  .firestore.document("notifications/{notificationId}")
+  .onCreate(async (snap, _context) => {
     try {
       const notificationData = snap.data();
       const notificationId = snap.id;
 
       // Only send push notification if user has FCM token
       // The sendFCMPushNotification function will check for token existence
-      await sendFCMPushNotification(
-        notificationData.userId,
-        {
-          title: notificationData.title || 'New Notification',
-          body: notificationData.body || '',
-          type: notificationData.type || 'system',
-          chatId: notificationData.chatId,
-          notificationId,
-        }
-      );
+      await sendFCMPushNotification(notificationData.userId, {
+        title: notificationData.title || "New Notification",
+        body: notificationData.body || "",
+        type: notificationData.type || "system",
+        chatId: notificationData.chatId,
+        notificationId,
+      });
     } catch (error: unknown) {
       console.error("Error in onNotificationCreated trigger:", formatError(error));
     }
-  }
-);
+  });
 
 // Helper function to send reminders to all participants
 async function sendMeetingReminders(

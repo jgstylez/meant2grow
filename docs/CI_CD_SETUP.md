@@ -41,7 +41,7 @@ Use this checklist to ensure all secrets are configured:
 - [ ] `FIREBASE_TOKEN_SANDBOX`
 - [ ] `FIREBASE_TOKEN_PRODUCTION`
 
-**Sandbox Environment Variables (15 secrets):**
+**Sandbox Environment Variables (14 secrets):**
 - [ ] `SANDBOX_GOOGLE_CLIENT_ID`
 - [ ] `SANDBOX_FIREBASE_API_KEY`
 - [ ] `SANDBOX_FIREBASE_AUTH_DOMAIN`
@@ -50,7 +50,6 @@ Use this checklist to ensure all secrets are configured:
 - [ ] `SANDBOX_FIREBASE_MESSAGING_SENDER_ID`
 - [ ] `SANDBOX_FIREBASE_APP_ID`
 - [ ] `SANDBOX_FIREBASE_VAPID_KEY`
-- [ ] `SANDBOX_FUNCTIONS_URL`
 - [ ] `SANDBOX_APP_URL`
 - [ ] `SANDBOX_MAILTRAP_API_TOKEN`
 - [ ] `SANDBOX_MAILTRAP_INBOX_ID`
@@ -58,7 +57,7 @@ Use this checklist to ensure all secrets are configured:
 - [ ] `SANDBOX_MAILTRAP_REPLY_TO_EMAIL`
 - [ ] `SANDBOX_GIPHY_API_KEY`
 
-**Production Environment Variables (15 secrets):**
+**Production Environment Variables (14 secrets):**
 - [ ] `PROD_GOOGLE_CLIENT_ID`
 - [ ] `PROD_FIREBASE_API_KEY`
 - [ ] `PROD_FIREBASE_AUTH_DOMAIN`
@@ -67,7 +66,6 @@ Use this checklist to ensure all secrets are configured:
 - [ ] `PROD_FIREBASE_MESSAGING_SENDER_ID`
 - [ ] `PROD_FIREBASE_APP_ID`
 - [ ] `PROD_FIREBASE_VAPID_KEY`
-- [ ] `PROD_FUNCTIONS_URL`
 - [ ] `PROD_APP_URL`
 - [ ] `PROD_MAILTRAP_API_TOKEN`
 - [ ] `PROD_MAILTRAP_INBOX_ID`
@@ -75,7 +73,7 @@ Use this checklist to ensure all secrets are configured:
 - [ ] `PROD_MAILTRAP_REPLY_TO_EMAIL`
 - [ ] `PROD_GIPHY_API_KEY`
 
-**Total: 32 secrets required**
+**Total: 30 secrets required** (Cloud Functions URLs are derived from `SANDBOX_FIREBASE_PROJECT_ID` / `PROD_FIREBASE_PROJECT_ID`, not stored as secrets.)
 
 ### Step-by-Step Instructions
 
@@ -133,7 +131,6 @@ Click **New repository secret** for each sandbox variable. Use the values from y
 | `SANDBOX_FIREBASE_MESSAGING_SENDER_ID` | Firebase Console | Firebase Console > Project Settings > Cloud Messaging > Sender ID |
 | `SANDBOX_FIREBASE_APP_ID` | Firebase Console | Firebase Console > Project Settings > General > Your apps > Web app > App ID |
 | `SANDBOX_FIREBASE_VAPID_KEY` | Firebase Console | Firebase Console > Project Settings > Cloud Messaging > Web Push certificates > Key pair > Public key |
-| `SANDBOX_FUNCTIONS_URL` | Firebase Console | Cloud Functions URL (usually `https://us-central1-meant2grow-dev.cloudfunctions.net`) |
 | `SANDBOX_APP_URL` | Configuration | Application URL (usually `https://sandbox.meant2grow.com`) |
 | `SANDBOX_MAILTRAP_API_TOKEN` | Mailtrap Dashboard | Mailtrap Dashboard > Settings > API Tokens |
 | `SANDBOX_MAILTRAP_INBOX_ID` | Mailtrap Dashboard | Mailtrap Dashboard > Inboxes > Your Inbox > Settings > SMTP Settings > Inbox ID |
@@ -155,7 +152,6 @@ Click **New repository secret** for each production variable. Use the values fro
 | `PROD_FIREBASE_MESSAGING_SENDER_ID` | Firebase Console | Firebase Console > Project Settings > Cloud Messaging > Sender ID (production project) |
 | `PROD_FIREBASE_APP_ID` | Firebase Console | Firebase Console > Project Settings > General > Your apps > Web app > App ID (production project) |
 | `PROD_FIREBASE_VAPID_KEY` | Firebase Console | Firebase Console > Project Settings > Cloud Messaging > Web Push certificates > Key pair > Public key (production project) |
-| `PROD_FUNCTIONS_URL` | Firebase Console | Cloud Functions URL (usually `https://us-central1-meant2grow-prod.cloudfunctions.net`) |
 | `PROD_APP_URL` | Configuration | Application URL (usually `https://meant2grow.com`) |
 | `PROD_MAILTRAP_API_TOKEN` | Mailtrap Dashboard | Mailtrap Dashboard > Settings > API Tokens (production account) |
 | `PROD_MAILTRAP_INBOX_ID` | Mailtrap Dashboard | Mailtrap Dashboard > Inboxes > Your Inbox > Settings > SMTP Settings > Inbox ID (production inbox, may be empty) |
@@ -178,7 +174,6 @@ Click **New repository secret** for each production variable. Use the values fro
 - `SANDBOX_FIREBASE_MESSAGING_SENDER_ID`
 - `SANDBOX_FIREBASE_APP_ID`
 - `SANDBOX_FIREBASE_VAPID_KEY`
-- `SANDBOX_FUNCTIONS_URL`
 - `SANDBOX_APP_URL`
 - `SANDBOX_MAILTRAP_API_TOKEN`
 - `SANDBOX_MAILTRAP_INBOX_ID`
@@ -195,7 +190,6 @@ Click **New repository secret** for each production variable. Use the values fro
 - `PROD_FIREBASE_MESSAGING_SENDER_ID`
 - `PROD_FIREBASE_APP_ID`
 - `PROD_FIREBASE_VAPID_KEY`
-- `PROD_FUNCTIONS_URL`
 - `PROD_APP_URL`
 - `PROD_MAILTRAP_API_TOKEN`
 - `PROD_MAILTRAP_INBOX_ID`

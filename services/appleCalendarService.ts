@@ -7,6 +7,7 @@
 // This implementation uses .ics files as the primary method, with optional OAuth for advanced sync
 
 import { CalendarEvent } from '../types';
+import { getCloudFunctionUrl } from './cloudFunctionsUrl';
 
 export interface AppleCalendarCredentials {
   accessToken: string;
@@ -223,14 +224,8 @@ export const createAppleCalendarEvent = async (
   meetLink?: string
 ): Promise<string> => {
   const appleEvent = convertToAppleEvent(event, meetLink);
-  
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncAppleCalendar`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncAppleCalendar'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncAppleCalendar');
 
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncAppleCalendar'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -262,14 +257,8 @@ export const updateAppleCalendarEvent = async (
 ): Promise<void> => {
   const appleEvent = convertToAppleEvent(event, meetLink);
   appleEvent.uid = appleEventId;
-  
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncAppleCalendar`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncAppleCalendar'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncAppleCalendar');
 
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncAppleCalendar'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -294,13 +283,7 @@ export const deleteAppleCalendarEvent = async (
   appleEventId: string,
   credentials: AppleCalendarCredentials
 ): Promise<void> => {
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncAppleCalendar`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncAppleCalendar'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncAppleCalendar');
-
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncAppleCalendar'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -331,13 +314,7 @@ export const syncFromAppleCalendar = async (
   const startDateTime = startDate?.toISOString() || new Date().toISOString();
   const endDateTime = endDate?.toISOString();
 
-  const functionsUrl = import.meta.env.VITE_FUNCTIONS_URL 
-    ? `${import.meta.env.VITE_FUNCTIONS_URL}/syncAppleCalendar`
-    : (import.meta.env.DEV 
-      ? 'http://localhost:5001/meant2grow-dev/us-central1/syncAppleCalendar'
-      : 'https://us-central1-meant2grow-dev.cloudfunctions.net/syncAppleCalendar');
-
-  const response = await fetch(functionsUrl, {
+  const response = await fetch(getCloudFunctionUrl('syncAppleCalendar'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
